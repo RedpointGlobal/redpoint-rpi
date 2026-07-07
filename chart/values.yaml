@@ -512,7 +512,6 @@ realtimeapi:
     # Supported: mongodb, azureredis, redis, inMemorySql, googlebigtable
     provider: ""
     mongodb:
-      connectionString: mongodb://<my_username>:<my_password>@myserver.mongodb.net:27017/Pulse?authSource=admin&ssl=true
       databaseName: <my-realtime-cache-db>
       collectionName: <my-realtime-cache-collection>
       # Authentication mechanism for MongoDB Atlas.
@@ -520,19 +519,12 @@ realtimeapi:
       #   iamRole  - AWS IAM via MONGODB-AWS (passwordless auth on Amazon EKS)
       #             Requires roleArn below. The chart adds the eks.amazonaws.com/role-arn
       #             annotation to the Realtime API's ServiceAccount and injects AWS env vars
-      #             (AWS_ROLE_ARN, AWS_STS_REGIONAL_ENDPOINTS, AWS_DEFAULT_REGION) into the pod.
+      #             (AWS_STS_REGIONAL_ENDPOINTS, AWS_DEFAULT_REGION) into the pod.
       #             The EKS Pod Identity Agent injects container credentials automatically.
       #             The MongoDB driver authenticates using the pod's IAM role.
       #             Prerequisites:
       #               1. Add the IAM role ARN as a database user in Atlas (Database Access → AWS IAM)
       #               2. The IAM role needs a trust policy for your EKS cluster's OIDC provider
-      #               3. Create a pod identity association:
-      #                  aws eks create-pod-identity-association \
-      #                    --cluster-name <cluster> --namespace <namespace> \
-      #                    --service-account <sa-name> --role-arn <role-arn>
-      #             The connection string still goes through the secret (CLI prompts for it)
-      #             but uses authMechanism=MONGODB-AWS instead of credentials.
-      #             Example: mongodb+srv://cluster0.abc123.mongodb.net/test?authSource=%24external&authMechanism=MONGODB-AWS
       authMechanism: default
       # IAM role ARN for MONGODB-AWS authentication (only used when authMechanism: iamRole)
       roleArn: ""
