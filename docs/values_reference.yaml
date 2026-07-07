@@ -561,7 +561,7 @@ realtimeapi:
       #   iamRole  - AWS IAM via MONGODB-AWS (passwordless auth on Amazon EKS)
       #             Requires roleArn below. The chart adds the eks.amazonaws.com/role-arn
       #             annotation to the Realtime API's ServiceAccount and injects AWS env vars
-      #             (AWS_ROLE_ARN, AWS_STS_REGIONAL_ENDPOINTS, AWS_DEFAULT_REGION) into the pod.
+      #             (AWS_STS_REGIONAL_ENDPOINTS, AWS_DEFAULT_REGION) into the pod.
       #             The EKS Pod Identity Agent injects container credentials automatically.
       #             The MongoDB driver authenticates using the pod's IAM role.
       #             Prerequisites:
