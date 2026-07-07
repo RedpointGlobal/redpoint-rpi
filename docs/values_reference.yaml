@@ -567,13 +567,6 @@ realtimeapi:
       #             Prerequisites:
       #               1. Add the IAM role ARN as a database user in Atlas (Database Access → AWS IAM)
       #               2. The IAM role needs a trust policy for your EKS cluster's OIDC provider
-      #               3. Create a pod identity association:
-      #                  aws eks create-pod-identity-association \
-      #                    --cluster-name <cluster> --namespace <namespace> \
-      #                    --service-account <sa-name> --role-arn <role-arn>
-      #             The connection string still goes through the secret (CLI prompts for it)
-      #             but uses authMechanism=MONGODB-AWS instead of credentials.
-      #             Example: mongodb+srv://cluster0.abc123.mongodb.net/test?authSource=%24external&authMechanism=MONGODB-AWS
       authMechanism: default
       # IAM role ARN for MONGODB-AWS authentication (only used when authMechanism: iamRole)
       roleArn: ""
