@@ -27,10 +27,8 @@ global:
       imagePullSecret:
         enabled: true
         name: redpoint-rpi
-      # net-utils (used by the database-upgrade job) resolves through the
-      # canonical rpi.image helper, same as every other service. Default:
-      # {registry}/net-utils:{tag}. Override via overrides or nameOverrides
-      # below.
+      # net-utils image (used by the database-upgrade job). Default
+      # {registry}/net-utils:{tag}. Override via overrides or nameOverrides below.
       # Image resolution priority: overrides > nameOverrides > default ({registry}/{service-name}:{tag})
       #
       # overrides: Full URI per service, used verbatim (no registry/tag appended).
@@ -141,26 +139,15 @@ databases:
     encrypt: true
 
     # Google Cloud SQL Auth Proxy (GKE only; PostgreSQL or SQL Server).
-    # When enabled, injects a native K8s sidecar (initContainers[*].restartPolicy: Always)
-    # running the Cloud SQL Auth Proxy next to every pod that talks to the operational DB.
-    # The chart rewrites ConnectionSettings__Server to 127.0.0.1 so the app connects
-    # through the proxy instead of to the Cloud SQL instance directly.
+    # When enabled, pods reach the operational database through a co-located
+    # Cloud SQL Auth Proxy instead of connecting to the instance directly.
     #
-    # The proxy v2 binary speaks both PostgreSQL and SQL Server, so the chart picks the
-    # right connection-string format based on `databases.operational.provider`.
+    # Enable only when global.deployment.platform=google, provider is postgresql
+    # or sqlserver, and secretsManagement.provider=sdk (the render fails otherwise).
     #
-    # Activation gate: global.deployment.platform=google AND enabled=true
-    #                  AND provider in {postgresql, sqlserver}
-    #                  AND secretsManagement.provider=sdk (chart will fail if not).
-    #
-    # Cloud SQL Auth Proxy is supported only with secretsManagement.provider=sdk.
-    # The proxy and the SDK secret provider share the same cloud-native security
-    # realm (vault-backed, IAM-bound). The chart's job here is to inject the proxy
-    # sidecar; ALL connection-string env vars come from your vault. Configure the
-    # vault entries (ConnectionStrings--OperationalDatabase, ConnectionStrings--
-    # LoggingDatabase, ClusterEnvironment--OperationalDatabase--ConnectionSettings--
-    # Server, etc.) so the host points at 127.0.0.1 and the port matches
-    # `cloudSqlProxy.port` (default 5432 / 1433).
+    # All connection values come from your vault. Set the operational database
+    # host to 127.0.0.1 and the port to cloudSqlProxy.port (default 5432 for
+    # postgresql, 1433 for sqlserver).
     #
     # SQL Server gotchas (apply if provider=sqlserver):
     #   * Set `databases.operational.encrypt: false` in your overrides. The default
@@ -179,31 +166,25 @@ databases:
       # Required when enabled: "<project>:<region>:<instance>"
       connectionName: ""
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.2
-      # Local port the proxy exposes; the chart emits ConnectionSettings__Port with this value.
-      # Defaults per engine: 5432 for postgresql, 1433 for sqlserver. Override here if needed.
+      # Local port the proxy listens on. Defaults per engine: 5432 for
+      # postgresql, 1433 for sqlserver. Override here if needed.
       # port: 5432
       # Use the Cloud SQL instance's private IP (requires VPC peering between GKE and Cloud SQL).
       privateIp: true
       # Use IAM database authentication instead of password auth. PostgreSQL only;
-      # ignored for SQL Server (Cloud SQL for SQL Server doesn't expose IAM DB auth via
-      # the proxy). When true, the chart uses `cloudIdentity.google.serviceAccountEmail`
-      # as the DB user and omits the password segment from the connection string; the
-      # proxy injects an IAM token at connection time. Requires the SA email to be
-      # registered as a Cloud SQL IAM user with the right grants:
+      # ignored for SQL Server (Cloud SQL for SQL Server has no IAM DB auth via the
+      # proxy). When true, connections authenticate as
+      # cloudIdentity.google.serviceAccountEmail with no password. The service
+      # account must be registered as a Cloud SQL IAM user:
       #   gcloud sql users create <sa-email> --type=cloud_iam_service_account ...
       autoIamAuthn: false
       # Graceful shutdown window; proxy drains connections before exiting.
       terminationGracePeriod: "30s"
-      # Authentication mode (auto-detected):
-      # - Workload Identity (default): pod SA must be bound to a GCP SA with
-      #   roles/cloudsql.client. No key file is mounted.
-      # - Service-account key file: triggered when `cloudIdentity.enabled=true`,
-      #   `global.deployment.platform=google`, and `cloudIdentity.google.configMapName`
-      #   is set. The proxy mounts the same ConfigMap into the sidecar at the same
-      #   path the app sees as GOOGLE_APPLICATION_CREDENTIALS
-      #   (`cloudIdentity.google.configMapFilePath` + `cloudIdentity.google.keyName`)
-      #   and starts with --credentials-file pointing at that path. Reuses the
-      #   platform-wide Google SA JSON; no separate ConfigMap or path is needed.
+      # Authentication mode is auto-detected:
+      # - Workload Identity (default): the pod's service account must be bound to
+      #   a GCP service account with roles/cloudsql.client. No key file.
+      # - Service-account key file: used when cloudIdentity.google.configMapName is
+      #   set, reusing the platform-wide Google service account key.
       resources:
         requests: { cpu: 50m, memory: 64Mi }
         limits:   { cpu: 200m, memory: 256Mi }
@@ -218,6 +199,24 @@ databases:
     # BigQuery
     bigquery:
       enabled: false
+      # One entry per BigQuery connection. Choose how each connection
+      # authenticates with credentialsType:
+      #
+      #   serviceAccount  - authenticate with a Google service account key.
+      #     Provide serviceAccountEmail and the key file (configMapName,
+      #     keyName, ConfigMapFilePath). Choose this when the pods cannot use
+      #     Workload Identity, for example when RPI runs on Azure and connects
+      #     to BigQuery on Google Cloud.
+      #
+      #   workloadIdentity - authenticate with Workload Identity, no key file.
+      #     Choose this when running on GKE with Workload Identity configured
+      #     (set cloudIdentity.google.serviceAccountEmail and leave
+      #     cloudIdentity.google.configMapName empty). Omit serviceAccountEmail,
+      #     configMapName and keyName on the connection.
+      #
+      # OAuthMechanism is the BigQuery ODBC driver's authentication mode: use 0
+      # for a service account key, and your driver's Application Default
+      # Credentials value (typically 3) for Workload Identity.
       connections:
         - name: gbq-tenant1
           projectId: gbq-tenant1
@@ -231,6 +230,13 @@ databases:
           allowLargeResults: 0
           largeResultsDataSetId: _bqodbc_temp_tables
           largeResultsTempTableExpirationTime: "3600000"
+        # Workload Identity (keyless) connection:
+        # - name: gbq-tenant1
+        #   projectId: gbq-tenant1
+        #   sqlDialect: 1
+        #   OAuthMechanism: 3
+        #   credentialsType: workloadIdentity
+        #   allowLargeResults: 0
 
     # Snowflake
     snowflake:
@@ -280,9 +286,18 @@ cloudIdentity:
   google:
     serviceAccountEmail: my-google-svs-account@my-project.iam.gserviceaccount.com
     projectId: your_google_project_id
-    # ConfigMap containing the service account JSON credentials file
+    # Name of the ConfigMap containing a Google service account key file.
+    #
+    # Leave empty ("") to authenticate to Google Cloud services (Cloud SQL,
+    # BigQuery, Pub/Sub, Bigtable) with Workload Identity - no key file
+    # required (recommended on GKE).
+    # Set this to your ConfigMap name only if your deployment authenticates
+    # with a mounted service account key instead of Workload Identity; the
+    # default value below keeps that key-file behaviour.
     configMapName: my-google-svs-account
+    # Filename of the key inside the ConfigMap. Used only when configMapName is set.
     keyName: my-google-svs-account.json
+    # Directory the key file is mounted into. Used only when configMapName is set.
     configMapFilePath: /app/google-creds
   # --- Amazon IRSA / Access Keys ---
   amazon:
@@ -336,7 +351,7 @@ secretsManagement:
     # When set to deploymentapi, the Deployment API pod mounts the CSI volume on
     # startup, which triggers the CSI driver to sync secrets from the vault into
     # the K8s Secret. No validation pods needed. All other service pods read from
-    # the K8s Secret via secretKeyRef as usual.
+    # the K8s Secret as usual.
     syncService: none
     # SecretProviderClass definitions
     secretProviderClasses:
@@ -865,8 +880,7 @@ serviceMesh:
   #   networks:
   #     - cidr: 10.0.0.0/8
   #
-  # Linkerd Server CRDs for L7 traffic policy.
-  # Each server creates a Server + AuthorizationPolicy + NetworkAuthentication.
+  # L7 traffic policy per service.
   # podSelector is auto-derived from the name if not set (e.g., name "aks-rpi-realtimeapi"
   # produces podSelector app.kubernetes.io/name: rpi-realtimeapi).
   # Per-server values override serverDefaults.
@@ -1076,7 +1090,8 @@ customAnnotations: {}
 # Custom Metrics
 # ==========================
 # Enable Prometheus scrape annotations on all RPI service pods.
-# When enabled, each pod gets prometheus.io/scrape, /port, and /path annotations.
+# When enabled, RPI service pods advertise Prometheus scrape annotations so an
+# external Prometheus can discover and scrape them.
 customMetrics:
   enabled: false
 
@@ -1094,30 +1109,22 @@ customMetrics:
 # via a dedicated read-only DB user the customer creates and stores in the
 # cloud vault as `Observability-LoggingDatabaseConnectionString` (full
 # connection string, including the host -- 127.0.0.1 if cloudSqlProxy is on).
-# ---- Single-instance deployment contract (v1) --------------------------
-# RPI Observability is single-instance by design. The pod owns local
-# SQLite state, runs the cycle scheduler in-process, holds the auth
-# cache + token-budget bucket in memory, and binds K8s collectors to a
-# single namespace. There is no leader election or shared-state
-# coordination. Setting `observability.replicas` (or any value that
-# implies more than one running instance) is rejected at chart-render
-# time. Multi-replica is a v2 concern; do not interpret the
-# single-instance shape as an accidental limitation.
+# ---- Single-instance service -------------------------------------------
+# RPI Observability runs as a single instance. Setting observability.replicas
+# (or any value implying more than one instance) is rejected at chart-render
+# time.
 observability:
   enabled: false
   serviceAccount:
     enabled: true                    # creates rpi-observability SA in per-service mode
 
   # ---- RPI ClientID (REQUIRED) ------------------------------------------
-  # The RPI tenant identifier (a GUID) that this observability instance serves.
-  # Used as the lookup key against Pulse_<env>.dbo.rpi_Clients to resolve
-  # the tenant's Interaction + InteractionAudit DB names (ADR-0009).
+  # The RPI tenant identifier (a GUID) that this observability instance serves,
+  # used to resolve the tenant's databases.
   #
-  # REQUIRED whenever observability.enabled=true. Empty / missing causes
-  # `helm template` and `helm install` to fail. There is no fallback,
-  # no inference, no single-tenant auto-detection -- behavior is
-  # identical for single-tenant and multi-tenant deployments. See
-  # workspace doc forbidden/silent-fallback-in-config.md.
+  # REQUIRED whenever observability.enabled=true; an empty value fails
+  # `helm template` and `helm install`. There is no fallback, inference, or
+  # auto-detection - set it explicitly.
   #
   # Find the value: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients
   # (uppercase GUID, e.g. 9A39D66C-111C-408E-AE5B-D97880BAC496).
@@ -1126,87 +1133,56 @@ observability:
   # ---- Node health panel -------------------------------------------------
   # Powers the Node Health section on the System Health tab. Reads node
   # state + per-node CPU/memory from the Kubernetes API and metrics-server.
-  # Nodes are cluster-scoped, so this binds a ClusterRole to the observability service's
-  # ServiceAccount granting get/list on nodes (core) and nodes
-  # (metrics.k8s.io). When disabled, no ClusterRole is created and the
-  # Node health panel renders a quiet "disabled by chart values" caption.
-  # Some security teams require explicit approval for cluster-scoped RBAC;
-  # leave this off in those clusters.
+  # This grants cluster-scoped RBAC (read on nodes). When disabled, no
+  # cluster-scoped RBAC is created and the Node Health panel is hidden.
+  # Some security teams require approval for cluster-scoped RBAC; leave this
+  # off in those clusters.
   nodeHealth:
     enabled: true
 
-  # ---- Intelligence Runtime ----------------------------------------------
-  # The observability service's AI surface (incident summarization, failure
-  # explanation, RCA, severity classification) is served by the
-  # Intelligence Runtime. It is part of the observability solution, not a
-  # separate feature with its own enable flag -- observability.enabled
-  # turns on the whole solution.
+  # ---- Intelligence (AI surface) -----------------------------------------
+  # The observability AI features (incident summarization, failure
+  # explanation, RCA) turn on with observability.enabled. intelligence.provider
+  # selects one backend:
   #
-  # Single-provider selection: `intelligence.provider` picks one of:
+  #   local         in-cluster inference (default; no external dependency)
+  #   helmAssistant Redpoint-managed AI (no cloud AI infrastructure to run)
+  #   azure         Azure OpenAI / Azure AI Foundry
+  #   aws           Bedrock
   #
-  #   local   -- in-cluster inference (default, served by rpi-observability-llm)
-  #   azure   -- Azure AI Foundry or Azure OpenAI
-  #   google  -- Vertex AI
-  #   aws     -- Bedrock
-  #
-  # When provider=local, the chart deploys a StatefulSet
-  # (rpi-observability-llm) running the rpi-observability-llm
-  # image and the observability service routes to it via the in-cluster
-  # Service. When provider is azure/google/aws, no in-cluster serving
-  # layer is rendered; the observability service reaches the cloud
-  # provider directly over its public API using managed-identity-first
-  # auth (no static keys required when Workload Identity / IRSA / WIF
-  # are in place).
+  # Only provider=local runs an in-cluster serving component; the others call
+  # the provider's API directly, using managed identity where Workload
+  # Identity / IRSA is configured (no static keys required).
   intelligence:
-    # Active provider. Drives:
-    #   - which provider implementation the runtime registers
-    #   - whether the chart renders the in-cluster serving StatefulSet
-    #     (only when provider=local)
-    #   - which sub-block (local / helmAssistant / azure / aws) is consumed
+    # Active AI backend. Only provider=local runs an in-cluster serving
+    # component; configure the matching sub-block below.
     provider: local                          # local | helmAssistant | azure | aws
 
-    # Per-inference timeout. Hard-bound so a slow inference cannot
-    # destabilize the observability cycle: when exceeded, the call returns
-    # a typed AIStatus.TIMEOUT and the cycle proceeds without an AI
-    # summary. Sized for CPU inference of ~1000-token briefings on a
-    # standard worker with the 7B Q4 model (~5-8 tokens/sec across
-    # 8 cores); operators on GPU profiles or smaller workloads can
-    # lower it.
+    # Per-inference timeout. When exceeded, the analysis cycle proceeds
+    # without an AI summary. Sized for CPU inference of ~1000-token briefings
+    # on a standard worker with the default local model; lower it on GPU
+    # profiles or smaller workloads.
     timeoutSeconds: 240
 
     # ---- Local (in-cluster serving) ------------------------------------
-    # Consumed only when provider=local. The serving layer is a
-    # StatefulSet running the rpi-observability-llm image: self-
-    # contained, llama.cpp server + Qwen 2.5 7B Instruct GGUF Q4_K_M
-    # baked in, no runtime downloads, deployable in air-gapped
-    # clusters.
-    #
-    # The model is shipped with the image and is NOT a customer-
-    # configurable knob. The chart deploys exactly one model under
-    # provider=local. To use a different model, switch
-    # intelligence.provider to helmAssistant | azure | aws and
-    # configure that provider's block.
+    # Consumed only when provider=local. Runs a self-contained model image
+    # (no runtime downloads; deployable in air-gapped clusters). The bundled
+    # model is fixed; switch provider to helmAssistant | azure | aws for a
+    # different model.
     local:
       # Default points at the in-cluster Service. Override only if the
       # operator self-hosts the serving layer elsewhere on the cluster.
       baseUrl: ""                            # blank = http://rpi-observability-llm.<ns>.svc.cluster.local:8000/v1
 
-      # Serving-layer deployment. When enabled, the chart renders the
-      # StatefulSet using the canonical Redpoint-built
-      # rpi-observability-llm image. Disable when the operator
-      # self-hosts the serving layer elsewhere -- in that case set
-      # local.baseUrl to the operator's endpoint.
+      # When enabled, the chart deploys the in-cluster serving layer. Disable
+      # when you self-host it elsewhere - then set local.baseUrl to your endpoint.
       deployment:
         enabled: true
 
-        # Container image override. Blank means the chart resolves
-        # the canonical Redpoint-built rpi-observability-llm image
-        # via rpi.image. Set to an internal registry mirror or
-        # regulated-registry pull path; the image must be a
-        # rpi-observability-llm build serving the same baked-in
-        # model. Overriding to a different model variant is NOT
-        # supported under provider=local; switch the provider to
-        # helmAssistant | azure | aws for a different model.
+        # Container image override. Blank uses the default Redpoint serving
+        # image. Set to an internal-registry mirror; the image must serve the
+        # same bundled model. A different model variant is not supported under
+        # provider=local - switch provider to helmAssistant | azure | aws.
         image: ""
         imagePullPolicy: ""                  # blank = global.deployment.images.imagePullPolicy
 
@@ -1228,16 +1204,10 @@ observability:
         extraArgs: []
 
     # ---- helmAssistant (Redpoint-managed AI) ---------------------------
-    # Consumed only when provider=helmAssistant. The turnkey managed-AI
-    # path: the customer provisions NO cloud AI infrastructure -- no
-    # endpoint, deployment, API key creation, model selection, or model
-    # lifecycle. Observability sends a provider-agnostic generation
-    # request to the Redpoint-operated Helm Assistant service, which
-    # performs the inference and returns prose. The only auth is the
-    # customer-populated Secret key Observability_HelmAssistant_ApiKey
-    # (issued by Redpoint); in SDK mode it is fetched from the cloud
-    # vault under the same name. Enabling this provider is a one-line
-    # change: set provider to helmAssistant and populate that Secret key.
+    # Consumed only when provider=helmAssistant. Redpoint-managed AI: no cloud
+    # AI infrastructure to provision. Populate the Secret key
+    # Observability_HelmAssistant_ApiKey (issued by Redpoint; fetched from the
+    # vault in SDK mode).
     helmAssistant:
       # Helm Assistant base URL. Blank = the Redpoint-hosted endpoint.
       url: ""                                # blank = https://rpi-helm-assistant.redpointcdp.com
@@ -1251,9 +1221,8 @@ observability:
       endpoint: ""                           # e.g. https://<resource>.openai.azure.com
       deployment: ""                         # the deployed model name
       apiVersion: ""                         # only for service=openai
-      # Optional: when set in non-SDK mode, the chart binds
-      # AZURE_INTELLIGENCE_API_KEY from this Secret key. Leave blank to
-      # use managed identity (preferred).
+      # Optional Secret key holding the Azure API key (non-SDK mode). Leave
+      # blank to use managed identity (preferred).
       apiKeySecretKey: ""
 
     # ---- AWS (Bedrock) -------------------------------------------------
@@ -1265,8 +1234,8 @@ observability:
       modelId: ""                            # e.g. anthropic.claude-3-5-sonnet-20241022-v2:0
 
   # ---- Token + request budget --------------------------------------------
-  # Hard caps enforced inside the observability service (token-bucket). When exceeded,
-  # the next analysis cycle is skipped and the budget event is logged.
+  # Hard caps on AI usage. When exceeded, the next analysis cycle is skipped
+  # and logged.
   budget:
     maxTokensPerHour: 200000
     maxRequestsPerHour: 60
@@ -1275,10 +1244,7 @@ observability:
   # Two scheduling modes:
   #   - interval: runs every `intervalMinutes` after pod startup (default).
   #   - daily:    set `dailyAtUtc` to "HH:MM" (UTC). Overrides intervalMinutes
-  #               and fires once per day at that wall-clock time. In daily
-  #               mode the email + teams digests fire on every run regardless
-  #               of email.onlyOnNewErrors / teams.onlyOnNewErrors -- the
-  #               assumption is you wanted a daily summary.
+  #               and fires once per day at that wall-clock time.
   # `lookbackMinutes` defaults to `intervalMinutes` in interval mode (so
   # each cycle's data window matches its cadence with no gap or overlap),
   # or 1440 (24h) in daily mode. Set it explicitly here to override either
@@ -1288,60 +1254,20 @@ observability:
     dailyAtUtc: ""                   # "HH:MM" UTC -- e.g. "00:00" for midnight
     lookbackMinutes: ""              # leave empty for auto: matches intervalMinutes (interval mode) or 1440 (daily mode). Override with an int.
 
-  # ---- Operational DB names (Diagnostics tab) ----------------------------
-  # The Diagnostics tab needs two tenant-specific database names:
-  #   * the Interaction DB (op_InteractionWorkflows / op_DataWorkflows)
-  #   * the InteractionAudit DB (SQLTraceLog / AuditHistory)
-  # These are NOT operator-typed chart values. The observability service resolves them
-  # at startup from Pulse_<env>.dbo.rpi_Clients using observability.clientId
-  # (above) as the lookup key. See ADR-0009 strict refinement -- no
-  # fallback, no inference. Behavior is identical for single-tenant and
-  # multi-tenant deployments.
-
   # ---- Diagnostics tab ---------------------------------------------------
-  # Per-Interaction lookup + bundle download (parity with the on-prem
-  # "Download Diagnostics" zip). When fileOutput.enabled is true AND
-  # storage.persistentVolumeClaims.FileOutputDirectory.enabled is also
-  # true (chart-wide), the same PVC the .NET services write to is mounted
-  # read-only on the observability service StatefulSet so the bundle can include the
-  # workflow's output files. The mount tracks the existing FileOutput
-  # claimName + mountPath -- no parallel value to maintain. When the
-  # FileOutputDirectory PVC is not enabled chart-wide, this toggle is
-  # a no-op and the bundle's Files/ folder gets _empty.txt.
+  # Per-Interaction lookup + diagnostic bundle download. To include a
+  # workflow's output files in the bundle, enable this AND
+  # storage.persistentVolumeClaims.FileOutputDirectory (chart-wide);
+  # otherwise the bundle omits output files.
   diagnostics:
     fileOutput:
       enabled: true
 
-  # ---- Database Queries (read-only) --------------------------------------
-  # The Database Queries tab is a live snapshot of in-flight database
-  # commands sourced directly from rpi_ExecutionQueries via the same
-  # shared RPI operational-database connection every other RPI service
-  # uses (no new env vars, no new secrets, no new chart values). The
-  # surface is read-only: Observability does not cancel, kill, or
-  # otherwise mutate execution state -- operators perform those
-  # actions through the native RPI client.
-  #
-  # Capability:
-  #   diagnostics.viewLiveQueries -- Configuration, System Administrator
-  #
-  # The capability defaults to restrictive groups because in-flight SQL
-  # text can carry PII through WHERE-clause literals and parameter values.
-
-  # ---- Custom Metrics (T4 telemetry) -------------------------------------
-  # Reads Prometheus-style /metrics endpoints exposed by RPI services
-  # in-cluster, parses them, and renders the Custom Metrics tab. T4
-  # telemetry only -- never authoritative for identity / topology /
-  # configuration. See workspace docs:
-  #   reference/rpi-metrics-catalog.md
-  #   principles/discovery-authority.md
-  #
-  # No external monitoring system is required. Parsing uses a Python
-  # library (prometheus-client); no cluster-side Prometheus stack is
-  # assumed or installed by Observability.
-  #
-  # Defaults below cover the standard RPI deployment shape; operator
-  # overrides are not required. To disable the feature entirely, set
-  # enabled: false.
+  # ---- Custom Metrics ----------------------------------------------------
+  # Reads the Prometheus /metrics endpoints exposed by RPI services
+  # in-cluster and renders the Custom Metrics tab. No external Prometheus
+  # stack is required. The defaults cover the standard RPI deployment;
+  # set enabled: false to disable.
   metrics:
     enabled: true
     scrapeIntervalSeconds: 15
@@ -1353,10 +1279,8 @@ observability:
     #      if it actually exposes /metrics. Listing a service that
     #      doesn't will produce phantom "X unreachable" incidents
     #      on the System Health surface.
-    #   2. Deployment (.enabled flag): each entry is automatically
-    #      filtered out when the corresponding top-level service is
-    #      disabled (e.g. realtimeapi.enabled=false drops "Realtime
-    #      API" from the emitted OBSERVABILITY__METRICS__SERVICES).
+    #   2. Entries for a disabled top-level service (e.g.
+    #      realtimeapi.enabled=false) are dropped automatically.
     # Convention: dnsName matches the K8s Service name; the
     # service's values key is dnsName minus the "rpi-" prefix.
     #
@@ -1401,53 +1325,34 @@ observability:
         path: "/metrics"
 
   # ---- Telemetry mode (opt-in advanced) ----------------------------------
-  # Telemetry source mode. One of: scrape | otel
+  # Telemetry source. One of: scrape | otel
   #
-  # scrape (default): rpi-observability scrapes the IAPI's native
-  #   Microsoft.AspNetCore.Hosting Meter exposition on port 80
-  #   directly. Minimal footprint; production-safe baseline.
+  # scrape (default): the observability service scrapes each RPI service's
+  #   native /metrics endpoint. Minimal footprint; production-safe baseline.
   #
-  # otel: enables zero-code .NET auto-instrumentation on the
-  #   Interaction API. An init container drops the OTel runtime into
-  #   the IAPI pod; the IAPI process exports OTLP gRPC on loopback
-  #   :4317 to an OpenTelemetry Collector sidecar running in the
-  #   same pod. The sidecar re-exposes Prometheus on port 8889,
-  #   which rpi-observability scrapes through the IAPI Service.
+  # otel: participating RPI services are auto-instrumented and report to a
+  #   shared OpenTelemetry Collector, which re-exposes Prometheus for the
+  #   observability service to scrape. Adds per-service database-call metrics
+  #   (calls / latency / errors) on top of HTTP and runtime metrics.
   #
-  # Modes are mutually exclusive. No fallback. No hybrid. Flipping
-  # the value re-rolls the IAPI deployment; exactly one source is
-  # active per deployment.
+  # The two modes are mutually exclusive; flipping the value re-rolls the
+  # affected deployments.
   #
-  # Two init-container / sidecar images are pulled when mode=otel,
-  # both via the canonical rpi.image helper:
-  #   rpi-observability-otel
-  #     - upstream: ghcr.io/open-telemetry/opentelemetry-operator/
-  #                 autoinstrumentation-dotnet
-  #   rpi-observability-otel-collector
-  #     - upstream: otel/opentelemetry-collector (core distribution)
-  # Customers with mirrored registries override via the standard
+  # otel mode pulls two extra images. Mirror them for a private registry via
   # global.deployment.images.overrides.<name> (full URI) or
-  # global.deployment.images.nameOverrides.<name> (alternate name).
+  # global.deployment.images.nameOverrides.<name> (alternate name):
+  #   rpi-observability-otel            (open-telemetry autoinstrumentation-dotnet)
+  #   rpi-observability-otel-collector  (opentelemetry-collector, core)
   telemetry:
-    # scrape (default): native /metrics scrape, no OTel.
-    # otel: every participating RPI service is auto-instrumented (no
-    #   sidecars) and reports OTLP metrics to one shared OTel Collector,
-    #   which re-exposes them as Prometheus on :8889 for the
-    #   observability service to scrape. Includes the native SqlClient
-    #   db.client.operation.duration metrics (per service -> database
-    #   edge: calls / latency / errors) plus HTTP/runtime metrics.
-    #   Participating services: interactionapi, executionservice,
-    #   nodemanager, queuereader, realtimeapi, integrationapi,
-    #   callbackapi, deploymentapi.
+    # scrape (default) | otel. See the mode description above. Participating
+    # services under otel: interactionapi, executionservice, nodemanager,
+    # queuereader, realtimeapi, integrationapi, callbackapi, deploymentapi.
     mode: scrape
 
-    # RPI service images that are musl-based (Alpine). The .NET OTel
-    # auto-instrumentation native profiler is libc-specific: glibc images
-    # load linux-x64, musl images need linux-musl-x64. Pointing a musl
-    # image at the glibc profiler makes it fail to load - the service
-    # then emits NO telemetry at all. Services listed here get the
-    # linux-musl-x64 profiler path; everything else gets linux-x64.
-    # Override if a service image's base libc changes between releases.
+    # RPI service images built on musl (Alpine). The .NET OTel profiler is
+    # libc-specific, so musl images need different instrumentation than glibc;
+    # a mismatch emits no telemetry. Override if a service image's base libc
+    # changes between releases.
     muslServices:
       - rpi-integrationapi
       - rpi-callbackapi
@@ -1466,15 +1371,12 @@ observability:
             memory: 512Mi
 
   # ---- Incident-intelligence notifications (opt-in) ---------------------
-  # Deterministic, lifecycle-driven email notifications over the analyzer's
-  # significance-ranked incidents. Delivery is decided by code (lifecycle
-  # transitions: NEW / ESCALATED / RESOLVED), NEVER by AI - the LLM only
-  # narrates the Daily Brief body. Reuses the SMTPSettings transport above;
-  # no new SMTP/secret config.
+  # Lifecycle-driven email notifications over the analyzer's ranked incidents
+  # (NEW / ESCALATED / RESOLVED). Reuses the SMTPSettings transport above; no
+  # new SMTP or secret config.
   #
-  # Master gate. When false (default) NO notification env vars are emitted
-  # and the engine no-ops. Per-type blocks below are only needed to change
-  # a default - omit a field to accept the documented default.
+  # When false (default), all notifications are off. Set the per-type blocks
+  # below only to change a documented default.
   notifications:
     enabled: false
     # Fallback recipients when a per-type list is empty.
@@ -1491,8 +1393,6 @@ observability:
     # MUST live in the chart's standard RPI Secret (default:
     # redpoint-rpi-secrets) under webhookSecretKey - NEVER inline here.
     # Pod startup fails fast when enabled=true and the key is empty.
-    # (Per-type Teams cards are a Phase-1 follow-up; the channel config
-    # is accepted now.)
     teams:
       enabled: false
       webhookSecretKey: Observability_Teams_Webhook
@@ -1550,10 +1450,6 @@ observability:
   # permission model in the operational database. Disabled by default
   # so existing deployments preserve the legacy unauthenticated path
   # until the operator explicitly opts in.
-  #
-  # See AUTH_DESIGN_RFC.md and SECURITY_BOUNDARIES_AND_DATA_HANDLING.md
-  # in the observability source tree for the engineering contract and
-  # security posture.
   auth:
     # Single-provider deployment model. Each deployment resolves to
     # exactly ONE of:
@@ -1566,10 +1462,8 @@ observability:
     # use the standard RPI Authentication__* env-var contract.
     mode: public
 
-    # Tenant scope is sourced from `observability.clientId` (the
-    # canonical rpi_Clients lookup key, per ADR-0009). The authorization
-    # provider and the diagnostics layer both consume that single
-    # identity, so no separate auth-side tenant field exists.
+    # Tenant scope comes from observability.clientId; there is no separate
+    # auth-side tenant field.
 
     # Cookie security. Set false only for local development without TLS.
     cookieSecure: true
@@ -1605,7 +1499,7 @@ observability:
       # OpenIddict client with this ClientId and populates the chart's
       # standard RPI Secret (default: redpoint-rpi-secrets) under the
       # key Observability_NativeAuth_ClientSecret with the matching
-      # ClientSecret. Observability never writes to OpenIddictApplications.
+      # ClientSecret.
       clientId: rpi-observability
 
     # ---- Entra posture overrides ---------------------------------------
@@ -1651,8 +1545,7 @@ observability:
   # /data/reports.db. SQLite needs a filesystem that honors POSIX byte-range
   # locks, so /data must be backed by block storage (Azure Disk, AWS EBS,
   # GCP PD) -- NOT Azure Files / NFS, which silently break SQLite locking.
-  # Pattern matches Redis/RabbitMQ: dynamic provisioning by default, BYO
-  # supported via existingClaim.
+  # Dynamic provisioning by default; BYO via existingClaim.
   storage:
     # BYO: name of a PVC you've already created. If set, volumeClaimTemplates
     # is ignored. The PVC must support RWO and POSIX locks (see above).
@@ -1664,9 +1557,8 @@ observability:
       storage: 5Gi
 
   # ---- HTTP service ------------------------------------------------------
-  # FastAPI is the sole runtime: serves the React static export at /,
-  # the JSON API at /api, auth flows at /auth, and kubelet probes at
-  # /health. Ingress routes every observability path to apiPort.
+  # Port the observability HTTP service listens on. Ingress routes all
+  # observability traffic to it.
   service:
     apiPort: 8080
 

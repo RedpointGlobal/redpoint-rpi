@@ -211,7 +211,21 @@
                   "description": "List of BigQuery connection configurations",
                   "items": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": true,
+                    "properties": {
+                      "name":                { "type": "string", "description": "Connection name (used as the ODBC DSN name)." },
+                      "projectId":           { "type": "string", "description": "Google Cloud project ID (BigQuery catalog)." },
+                      "credentialsType":     { "type": "string", "enum": ["serviceAccount", "workloadIdentity"], "description": "serviceAccount: authenticate with a mounted service account key (provide serviceAccountEmail, configMapName, keyName). workloadIdentity: keyless, using the pod's Workload Identity service account." },
+                      "OAuthMechanism":      { "type": ["integer", "string"], "description": "BigQuery ODBC driver auth mode: 0 for a service account key; the driver's Application Default Credentials value (typically 3) for workloadIdentity." },
+                      "sqlDialect":          { "type": ["integer", "string"] },
+                      "serviceAccountEmail": { "type": "string", "description": "Service account email. Used only with credentialsType=serviceAccount." },
+                      "configMapName":       { "type": "string", "description": "ConfigMap holding the service account key. Used only with credentialsType=serviceAccount." },
+                      "keyName":             { "type": "string", "description": "Key filename inside the ConfigMap. Used only with credentialsType=serviceAccount." },
+                      "ConfigMapFilePath":   { "type": "string", "description": "Mount path for the key file. Used only with credentialsType=serviceAccount." },
+                      "allowLargeResults":   { "type": ["integer", "string"] },
+                      "largeResultsDataSetId": { "type": "string" },
+                      "largeResultsTempTableExpirationTime": { "type": "string" }
+                    }
                   }
                 }
               }
@@ -1245,88 +1259,51 @@
               "type": "boolean",
               "description": "Enable distributed processing for high-volume transactions"
             },
-            "internalCache": {
-              "type": "object",
-              "description": "Internal cache configuration for queue reader",
-              "additionalProperties": true,
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "description": "Cache provider (e.g., redis)"
-                },
-                "type": {
-                  "type": "string",
-                  "description": "Deployment type: internal or external",
-                  "enum": [
-                    "internal",
-                    "external"
-                  ]
-                },
-                "redisSettings": {
-                  "type": "object",
-                  "description": "Redis settings",
-                  "additionalProperties": true,
-                  "properties": {
-                    "connectionString": {
-                      "type": "string",
-                      "description": "Redis connection string (required if type=external)"
-                    }
-                  }
-                }
-              }
-            },
-            "distributedQueue": {
-              "type": "object",
-              "description": "Distributed queue configuration",
-              "additionalProperties": true,
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "description": "Queue provider (e.g., rabbitmq)"
-                },
-                "type": {
-                  "type": "string",
-                  "description": "Deployment type: internal or external",
-                  "enum": [
-                    "internal",
-                    "external"
-                  ]
-                },
-                "rabbitmqSettings": {
-                  "type": "object",
-                  "description": "RabbitMQ settings for distributed queue",
-                  "additionalProperties": true,
-                  "properties": {
-                    "hostname": {
-                      "type": "string",
-                      "description": "RabbitMQ hostname"
-                    },
-                    "username": {
-                      "type": "string",
-                      "description": "RabbitMQ username"
-                    },
-                    "password": {
-                      "type": "string",
-                      "description": "RabbitMQ password"
-                    }
-                  }
-                }
-              }
-            },
             "tenantIds": {
               "type": "array",
-              "description": "RPI client IDs (GUIDs) for this queue reader cluster",
-              "items": {
-                "type": "string"
+              "description": "RPI client IDs (GUIDs) this queue reader processes.",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "internalCache": {
+          "type": "object",
+          "description": "Internal cache used by the queue reader.",
+          "additionalProperties": true,
+          "properties": {
+            "provider": { "type": "string", "description": "Cache provider (e.g., redis)." },
+            "type": { "type": "string", "enum": ["internal", "external"], "description": "internal (chart-managed) or external (bring your own)." },
+            "backupToOpsDBInterval": { "type": "string", "description": "How often cache state is backed up to the operational DB (e.g., '00:00:20')." },
+            "redisSettings": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "connectionString": { "type": "string", "description": "Redis connection string (required when type=external)." }
               }
             }
           }
         },
-        "tenantIds": {
-          "type": "array",
-          "description": "RPI client IDs (GUIDs) \u2014 alternative top-level placement",
-          "items": {
-            "type": "string"
+        "internalQueues": {
+          "type": "object",
+          "description": "Internal message queue used by the queue reader.",
+          "additionalProperties": true,
+          "properties": {
+            "provider": { "type": "string", "description": "Queue provider (e.g., rabbitmq)." },
+            "type": { "type": "string", "enum": ["internal", "external"], "description": "internal (chart-managed) or external (bring your own)." },
+            "tenantIds": {
+              "type": "array",
+              "description": "RPI client IDs (GUIDs) served by these queues.",
+              "items": { "type": "string" }
+            },
+            "rabbitmqSettings": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "hostname": { "type": "string", "description": "RabbitMQ hostname." },
+                "username": { "type": "string", "description": "RabbitMQ username." },
+                "password": { "type": "string", "description": "RabbitMQ password." }
+              }
+            }
           }
         },
         "errorQueuePath": {
@@ -2244,16 +2221,6 @@
             }
           }
         },
-        "logSources": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "clientServer": { "type": "string", "description": "Pulse logging DB name (informational; conn string still comes from chart secret)." },
-            "sqlTrace":     { "type": "string", "description": "InteractionAudit DB hosting SQLTraceLog." },
-            "audit":        { "type": "string", "description": "InteractionAudit DB hosting AuditHistory (typically same as sqlTrace)." },
-            "interaction":  { "type": "string", "description": "Main Interaction_<env> DB hosting op_InteractionWorkflows / op_DataWorkflows. Read by the Diagnostics tab for per-Interaction drill-down + bundle download." }
-          }
-        },
         "telemetry": {
           "type": "object",
           "additionalProperties": false,
@@ -2324,49 +2291,41 @@
         "auth": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Trust-domain participation. When enabled, the observability service authenticates users against the IDP RPI is configured against and authorizes them through RPI's normalized user/group model. See AUTH_DESIGN_RFC.md for the engineering contract.",
+          "description": "Authentication for the observability UI/API. Selects a single auth model and authorizes users through RPI's normalized user/group model.",
           "properties": {
-            "enabled":  { "type": "boolean", "description": "Master switch. Default false; when false the legacy unauthenticated path is preserved." },
-            "anonymous": {
+            "mode": {
               "type": "string",
-              "enum": ["deny", "observabilityViewOnly", "allowAnonymous"],
-              "description": "Migration posture. `deny` (default for new deployments): authentication required everywhere. `observabilityViewOnly`: anonymous users see broad telemetry only; sensitive surfaces require auth. `allowAnonymous`: legacy compat; preserves unauthenticated behavior."
+              "enum": ["public", "native", "entra"],
+              "description": "Authentication model. public: no authentication (anonymous UI). native: RPI native auth (rpi-interactionapi / OpenIddict). entra: Microsoft Entra ID. Exactly one; hybrid is rejected at chart-render time."
             },
             "cookieSecure":               { "type": "boolean", "description": "Set the Secure attribute on session cookies. Set false only for local development without TLS." },
             "sessionLifetimeSeconds":     { "type": "integer", "minimum": 60, "description": "Session lifetime in seconds. Default 28800 (8 hours)." },
-            "authorizationCacheTtlSeconds": { "type": "integer", "minimum": 0, "description": "Per-process AuthorizationProvider cache TTL in seconds. Set 0 to disable. Default 60." },
-            "ingressHost":                { "type": "string", "description": "Hostname the observability service is reachable at; used to build the OIDC redirect URI advertised to the IDP. AUTO-DERIVED from ingress.hosts.observability + ingress.domain when empty; override only for custom CNAME / external LB scenarios." },
-            "provider": {
+            "authorizationCacheTtlSeconds": { "type": "integer", "minimum": 0, "description": "Per-process authorization cache TTL in seconds. Set 0 to disable. Default 60." },
+            "ingressHost":                { "type": "string", "description": "Hostname the observability service is reached at; used to build the Entra OIDC redirect URI. Auto-derived from ingress.hosts.observability + ingress.domain when empty; override only for custom CNAME / external LB scenarios." },
+            "native": {
               "type": "object",
               "additionalProperties": true,
+              "description": "Used only when mode=native. Defaults derive from the RPI ingress block.",
               "properties": {
-                "native": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "properties": {
-                    "enabled":    { "type": "boolean" },
-                    "issuerUrl":  { "type": "string", "description": "AUTO-DERIVED from ingress.hosts.client + ingress.domain (the rpi-interactionapi public host) when empty. Override only when the issuer lives somewhere unusual." },
-                    "clientId":   { "type": "string" }
-                  }
-                },
-                "federated": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "properties": {
-                    "enabled":       { "type": "boolean" },
-                    "kind":          { "type": "string", "enum": ["", "entra", "keycloak", "okta"] },
-                    "issuerUrl":     { "type": "string" },
-                    "clientId":      { "type": "string" },
-                    "audience":      { "type": "string" },
-                    "identityClaim": { "type": "string" }
-                  }
-                }
+                "authorizationHost": { "type": "string", "description": "rpi-interactionapi public host. Auto-derived from ingress.hosts.client + ingress.domain when empty." },
+                "authMetaHttpHost":  { "type": "string", "description": "Optional separate auth-metadata host; most deployments leave empty." },
+                "clientId":          { "type": "string", "description": "OpenIddict client ID Observability uses. Pre-register a confidential client with this ID and populate Observability_NativeAuth_ClientSecret." }
+              }
+            },
+            "microsoft": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Used only when mode=entra. Defaults to the chart-wide MicrosoftEntraID block; override only when Observability needs different Entra config.",
+              "properties": {
+                "tenantId":            { "type": "string" },
+                "clientApplicationId": { "type": "string" },
+                "apiApplicationId":    { "type": "string" }
               }
             },
             "capabilityMap": {
               "type": "object",
               "additionalProperties": true,
-              "description": "Maps RPI group names to observability capabilities. Keys are capability identifiers (observability.view, diagnostics.view, diagnostics.viewSql, diagnostics.viewStackTrace, diagnostics.exportBundle, observability.admin); values are arrays of RPI group names."
+              "description": "Optional overlay mapping CUSTOM RPI group names to observability capabilities (e.g. diagnostics.view). Canonical groups map via built-in defaults; observability.admin cannot appear as a key and canonical group names cannot appear as values."
             }
           }
         },
@@ -2384,7 +2343,7 @@
             "local": {
               "type": "object",
               "additionalProperties": false,
-              "description": "Consumed only when provider=local. The model shipped with the rpi-observability-llm image is the only model under this provider; it is NOT a customer-configurable knob. To use a different model, switch intelligence.provider to azure | google | aws.",
+              "description": "Consumed only when provider=local. The bundled model is the only model under this provider and is not customer-configurable. To use a different model, switch intelligence.provider to helmAssistant | azure | aws.",
               "properties": {
                 "baseUrl":          { "type": "string", "description": "Override the default in-cluster Service URL. Blank = http://rpi-observability-llm.<ns>.svc.cluster.local:8000/v1." },
                 "deployment": {
@@ -2779,36 +2738,6 @@
       "type": "object",
       "description": "Global topology spread constraints overrides (merged with defaults from _defaults.tpl)",
       "additionalProperties": true
-    },
-    "cdpmessageq": {
-      "type": "object",
-      "description": "CDP Message Queue storage configuration (Smart Activation component)",
-      "additionalProperties": true,
-      "properties": {
-        "existingClaim": {
-          "type": "string",
-          "description": "Use an existing PVC for message queue storage"
-        },
-        "volumeClaimTemplates": {
-          "type": "object",
-          "description": "Dynamic volume provisioning settings",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable dynamic volume provisioning (disable to use existingClaim)"
-            },
-            "storage": {
-              "type": "string",
-              "description": "Storage size (e.g., 100Gi)"
-            },
-            "storageClassName": {
-              "type": "string",
-              "description": "Storage class name"
-            }
-          }
-        }
-      }
     },
     "resources": {
       "$ref": "#/definitions/resources",

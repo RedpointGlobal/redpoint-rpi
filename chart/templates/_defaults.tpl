@@ -6,22 +6,15 @@
   Override any value directly in your overrides file under
   the matching top-level key (e.g., realtimeapi:, ingress:).
 
-  Architecture:
-    _defaults.tpl   - this file, defines default YAML per component
-    _helpers.tpl    - merge helpers that combine:
-                      defaults + user values (user wins)
-
-  Each component has a named template that returns YAML:
-
-    {{- $d := fromYaml (include "rpi.defaults.realtimeapi" .) -}}
-    {{- $u := .Values.realtimeapi | default dict -}}
-    {{- $cfg := mustMergeOverwrite $d $u -}}
+  This file defines the default YAML per component; _helpers.tpl merges
+  it with your overrides, and your overrides win.
 
   Sections:
     1. Cross-cutting defaults (probes, security, topology, ingress)
     2. RPI core services (.NET)
     3. Supporting services (Rebrandly, diagnostics)
     4. Smart Activation services (Java)
+    5. Utility jobs
 ============================================================
 */}}
 

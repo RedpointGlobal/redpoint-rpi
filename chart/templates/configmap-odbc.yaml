@@ -31,7 +31,9 @@ data:
     OAuthMechanism={{ if hasKey . "OAuthMechanism" }}{{ .OAuthMechanism }}{{ else }}0{{ end }}
     LargeResultsDataSetId={{ .largeResultsDataSetId | default "_bqodbc_temp_tables" }}
     LargeResultsTempTableExpirationTime={{ .largeResultsTempTableExpirationTime | default "3600000" }}
+    {{- if eq .credentialsType "serviceAccount" }}
     Email={{ .serviceAccountEmail }}
     KeyFilePath={{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+    {{- end }}
     {{- end }}
 {{- end }}

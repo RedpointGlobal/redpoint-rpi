@@ -315,10 +315,6 @@ false
 */}}
 
 {{/*
-Merge a service's config: chart defaults + global resources + user overrides.
-Usage: {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
-*/}}
-{{/*
 Resolve a service's merged config: per-service defaults from _defaults.tpl,
 overlaid with chart-wide resources, overlaid with operator overrides.
 Usage: {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
@@ -826,17 +822,6 @@ Usage: {{- include "rpi.snowflake.volumeMount" . | nindent 10 }}
 {{- end -}}
 
 {{/*
-Resolve which ServiceAccount name a pod should use.
-Usage: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
-  - root: the top-level context (.)
-  - name: the per-service SA name (e.g., "rpi-realtimeapi")
-  - cfg:  the merged service config (optional)
-Priority:
-  1. Per-service override: cfg.serviceAccountName (if set)
-  2. Mode=shared: uses the shared SA name
-  3. Mode=per-service or both: uses the per-service SA name
-*/}}
-{{/*
 Resolve the ServiceAccount name a pod should mount.
 Usage: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
 
@@ -1087,8 +1072,7 @@ Sidecar + env-var override activate only when all of:
   - global.deployment.platform equals "google"
   - databases.operational.cloudSqlProxy.enabled equals true
   - databases.operational.provider equals "postgresql"
-Every other configuration renders an empty string from each helper, so
-template output for existing deployments is unchanged.
+Otherwise every helper in this family renders empty and the sidecar is inert.
 */}}
 
 {{- define "rpi.cloudSqlProxy.enabled" -}}
@@ -1446,10 +1430,9 @@ Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
 - name: OBSERVABILITY__CLOUD_PLATFORM
   value: {{ .Values.global.deployment.platform | default "" | quote }}
 {{/* Canonical RPI ClientID (rpi_Clients lookup key). REQUIRED.
-     ADR-0009 strict refinement: observability.clientId is the only
-     valid source of truth for tenant identification. No fallback,
-     no inference, no auto-detection. Helm fails the render here
-     when observability is enabled and the value is empty. */}}
+     observability.clientId is the only source of tenant identity: no
+     fallback, no inference, no auto-detection. Helm fails the render
+     when observability is enabled and it is empty. */}}
 - name: OBSERVABILITY__CLIENT_ID
   value: {{ required "observability.clientId is required when observability.enabled=true. Set it to the ClientID GUID from Pulse_<env>.dbo.rpi_Clients (e.g. 9A39D66C-111C-408E-AE5B-D97880BAC496). There is no fallback or auto-detection." $cfg.clientId | quote }}
 - name: OBSERVABILITY__BUDGET__MAX_TOKENS_PER_HOUR
@@ -1472,8 +1455,7 @@ Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
      emitted as env vars. The observability service resolves them at
      startup from Pulse_<env>.dbo.rpi_Clients via ClientResolver, using
      OBSERVABILITY__CLIENT_ID (set above from observability.clientId)
-     as the lookup key. No fallback, no inference -- ADR-0009 strict
-     refinement. */}}
+     as the lookup key. No fallback, no inference. */}}
 {{- with $cfg.diagnostics }}
 {{- with .fileOutput }}
 - name: OBSERVABILITY__DIAGNOSTICS__FILE_OUTPUT_ENABLED

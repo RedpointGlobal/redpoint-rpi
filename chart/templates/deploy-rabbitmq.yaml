@@ -33,7 +33,6 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $QueueReaderMQ "component" "messaging") | nindent 4 }}
 data:
   rabbitmq.conf: |
-    # Default RabbitMQ configuration
     listeners.tcp.default = 5672
     management.listener.port = 15672
     loopback_users.guest = false
@@ -260,7 +259,6 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $RealtimeapiMQ  "component" "messaging") | nindent 4 }}
 data:
   rabbitmq.conf: |
-    # Default RabbitMQ configuration
     listeners.tcp.default = 5672
     management.listener.port = 15672
     loopback_users.guest = false
