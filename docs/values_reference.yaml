@@ -338,7 +338,7 @@ ingress:
   # TLS certificate source: kubernetes (K8s Secret) or acm (AWS Certificate Manager)
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
-  className: argo-events
+  className: qa-d9a0b5
   # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
@@ -1344,6 +1344,36 @@ realtimeapi:
   enableHelpPages: true
   # Enable the Realtime API service
   enabled: true
+  # Realtime geolocation settings (weather / location enrichment). Defaults use the native
+  # Azure provider; a custom provider can be supplied via the plugin fields. The provider
+  # APIKey is not set here - it is supplied via the shared RPI Secret key
+  # RealtimeAPI_Geolocation_APIKey (kubernetes/csi) or the cloud vault (sdk).
+  geolocation:
+    # Minutes to cache resolved coordinates
+    coordsCacheTimespanMinutes: 10
+    # Optional IP-address-based geolocation lookup
+    ipLookup:
+      # Minutes to cache coordinates resolved via IP lookup
+      coordsCacheTimespanMinutesIPLookup: 30
+      # Enable IP-based geolocation lookup
+      enableGeoIPLookup: false
+      # Assembly name of a custom IP-lookup plugin
+      pluginAssembly: ''
+      # Key/value settings passed to the custom IP-lookup plugin
+      pluginSettings: []
+      # Fully qualified type of the custom IP-lookup plugin
+      pluginType: ''
+    # Assembly name of a custom geolocation provider plugin (blank uses the native provider)
+    pluginAssembly: ''
+    # Key/value settings passed to the custom geolocation provider plugin
+    pluginSettings: []
+    # Fully qualified type of the custom geolocation provider plugin
+    pluginType: ''
+    # Geolocation provider. Native value is Azure; any other value denotes a custom provider
+    # configured via the plugin fields.
+    provider: Azure
+    # Units for weather enrichment
+    weatherUnits: imperial
   idValidation:
     deviceID:
       enableLetters: true

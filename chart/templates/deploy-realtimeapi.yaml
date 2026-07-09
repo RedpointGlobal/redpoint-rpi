@@ -8,6 +8,8 @@
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
 {{- $name := $cfg.name -}}
 {{- $cacheName := "rpi-realtimeapi-cache" -}}
+{{- $geo := $cfg.geolocation | default dict -}}
+{{- $geoip := $geo.ipLookup | default dict -}}
 
 {{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
@@ -480,6 +482,51 @@ spec:
             value: {{ $cfg.enableAuditMetricsInHeaders | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__EnableEventListening
             value: {{ $cfg.enableEventListening | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__Provider
+            value: {{ $geo.provider | default "Azure" | quote }}
+          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__APIKey
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.secretName" . | quote }}
+                key: RealtimeAPI_Geolocation_APIKey
+          {{- end }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__WeatherUnits
+            value: {{ $geo.weatherUnits | default "imperial" | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__CoordsCacheTimespanMinutes
+            value: {{ $geo.coordsCacheTimespanMinutes | default 10 | quote }}
+          {{- with $geo.pluginAssembly }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginAssembly
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $geo.pluginType }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginType
+            value: {{ . | quote }}
+          {{- end }}
+          {{- range $i, $s := ($geo.pluginSettings | default list) }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginSettings__{{ $i }}__Key
+            value: {{ $s.key | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginSettings__{{ $i }}__Value
+            value: {{ $s.value | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__EnableGeoIPLookup
+            value: {{ $geoip.enableGeoIPLookup | default false | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__CoordsCacheTimespanMinutesIPLookup
+            value: {{ $geoip.coordsCacheTimespanMinutesIPLookup | default 30 | quote }}
+          {{- with $geoip.pluginAssembly }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginAssembly
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $geoip.pluginType }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginType
+            value: {{ . | quote }}
+          {{- end }}
+          {{- range $i, $s := ($geoip.pluginSettings | default list) }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginSettings__{{ $i }}__Key
+            value: {{ $s.key | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginSettings__{{ $i }}__Value
+            value: {{ $s.value | quote }}
+          {{- end }}
           {{- if eq .Values.global.deployment.platform "azure" }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath
             value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}

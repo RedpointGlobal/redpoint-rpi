@@ -521,6 +521,35 @@ realtimeapi:
       refreshTokenLifetimeSeconds: 360
   CORSOrigins: ["*"]
 
+  # Geolocation settings for real-time weather / location enrichment.
+  # Defaults use the native Azure provider. To use your own provider, author a
+  # plugin and set pluginAssembly / pluginType / pluginSettings (and the ipLookup
+  # equivalents for IP-based lookup).
+  # The provider APIKey is secret material - it is NOT set here. Supply it via
+  # the shared RPI Secret key `RealtimeAPI_Geolocation_APIKey` (kubernetes/csi),
+  # or from the cloud vault / secrets manager (sdk).
+  geolocation:
+    # Supported: Azure (native), or a custom provider via the plugin fields below
+    provider: Azure
+    # Supported: imperial, metric
+    weatherUnits: imperial
+    coordsCacheTimespanMinutes: 10
+    # Custom geolocation provider plugin (leave blank to use the native provider)
+    pluginAssembly: ""
+    pluginType: ""
+    # Plugin settings as a list of key/value pairs, e.g.:
+    #   pluginSettings:
+    #     - key: Endpoint
+    #       value: "https://..."
+    pluginSettings: []
+    # Optional IP-address-based geolocation lookup
+    ipLookup:
+      enableGeoIPLookup: false
+      coordsCacheTimespanMinutesIPLookup: 30
+      pluginAssembly: ""
+      pluginType: ""
+      pluginSettings: []
+
   # Real-Time Cache Provider
   cacheProvider:
     enabled: true

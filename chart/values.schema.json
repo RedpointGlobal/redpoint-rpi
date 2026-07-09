@@ -586,6 +586,81 @@
           "type": "string",
           "description": "RPI Client ID (GUID) for this realtime instance"
         },
+        "geolocation": {
+          "type": "object",
+          "description": "Realtime geolocation settings (weather / location enrichment). Defaults use the native Azure provider; a custom provider can be supplied via the plugin fields. The provider APIKey is not set here - it is supplied via the shared RPI Secret key RealtimeAPI_Geolocation_APIKey (kubernetes/csi) or the cloud vault (sdk).",
+          "additionalProperties": true,
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "Geolocation provider. Native value is Azure; any other value denotes a custom provider configured via the plugin fields."
+            },
+            "weatherUnits": {
+              "type": "string",
+              "description": "Units for weather enrichment",
+              "enum": ["imperial", "metric"]
+            },
+            "coordsCacheTimespanMinutes": {
+              "type": "integer",
+              "description": "Minutes to cache resolved coordinates",
+              "minimum": 0
+            },
+            "pluginAssembly": {
+              "type": "string",
+              "description": "Assembly name of a custom geolocation provider plugin (blank uses the native provider)"
+            },
+            "pluginType": {
+              "type": "string",
+              "description": "Fully qualified type of the custom geolocation provider plugin"
+            },
+            "pluginSettings": {
+              "type": "array",
+              "description": "Key/value settings passed to the custom geolocation provider plugin",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "value": { "type": "string" }
+                }
+              }
+            },
+            "ipLookup": {
+              "type": "object",
+              "description": "Optional IP-address-based geolocation lookup",
+              "additionalProperties": true,
+              "properties": {
+                "enableGeoIPLookup": {
+                  "type": "boolean",
+                  "description": "Enable IP-based geolocation lookup"
+                },
+                "coordsCacheTimespanMinutesIPLookup": {
+                  "type": "integer",
+                  "description": "Minutes to cache coordinates resolved via IP lookup",
+                  "minimum": 0
+                },
+                "pluginAssembly": {
+                  "type": "string",
+                  "description": "Assembly name of a custom IP-lookup plugin"
+                },
+                "pluginType": {
+                  "type": "string",
+                  "description": "Fully qualified type of the custom IP-lookup plugin"
+                },
+                "pluginSettings": {
+                  "type": "array",
+                  "description": "Key/value settings passed to the custom IP-lookup plugin",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "value": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "authentication": {
           "type": "object",
           "description": "Realtime API authentication configuration",
