@@ -483,9 +483,13 @@ spec:
             value: {{ $cfg.enableAuditMetricsInHeaders | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__EnableEventListening
             value: {{ $cfg.enableEventListening | quote }}
+          {{- if $geo.enabled }}
           - name: RealtimeAPIConfiguration__GeolocationSettings__Provider
             value: {{ $geo.provider | default "Azure" | quote }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          # Required while geolocation is enabled: if the operator enabled the
+          # feature but did not add RealtimeAPI_Geolocation_APIKey to the shared
+          # Secret, the pod fails fast rather than running mis-configured.
           - name: RealtimeAPIConfiguration__GeolocationSettings__APIKey
             valueFrom:
               secretKeyRef:
@@ -527,6 +531,7 @@ spec:
             value: {{ $s.key | quote }}
           - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginSettings__{{ $i }}__Value
             value: {{ $s.value | quote }}
+          {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__IdentitySettings__MasterKeyName
             value: {{ $ident.masterKeyName | default "" | quote }}

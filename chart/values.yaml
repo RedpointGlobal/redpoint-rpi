@@ -522,13 +522,15 @@ realtimeapi:
   CORSOrigins: ["*"]
 
   # Geolocation settings for real-time weather / location enrichment.
-  # Defaults use the native Azure provider. To use your own provider, author a
+  # Disabled by default. When enabled, the settings below are applied AND the
+  # provider APIKey becomes required: supply it via the shared RPI Secret key
+  # `RealtimeAPI_Geolocation_APIKey` (kubernetes/csi) or the cloud vault (sdk).
+  # Enabling the feature without that key makes the Realtime API pod fail fast
+  # (by design). To use your own provider instead of native Azure, author a
   # plugin and set pluginAssembly / pluginType / pluginSettings (and the ipLookup
-  # equivalents for IP-based lookup).
-  # The provider APIKey is secret material - it is NOT set here. Supply it via
-  # the shared RPI Secret key `RealtimeAPI_Geolocation_APIKey` (kubernetes/csi),
-  # or from the cloud vault / secrets manager (sdk).
+  # equivalents).
   geolocation:
+    enabled: false
     # Supported: Azure (native), or a custom provider via the plugin fields below
     provider: Azure
     # Supported: imperial, metric

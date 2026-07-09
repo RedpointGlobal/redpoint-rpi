@@ -1351,6 +1351,10 @@ realtimeapi:
   geolocation:
     # Minutes to cache resolved coordinates
     coordsCacheTimespanMinutes: 10
+    # Enable geolocation config injection. When false (default) no geolocation env vars are
+    # emitted and no APIKey secret is referenced. When true, the settings below apply and
+    # RealtimeAPI_Geolocation_APIKey becomes a required secret key (kubernetes/csi).
+    enabled: false
     # Optional IP-address-based geolocation lookup
     ipLookup:
       # Minutes to cache coordinates resolved via IP lookup

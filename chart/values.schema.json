@@ -591,6 +591,10 @@
           "description": "Realtime geolocation settings (weather / location enrichment). Defaults use the native Azure provider; a custom provider can be supplied via the plugin fields. The provider APIKey is not set here - it is supplied via the shared RPI Secret key RealtimeAPI_Geolocation_APIKey (kubernetes/csi) or the cloud vault (sdk).",
           "additionalProperties": true,
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable geolocation config injection. When false (default) no geolocation env vars are emitted and no APIKey secret is referenced. When true, the settings below apply and RealtimeAPI_Geolocation_APIKey becomes a required secret key (kubernetes/csi)."
+            },
             "provider": {
               "type": "string",
               "description": "Geolocation provider. Native value is Azure; any other value denotes a custom provider configured via the plugin fields."
