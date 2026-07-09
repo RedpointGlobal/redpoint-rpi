@@ -338,7 +338,7 @@ ingress:
   # TLS certificate source: kubernetes (K8s Secret) or acm (AWS Certificate Manager)
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
-  className: qa-d9a0b5
+  className: fisher-prod-mdm
   # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
@@ -1405,6 +1405,25 @@ realtimeapi:
       - '#'
       - '&'
       - '?'
+  # How a known visitor's profile is keyed once they identify themselves (querystring, cached
+  # attribute list, or Realtime cache offer).
+  identitySettings:
+    # Additional keys that can also identify a visitor, linked to the master key via a
+    # querystring or a populated Realtime cache
+    alternativeKeys: []
+    # Cached-attribute-list attribute names to exclude from the merge
+    calMergeExclusions: []
+    # Alternative names the master key may appear under (e.g. CK for CustomerKey)
+    masterKeyAliases: []
+    # Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps
+    # the RPI-assigned GUID.
+    masterKeyName: ''
+    # Merge cached-attribute-list attributes into the visitor profile
+    mergeCALAttributes: true
+    # Merge querystring parameters into the visitor profile
+    mergeParameters: true
+    # Querystring parameter names to exclude from the merge
+    parameterMergeExclusions: []
   logging:
     realtimeagent:
       console: Error

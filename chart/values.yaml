@@ -550,6 +550,27 @@ realtimeapi:
       pluginType: ""
       pluginSettings: []
 
+  # Identity settings: how a known visitor's profile is keyed once they identify
+  # themselves (via querystring, a cached attribute list, or a Realtime cache offer).
+  identitySettings:
+    # Principal key used to identify a known visitor's profile. e.g. with
+    # masterKeyName "CustomerKey", ?CustomerKey=12345 keys the profile on
+    # CustomerKey=12345. Blank leaves the visitor keyed on the RPI-assigned GUID.
+    masterKeyName: ""
+    # Alternative names the master key may appear under (e.g. "CK" for "CustomerKey").
+    masterKeyAliases: []
+    # Additional keys that can also identify a visitor. Linked to the master key
+    # via a querystring carrying both, or a populated Realtime cache.
+    alternativeKeys: []
+    # Merge querystring parameters / cached-attribute-list attributes into the profile.
+    mergeParameters: true
+    mergeCALAttributes: true
+    # Parameter / CAL attribute names to exclude from the merge, e.g.:
+    #   parameterMergeExclusions:
+    #     - utm_source
+    parameterMergeExclusions: []
+    calMergeExclusions: []
+
   # Real-Time Cache Provider
   cacheProvider:
     enabled: true

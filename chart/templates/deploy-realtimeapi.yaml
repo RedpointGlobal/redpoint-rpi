@@ -10,6 +10,7 @@
 {{- $cacheName := "rpi-realtimeapi-cache" -}}
 {{- $geo := $cfg.geolocation | default dict -}}
 {{- $geoip := $geo.ipLookup | default dict -}}
+{{- $ident := $cfg.identitySettings | default dict -}}
 
 {{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
@@ -526,6 +527,28 @@ spec:
             value: {{ $s.key | quote }}
           - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginSettings__{{ $i }}__Value
             value: {{ $s.value | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MasterKeyName
+            value: {{ $ident.masterKeyName | default "" | quote }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MergeParameters
+            value: {{ $ident.mergeParameters | quote }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MergeCALAttributes
+            value: {{ $ident.mergeCALAttributes | quote }}
+          {{- range $i, $v := ($ident.masterKeyAliases | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MasterKeyAliases__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- range $i, $v := ($ident.alternativeKeys | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__AlternativeKeys__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- range $i, $v := ($ident.parameterMergeExclusions | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__ParameterMergeExclusions__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- range $i, $v := ($ident.calMergeExclusions | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__CALMergeExclusions__{{ $i }}
+            value: {{ $v | quote }}
           {{- end }}
           {{- if eq .Values.global.deployment.platform "azure" }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath

@@ -661,6 +661,45 @@
             }
           }
         },
+        "identitySettings": {
+          "type": "object",
+          "description": "How a known visitor's profile is keyed once they identify themselves (querystring, cached attribute list, or Realtime cache offer).",
+          "additionalProperties": true,
+          "properties": {
+            "masterKeyName": {
+              "type": "string",
+              "description": "Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps the RPI-assigned GUID."
+            },
+            "masterKeyAliases": {
+              "type": "array",
+              "description": "Alternative names the master key may appear under (e.g. CK for CustomerKey)",
+              "items": { "type": "string" }
+            },
+            "alternativeKeys": {
+              "type": "array",
+              "description": "Additional keys that can also identify a visitor, linked to the master key via a querystring or a populated Realtime cache",
+              "items": { "type": "string" }
+            },
+            "mergeParameters": {
+              "type": "boolean",
+              "description": "Merge querystring parameters into the visitor profile"
+            },
+            "mergeCALAttributes": {
+              "type": "boolean",
+              "description": "Merge cached-attribute-list attributes into the visitor profile"
+            },
+            "parameterMergeExclusions": {
+              "type": "array",
+              "description": "Querystring parameter names to exclude from the merge",
+              "items": { "type": "string" }
+            },
+            "calMergeExclusions": {
+              "type": "array",
+              "description": "Cached-attribute-list attribute names to exclude from the merge",
+              "items": { "type": "string" }
+            }
+          }
+        },
         "authentication": {
           "type": "object",
           "description": "Realtime API authentication configuration",
