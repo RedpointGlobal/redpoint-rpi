@@ -9,6 +9,7 @@
 #
 # IMPORTANT - HOW CREDENTIALS FLOW:
 #
+#
 # This file documents the SHAPE of values an operator can set. But
 # credential-bearing fields (passwords, API keys, connection
 # strings, access keys) are NOT consumed by the Helm chart from this
