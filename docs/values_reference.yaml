@@ -66,6 +66,7 @@ global:
       #   rpi-interactionapi: 123456789.dkr.ecr.us-east-1.amazonaws.com/rpi:interactionapi-7.7.20260220.1524
       #   rpi-redis: 123456789.dkr.ecr.us-east-1.amazonaws.com/rpi:rediscache-7.7.20260220.1524
       #
+      #
       # nameOverrides: Replaces just the image name, keeps global registry and tag.
       #   Use when images are in the same registry with the same tag but different names.
       #   Result: {registry}/{nameOverride}:{tag}
