@@ -52,7 +52,7 @@ global:
     images:
       registry: rg1acrpub.azurecr.io/docker/redpointglobal/releases
       # RPI version: <major.minor>.<year>-<MMDD>-<HHMM>
-      tag: "7.7.20260713.1449"
+      tag: "7.7.20260717.811"
       imagePullPolicy: Always
       imagePullSecret:
         enabled: true
