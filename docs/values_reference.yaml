@@ -338,7 +338,7 @@ ingress:
   # TLS certificate source: kubernetes (K8s Secret) or acm (AWS Certificate Manager)
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
-  className: fisher-prod-mdm
+  className: qa-d9a0b5
   # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
@@ -365,6 +365,7 @@ ingress:
     realtime: rpi-realtimeapi
     # Smart Activation hostname or subdomain
     smartactivation: rpi-smartActivation
+    twiliomessaging: rpi-twiliomessaging
   internalImageOverride:
     enabled: false
     image: 'registry.k8s.io/ingress-nginx/controller:v1.14.3@sha256:82917be97c0939f6ada1717bb39aa7e66c229d6cfb10dcfc8f1bd42f9efe0f81'
@@ -956,26 +957,6 @@ executionservice:
     maxRetryDelay: '00:01:00'
     # Cache provider type
     provider: filesystem
-    # Redis settings for state caching
-    redisSettings:
-      # Redis connection string (required if type=external)
-      connectionString: 'my-redis-host:6379,password=<your-password>,abortConnect=False'
-      podDisruptionBudget:
-        enabled: false
-        minAvailable: 1
-      replicas: 1
-      resources:
-        enabled: true
-        limits:
-          memory: 3Gi
-        requests:
-          cpu: 100m
-          memory: 256Mi
-      # Redis deployment type: internal (chart-managed) or external (BYO)
-      type: internal
-      volumeClaimTemplates:
-        enabled: true
-        storage: 100Gi
   jobExecution:
     auditTaskEvents: true
     defaultMaintenanceModeBufferTime: '00:05:00'
@@ -2475,3 +2456,71 @@ reportingservice:
     client_secret: my_sigma_client_secret
     # Enable Sigma reporting integration
     enabled: false
+
+# Twilio Messaging service (opt-in) - outbound/inbound SMS. Requires PostgreSQL.
+twiliomessaging:
+  # Twilio Account SID. The auth token is a secret (shared Secret key
+  # TwilioMessaging_AuthToken).
+  accountSid: ''
+  # Enable the Twilio Messaging service
+  enabled: false
+  eventHubs:
+    checkpointing:
+      blobServiceUri: 'https://mystorage.blob.core.windows.net'
+    fullyQualifiedNamespace: my-ehns.servicebus.windows.net
+  # True only when the account SID/auth token are Twilio TEST credentials
+  isTestCredentials: false
+  # Messaging transport selector
+  messaging:
+    # Active messaging transport
+    provider: EventHub
+  # PostgreSQL durable store (twilio_messaging database). Twilio does not support SQL Server.
+  postgres:
+    # PostgreSQL database name
+    database: twilio_messaging
+    # Reuse databases.operational when it is postgresql (same server, separate
+    # twilio_messaging database). Must be false when databases.operational is SQL Server or
+    # when secretsManagement.provider is sdk. Auth mode is derived from
+    # secretsManagement.provider (kubernetes/csi = password Basic; sdk = managed identity by
+    # platform), not set here.
+    reuseOperational: true
+    # PostgreSQL SSL mode
+    sslMode: Require
+    # PostgreSQL host (when reuseOperational=false)
+    host: ''
+    # PostgreSQL port
+    port: null
+    # PostgreSQL username (when reuseOperational=false)
+    username: ''
+  pubsub:
+    projectId: ''
+  # Redis (distributed locks / dedup). internal = chart-managed; external = BYO.
+  redisSettings:
+    # Redis deployment type: internal (chart-managed) or external (BYO)
+    type: internal
+    # External Redis hostname (required when type=external)
+    hostname: ''
+    # Redis port
+    port: null
+    # Connect to external Redis over TLS (default true for cloud Redis)
+    useTls: false
+    # External Redis user (AWS ElastiCache IAM user id under sdk, or the Basic username under
+    # kubernetes/csi)
+    user: ''
+    # AWS region of the cache (required for external Redis on AWS under sdk - ElastiCache IAM)
+    region: ''
+    # AWS ElastiCache replication-group / serverless cache name the IAM token is signed
+    # against (required for external Redis on AWS under sdk)
+    cacheName: ''
+    # AWS ElastiCache serverless cache (only consulted for external Redis on AWS under sdk)
+    isServerless: false
+  # Number of Twilio Messaging pod replicas
+  replicas: 1
+  sqs:
+    inputQueueUrl: ''
+    outputDeliveryStatusQueueUrl: ''
+    outputInboundMessageQueueUrl: ''
+    outputInternalTopicArn: ''
+    outputLinkClickQueueUrl: ''
+    outputTopicArn: ''
+    region: us-east-1

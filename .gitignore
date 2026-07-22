@@ -27,3 +27,10 @@ CONTRIBUTING.md
 # Local pre-commit secret scanner + auto-push helper (personal tool,
 # not part of the chart). Lives at repo root for convenience.
 pre-release.sh
+
+# Internal AI operating docs (workspace scaffolding, not part of the published chart)
+/DESIGN.md
+/DOMAIN_OWNERSHIP.md
+/PROJECT_STATE.md
+/ROADMAP.md
+/decisions/

@@ -434,22 +434,6 @@ internalCache:
   maxRetryDelay: "00:01:00"
   failOnPrimaryDataLoss: true
   failOnCacheConnectionError: true
-  redisSettings:
-    type: internal
-    replicas: 1
-    resources:
-      enabled: true
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        memory: 3Gi
-    volumeClaimTemplates:
-      enabled: true
-      storage: 100Gi
-    podDisruptionBudget:
-      enabled: false
-      minAvailable: 1
 seedService:
   memoryCacheSize: "10"
   maxNumberRetries: "100"
@@ -777,6 +761,111 @@ terminationGracePeriodSeconds: 120
 logging:
   default: Error
   aspNetCore: Error
+resources:
+  enabled: true
+{{- end -}}
+
+{{/* ------ Twilio Messaging ------ */}}
+{{- define "rpi.defaults.twiliomessaging" -}}
+podAnnotations: {}
+podLabels: {}
+type: deployment
+rollout:
+  autoPromotionEnabled: true
+  revisionHistoryLimit: 3
+replicas: 1
+enableProbes: true
+serviceAccount:
+  enabled: true
+service:
+  port: 80
+messaging:
+  provider: EventHub
+redisSettings:
+  type: internal
+  hostname: ""
+  port: 6379
+  user: ""
+  useTls: true
+  region: ""
+  cacheName: ""
+  isServerless: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 3Gi
+      cpu: 3000m
+  volumeClaimTemplates:
+    enabled: false
+    type: dynamic
+    size: 50Gi
+    storageClassName: default
+    accessModes: ReadWriteOnce
+postgres:
+  reuseOperational: true
+  host: ""
+  port: 5432
+  database: twilio_messaging
+  username: ""
+  sslMode: Require
+  maxPoolSize: 20
+  minPoolSize: 2
+rds:
+  region: us-east-1
+eventHubs:
+  fullyQualifiedNamespace: ""
+  inputHub:
+    name: twilio-messaging-input
+    consumerGroup: twilio-message-input-send
+  outputHub:
+    name: twilio-messaging-output
+  outputInternalHub:
+    name: twilio-messaging-output-internal
+    deliveryStatusConsumerGroup: twilio-messaging-output-internal-delivery-status
+    linkClickConsumerGroup: twilio-messaging-output-internal-link-click
+    inboundMessageConsumerGroup: twilio-messaging-output-internal-inbound-reply
+  checkpointing:
+    blobServiceUri: ""
+    blobContainerName: sms-send-checkpoints
+sqs:
+  region: us-east-1
+  inputQueueUrl: ""
+  outputTopicArn: ""
+  outputInternalTopicArn: ""
+  outputDeliveryStatusQueueUrl: ""
+  outputLinkClickQueueUrl: ""
+  outputInboundMessageQueueUrl: ""
+pubsub:
+  projectId: ""
+  inputTopicId: twilio-messaging-input
+  inputSubscriptionId: twilio-messaging-input
+  outputTopicId: twilio-messaging-output
+  outputInternalTopicId: twilio-messaging-output-internal
+  outputDeliveryStatusSubscriptionId: twilio-messaging-output-internal-delivery-status
+  outputLinkClickSubscriptionId: twilio-messaging-output-internal-link-click
+  outputInboundMessageSubscriptionId: twilio-messaging-output-internal-inbound-reply
+accountSid: ""
+isTestCredentials: false
+batchIngestion:
+  watchDirectory: /rpifileoutputdir/twilio/batch/incoming
+  processingDirectory: /rpifileoutputdir/twilio/batch/processing
+  completeDirectory: /rpifileoutputdir/twilio/batch/complete
+  failedBatchDirectory: /rpifileoutputdir/twilio/batch/failed
+  pollIntervalSeconds: 5
+  lockTtlMinutes: 10
+batchCompletion:
+  pollIntervalSeconds: 60
+  completionThresholdHours: 12
+  parallelMergeDegree: 4
+customMetrics:
+  enabled: false
+  prometheus_scrape: false
+terminationGracePeriodSeconds: 120
+logging:
+  default: Information
+  aspNetCore: Warning
 resources:
   enabled: true
 {{- end -}}

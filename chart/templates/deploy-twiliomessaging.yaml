@@ -1,0 +1,552 @@
+{{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
+{{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
+{{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
+{{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
+{{- $startup := fromYaml (include "rpi.merged.startupProbe" .) -}}
+{{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
+{{- $name := "rpi-twiliomessaging" -}}
+{{- $cacheName := "rpi-twiliomessaging-cache" -}}
+{{- $sdk := eq .Values.secretsManagement.provider "sdk" -}}
+{{- $proxy := eq (include "rpi.cloudSqlProxy.enabled" .) "true" -}}
+{{/* Managed-service auth (PostgreSQL + external cloud Redis) is derived from the deployment's
+     security realm, never a manual knob. kubernetes/csi -> Basic: a password / access key from
+     the shared Secret. sdk -> the cloud's managed identity (Azure / AWS / GCP by platform),
+     wired through the pod's cloudIdentity workload-identity binding - no secret. */}}
+{{- $cloudAuthMode := "Basic" -}}
+{{- if $sdk -}}
+  {{- if eq .Values.global.deployment.platform "azure" -}}{{- $cloudAuthMode = "Azure" -}}
+  {{- else if eq .Values.global.deployment.platform "amazon" -}}{{- $cloudAuthMode = "AWS" -}}
+  {{- else if eq .Values.global.deployment.platform "google" -}}{{- $cloudAuthMode = "GCP" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $cfg.enabled }}
+{{- if and $cfg.postgres.reuseOperational (ne .Values.databases.operational.provider "postgresql") }}
+{{- fail "twiliomessaging requires PostgreSQL. databases.operational.provider is not postgresql; set twiliomessaging.postgres.reuseOperational=false and provide twiliomessaging.postgres.{host,username,database}." }}
+{{- end }}
+{{- if and $cfg.postgres.reuseOperational $sdk }}
+{{- fail "twiliomessaging.postgres.reuseOperational=true is not supported with secretsManagement.provider=sdk (the operational database host/username are resolved from the vault, not available to this service). Set reuseOperational=false and provide twiliomessaging.postgres.{host,username}; on Google Cloud SQL enable databases.operational.cloudSqlProxy and set host to 127.0.0.1." }}
+{{- end }}
+{{- if not $cfg.postgres.reuseOperational }}
+{{- if not $cfg.postgres.username }}
+{{- fail "twiliomessaging.postgres.reuseOperational=false requires twiliomessaging.postgres.username." }}
+{{- end }}
+{{- if and (not $proxy) (not $cfg.postgres.host) }}
+{{- fail "twiliomessaging.postgres.reuseOperational=false requires twiliomessaging.postgres.host (or enable databases.operational.cloudSqlProxy)." }}
+{{- end }}
+{{- end }}
+{{- if and $sdk (not (has .Values.global.deployment.platform (list "azure" "amazon" "google"))) }}
+{{- fail "twiliomessaging with secretsManagement.provider=sdk requires global.deployment.platform to be azure, amazon, or google (managed-identity auth to PostgreSQL / Redis). The cloud's workload-identity binding must be wired via cloudIdentity (e.g. cloudIdentity.azure.managedIdentityClientId / cloudIdentity.amazon.roleArn / cloudIdentity.google.serviceAccountEmail)." }}
+{{- end }}
+{{- if eq $cfg.redisSettings.type "external" }}
+{{- if not $cfg.redisSettings.hostname }}
+{{- fail "twiliomessaging.redisSettings.type=external requires redisSettings.hostname (the cloud Redis endpoint)." }}
+{{- end }}
+{{- if and (eq $cloudAuthMode "AWS") (or (not $cfg.redisSettings.region) (not $cfg.redisSettings.cacheName)) }}
+{{- fail "twiliomessaging external Redis on AWS (ElastiCache IAM) requires redisSettings.region and redisSettings.cacheName." }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
+
+---
+{{- if $cfg.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+  {{- $svcAnnotations := include "rpi.mergedAnnotations" (dict "root" . "type" "service") | trim }}
+  {{- if $svcAnnotations }}
+  annotations:
+    {{- $svcAnnotations | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+  - name: http
+    port: {{ $cfg.service.port }}
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+
+---
+{{- if eq $cfg.type "rollout" }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+{{- end }}
+{{- if eq $cfg.type "deployment" }}
+apiVersion: apps/v1
+kind: Deployment
+{{- end }}
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+    {{- with $cfg.customLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.customAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  {{- if eq $cfg.type "rollout" }}
+  strategy:
+    blueGreen:
+      activeService: {{ $name }}
+      previewService: {{ $name }}
+      autoPromotionEnabled: {{ $cfg.rollout.autoPromotionEnabled }}
+  revisionHistoryLimit: {{ $cfg.rollout.revisionHistoryLimit }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 8 }}
+        app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $cfg.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with (include "rpi.cloudidentity.podLabels" (dict "root" . "svcCloudIdentity" (hasKey $cfg "cloudIdentity" | ternary $cfg.cloudIdentity false)) | trim) }}{{- . | nindent 8 }}{{- end }}
+      {{- if or .Values.commonAnnotations $cfg.podAnnotations .Values.serviceMesh.enabled }}
+      annotations:
+        {{- with .Values.commonAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- include "rpi.serviceMesh.podAnnotations" (dict "root" . "svcServiceMesh" (hasKey $cfg "serviceMesh" | ternary $cfg.serviceMesh true)) | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+      - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $cfg.terminationGracePeriodSeconds }}
+      serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
+      {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
+      {{- include "rpi.podAntiAffinity" (dict "root" . "name" $name) | nindent 6 }}
+      {{- if $topo.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: {{ $topo.maxSkew }}
+          topologyKey: {{ $topo.topologyKey }}
+          whenUnsatisfiable: {{ $topo.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $name }}
+      {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ $name }}
+        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 8 }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        env:
+        {{- if .Values.global.deployment.podTimezone }}
+        - name: TZ
+          value: {{ .Values.global.deployment.podTimezone | quote }}
+        {{- end }}
+        - name: ASPNETCORE_URLS
+          value: "http://+:8080"
+        - name: Logging__LogLevel__Default
+          value: {{ $cfg.logging.default | quote }}
+        - name: Logging__LogLevel__Microsoft_AspNetCore
+          value: {{ $cfg.logging.aspNetCore | quote }}
+
+        # Messaging transport selector (EventHub | SQS | PubSub)
+        - name: MessagingProvider
+          value: {{ $cfg.messaging.provider | quote }}
+
+        # Redis (distributed locks / dedup)
+        - name: Redis__Hostname
+          {{- if eq $cfg.redisSettings.type "internal" }}
+          value: {{ printf "%s.%s.svc.cluster.local." $cacheName .Release.Namespace | quote }}
+          {{- else }}
+          value: {{ $cfg.redisSettings.hostname | quote }}
+          {{- end }}
+        - name: Redis__Port
+          value: {{ $cfg.redisSettings.port | quote }}
+        - name: Redis__AuthMode
+          {{- if eq $cfg.redisSettings.type "internal" }}
+          value: "Basic"
+          {{- else }}
+          value: {{ $cloudAuthMode | quote }}
+          {{- end }}
+        {{- if eq $cfg.redisSettings.type "internal" }}
+        - name: Redis__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+              key: TwilioMessaging_RedisCache_Password
+        {{- else }}
+        {{- if eq $cloudAuthMode "Basic" }}
+        - name: Redis__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: TwilioMessaging_Redis_Password
+        {{- end }}
+        {{- with $cfg.redisSettings.user }}
+        - name: Redis__User
+          value: {{ . | quote }}
+        {{- end }}
+        - name: Redis__UseTls
+          value: {{ $cfg.redisSettings.useTls | quote }}
+        {{- with $cfg.redisSettings.region }}
+        - name: Redis__Region
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with $cfg.redisSettings.cacheName }}
+        - name: Redis__CacheName
+          value: {{ . | quote }}
+        {{- end }}
+        - name: Redis__IsServerless
+          value: {{ $cfg.redisSettings.isServerless | quote }}
+        {{- end }}
+
+        # PostgreSQL durable store (twilio_messaging). AuthMode is derived from
+        # secretsManagement.provider: kubernetes/csi -> Basic (password from the shared
+        # Secret); sdk -> managed identity (Azure / AWS / GCP) by deployment platform.
+        - name: Postgres__AuthMode
+          value: {{ $cloudAuthMode | quote }}
+        - name: Postgres__Database
+          value: {{ $cfg.postgres.database | quote }}
+        - name: Postgres__SslMode
+          value: {{ $cfg.postgres.sslMode | quote }}
+        - name: Postgres__Port
+          value: {{ $cfg.postgres.port | quote }}
+        - name: Postgres__MaxPoolSize
+          value: {{ $cfg.postgres.maxPoolSize | quote }}
+        - name: Postgres__MinPoolSize
+          value: {{ $cfg.postgres.minPoolSize | quote }}
+        - name: Postgres__Host
+          {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+          value: "127.0.0.1"
+          {{- else if $cfg.postgres.reuseOperational }}
+          value: {{ .Values.databases.operational.server_host | quote }}
+          {{- else }}
+          value: {{ $cfg.postgres.host | quote }}
+          {{- end }}
+        - name: Postgres__Username
+          {{- if $cfg.postgres.reuseOperational }}
+          value: {{ .Values.databases.operational.server_username | quote }}
+          {{- else }}
+          value: {{ $cfg.postgres.username | quote }}
+          {{- end }}
+        {{- if eq $cloudAuthMode "Basic" }}
+        - name: Postgres__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              {{- if $cfg.postgres.reuseOperational }}
+              key: Operations_Database_Server_Password
+              {{- else }}
+              key: TwilioMessaging_Postgres_Password
+              {{- end }}
+        {{- end }}
+        {{- if eq $cloudAuthMode "AWS" }}
+        - name: Rds__Region
+          value: {{ $cfg.rds.region | quote }}
+        {{- end }}
+
+        {{- if eq $cfg.messaging.provider "EventHub" }}
+        # Event Hubs + checkpoint blob auth via Azure Workload Identity (DefaultAzureCredential),
+        # wired by cloudIdentity - independent of secretsManagement.provider.
+        - name: EventHubs__FullyQualifiedNamespace
+          value: {{ $cfg.eventHubs.fullyQualifiedNamespace | quote }}
+        - name: EventHubs__InputHub__Name
+          value: {{ $cfg.eventHubs.inputHub.name | quote }}
+        - name: EventHubs__InputHub__ConsumerGroup
+          value: {{ $cfg.eventHubs.inputHub.consumerGroup | quote }}
+        - name: EventHubs__OutputHub__Name
+          value: {{ $cfg.eventHubs.outputHub.name | quote }}
+        - name: EventHubs__OutputInternalHub__Name
+          value: {{ $cfg.eventHubs.outputInternalHub.name | quote }}
+        - name: EventHubs__OutputInternalHub__DeliveryStatusConsumerGroup
+          value: {{ $cfg.eventHubs.outputInternalHub.deliveryStatusConsumerGroup | quote }}
+        - name: EventHubs__OutputInternalHub__LinkClickConsumerGroup
+          value: {{ $cfg.eventHubs.outputInternalHub.linkClickConsumerGroup | quote }}
+        - name: EventHubs__OutputInternalHub__InboundMessageConsumerGroup
+          value: {{ $cfg.eventHubs.outputInternalHub.inboundMessageConsumerGroup | quote }}
+        - name: EventHubs__Checkpointing__BlobServiceUri
+          value: {{ $cfg.eventHubs.checkpointing.blobServiceUri | quote }}
+        - name: EventHubs__Checkpointing__BlobContainerName
+          value: {{ $cfg.eventHubs.checkpointing.blobContainerName | quote }}
+        {{- end }}
+
+        {{- if eq $cfg.messaging.provider "SQS" }}
+        # SQS / SNS (auth via AWS IRSA / Pod Identity)
+        - name: Sqs__Region
+          value: {{ $cfg.sqs.region | quote }}
+        - name: Sqs__InputQueueUrl
+          value: {{ $cfg.sqs.inputQueueUrl | quote }}
+        - name: Sqs__OutputTopicArn
+          value: {{ $cfg.sqs.outputTopicArn | quote }}
+        - name: Sqs__OutputInternalTopicArn
+          value: {{ $cfg.sqs.outputInternalTopicArn | quote }}
+        - name: Sqs__OutputDeliveryStatusQueueUrl
+          value: {{ $cfg.sqs.outputDeliveryStatusQueueUrl | quote }}
+        - name: Sqs__OutputLinkClickQueueUrl
+          value: {{ $cfg.sqs.outputLinkClickQueueUrl | quote }}
+        - name: Sqs__OutputInboundMessageQueueUrl
+          value: {{ $cfg.sqs.outputInboundMessageQueueUrl | quote }}
+        {{- end }}
+
+        {{- if eq $cfg.messaging.provider "PubSub" }}
+        # GCP Pub/Sub (auth via GCP Workload Identity)
+        - name: PubSub__ProjectId
+          value: {{ $cfg.pubsub.projectId | quote }}
+        - name: PubSub__InputTopicId
+          value: {{ $cfg.pubsub.inputTopicId | quote }}
+        - name: PubSub__InputSubscriptionId
+          value: {{ $cfg.pubsub.inputSubscriptionId | quote }}
+        - name: PubSub__OutputTopicId
+          value: {{ $cfg.pubsub.outputTopicId | quote }}
+        - name: PubSub__OutputInternalTopicId
+          value: {{ $cfg.pubsub.outputInternalTopicId | quote }}
+        - name: PubSub__OutputDeliveryStatusSubscriptionId
+          value: {{ $cfg.pubsub.outputDeliveryStatusSubscriptionId | quote }}
+        - name: PubSub__OutputLinkClickSubscriptionId
+          value: {{ $cfg.pubsub.outputLinkClickSubscriptionId | quote }}
+        - name: PubSub__OutputInboundMessageSubscriptionId
+          value: {{ $cfg.pubsub.outputInboundMessageSubscriptionId | quote }}
+        {{- end }}
+
+        # Twilio account (auth token from the shared Secret)
+        - name: Twilio__Client__AccountSid
+          value: {{ $cfg.accountSid | quote }}
+        - name: Twilio__Client__IsTestCredentials
+          value: {{ $cfg.isTestCredentials | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Twilio__Client__AuthToken
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: TwilioMessaging_AuthToken
+        {{- end }}
+
+        # Batch ingestion / completion (shared FileOutputDirectory PVC)
+        - name: BatchIngestion__WatchDirectory
+          value: {{ $cfg.batchIngestion.watchDirectory | quote }}
+        - name: BatchIngestion__ProcessingDirectory
+          value: {{ $cfg.batchIngestion.processingDirectory | quote }}
+        - name: BatchIngestion__CompleteDirectory
+          value: {{ $cfg.batchIngestion.completeDirectory | quote }}
+        - name: BatchIngestion__FailedBatchDirectory
+          value: {{ $cfg.batchIngestion.failedBatchDirectory | quote }}
+        - name: BatchIngestion__PollIntervalSeconds
+          value: {{ $cfg.batchIngestion.pollIntervalSeconds | quote }}
+        - name: BatchIngestion__LockTtlMinutes
+          value: {{ $cfg.batchIngestion.lockTtlMinutes | quote }}
+        - name: BatchCompletion__PollIntervalSeconds
+          value: {{ $cfg.batchCompletion.pollIntervalSeconds | quote }}
+        - name: BatchCompletion__CompletionThresholdHours
+          value: {{ $cfg.batchCompletion.completionThresholdHours | quote }}
+        - name: BatchCompletion__ParallelMergeDegree
+          value: {{ $cfg.batchCompletion.parallelMergeDegree | quote }}
+        {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
+        ports:
+        - containerPort: 8080
+          name: web-port
+          protocol: TCP
+        {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
+        volumeMounts:
+          - name: fileoutputdirectory
+            mountPath: {{ .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
+          {{- include "rpi.customCACerts.volumeMount" . | nindent 10 }}
+          {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 10 }}
+        {{- else }}
+        {{- $caMount := include "rpi.customCACerts.volumeMount" . | trim }}
+        {{- $gMount := include "rpi.cloudidentity.googleVolumeMounts" . | trim }}
+        {{- if or $caMount $gMount }}
+        volumeMounts:
+          {{- with $caMount }}{{- . | nindent 10 }}{{- end }}
+          {{- with $gMount }}{{- . | nindent 10 }}{{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.resources.enabled }}
+        resources:
+          {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
+          limits:
+            {{- with $cfg.resources.limits.cpu }}
+            cpu: {{ . }}
+            {{- end }}
+            {{- with $cfg.resources.limits.memory }}
+            memory: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if and $cfg.resources.requests (ne $cfg.resources.requests.enabled false) }}
+          requests:
+            {{- with $cfg.resources.requests.cpu }}
+            cpu: {{ . }}
+            {{- end }}
+            {{- with $cfg.resources.requests.memory }}
+            memory: {{ . }}
+            {{- end }}
+        {{- end }}
+        {{- end }}
+      volumes:
+        {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
+        - name: fileoutputdirectory
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.persistentVolumeClaims.FileOutputDirectory.claimName }}
+        {{- end }}
+        {{- include "rpi.customCACerts.volume" . | nindent 8 }}
+        {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
+      {{- if .Values.nodeSelector.enabled }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - effect: NoSchedule
+          key: {{ .Values.nodeSelector.key }}
+          operator: Equal
+          value: {{ .Values.nodeSelector.value }}
+      {{- end }}
+{{- end }}
+
+{{- if $cfg.enabled }}
+{{- if eq $cfg.redisSettings.type "internal" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cacheName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $cacheName "component" "cache") | nindent 4 }}
+  {{- $svcAnnotations := include "rpi.mergedAnnotations" (dict "root" . "type" "service") | trim }}
+  {{- if $svcAnnotations }}
+  annotations:
+    {{- $svcAnnotations | nindent 4 }}
+  {{- end }}
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: {{ $cacheName }}
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $cacheName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $cacheName "component" "cache") | nindent 4 }}
+    app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+    {{- with $cfg.customLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  serviceName: {{ $cacheName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $cacheName }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $cacheName "component" "cache") | nindent 8 }}
+        app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+        {{- with $cfg.customLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: ["{{ $name }}"]
+                topologyKey: "kubernetes.io/hostname"
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: {{ $name }}
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $name }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: {{ $cacheName }}
+          image: {{ include "rpi.image" (dict "root" . "name" "rpi-redis") }}
+          imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            limits:
+              cpu: {{ $cfg.redisSettings.resources.limits.cpu | quote }}
+              memory: {{ $cfg.redisSettings.resources.limits.memory | quote }}
+            requests:
+              cpu: {{ $cfg.redisSettings.resources.requests.cpu | quote }}
+              memory: {{ $cfg.redisSettings.resources.requests.memory | quote }}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                  key: TwilioMessaging_RedisCache_Password
+          command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+          volumeMounts:
+            - name: {{ $cacheName }}-data
+              mountPath: /data
+      volumes:
+        {{- if not $cfg.redisSettings.volumeClaimTemplates.enabled }}
+        - name: {{ $cacheName }}-data
+          emptyDir: {}
+        {{- end }}
+  {{- if $cfg.redisSettings.volumeClaimTemplates.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ $cacheName }}-data
+      spec:
+        accessModes:
+          - {{ $cfg.redisSettings.volumeClaimTemplates.accessModes | quote }}
+        resources:
+          requests:
+            storage: {{ $cfg.redisSettings.volumeClaimTemplates.size | quote }}
+        storageClassName: {{ $cfg.redisSettings.volumeClaimTemplates.storageClassName | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

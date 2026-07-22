@@ -1,10 +1,8 @@
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
-{{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
 {{- $rbCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "rebrandly")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $QueueReadercacheName := "rpi-queuereader-cache" -}}
-{{- $ExecutioncacheName := "rpi-executionservice-cache" -}}
 
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
 {{- if eq $qrCfg.internalCache.provider "redis" }}
@@ -257,26 +255,6 @@ spec:
           requests:
             storage: {{ $qrCfg.internalCache.redisSettings.volumeClaimTemplates.storage | quote }}
   {{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-
----
-{{- if $execCfg.enabled }}
-{{- if eq $execCfg.internalCache.type "internal" }}
-{{- if $execCfg.internalCache.redisSettings.podDisruptionBudget.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ $ExecutioncacheName }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $ExecutioncacheName "component" "cache") | nindent 4 }}
-spec:
-  maxUnavailable: {{ $execCfg.internalCache.redisSettings.podDisruptionBudget.maxUnavailable }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: {{ $ExecutioncacheName }}
 {{- end }}
 {{- end }}
 {{- end }}

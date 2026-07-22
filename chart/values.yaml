@@ -686,14 +686,8 @@ executionservice:
   # Internal cache for execution state
   internalCache:
     enabled: true
-    # Supported: default, filesystem, azureblob
+    # Supported: filesystem, azureblob
     provider: filesystem
-    # Redis settings (when provider=default or for state caching)
-    redisSettings:
-      # internal: chart-managed Redis | external: BYO Redis
-      type: internal
-      # Required if type=external
-      connectionString: "my-redis-host:6379,password=<your-password>,abortConnect=False"
     # Azure Blob settings (when provider=azureblob)
     azureStorageSettings:
       accountName: my_storage_account_name
@@ -802,6 +796,75 @@ rebrandly:
     port: 6379
 
 # ==========================
+# Twilio Messaging (opt-in)
+# ==========================
+# Outbound/inbound SMS via Twilio. Requires PostgreSQL (SQL Server is not supported).
+# No secrets are set here: the Twilio auth token and the Basic-mode PostgreSQL
+# password come from the shared RPI Secret (kubernetes/csi) or the cloud vault (sdk);
+# the internal Redis password is auto-generated into rpi-internal-services.
+twiliomessaging:
+  enabled: false
+  replicas: 1
+  # Messaging transport: EventHub | SQS | PubSub
+  messaging:
+    provider: EventHub
+  # Redis (distributed locks / dedup).
+  # Auth follows the same rule as PostgreSQL: kubernetes/csi authenticate with the access key /
+  # password from the shared Secret (TwilioMessaging_Redis_Password); sdk authenticates with the
+  # cloud's managed identity (Azure / AWS / GCP by platform, via cloudIdentity) - no key.
+  redisSettings:
+    # internal: chart-managed Redis, password auto-generated into rpi-internal-services (nothing to set).
+    # external: BYO cloud Redis (Azure Cache, ElastiCache, Memorystore) - supply the endpoint below.
+    type: internal
+    # External BYO Redis (only when type=external):
+    # hostname: my-redis.redis.cache.windows.net
+    # useTls: true
+    #   AWS ElastiCache under sdk (IAM) additionally requires:
+    # region: us-east-1
+    # cacheName: my-elasticache
+    # user: my-iam-user            # AWS IAM user id (or the Basic username under kubernetes/csi)
+    # isServerless: false          # AWS serverless cache
+  # PostgreSQL durable store (hard requirement; database twilio_messaging).
+  # Auth follows secretsManagement.provider: kubernetes/csi authenticate with a password
+  # from the shared Secret (TwilioMessaging_Postgres_Password, or the operational DB
+  # password when reuseOperational=true); sdk authenticates with cloud managed identity
+  # (Azure / AWS / GCP by global.deployment.platform) - no password.
+  postgres:
+    # reuse databases.operational when it is postgresql (same server, separate
+    # twilio_messaging database). Set false to point Twilio at its own PostgreSQL
+    # (required when databases.operational is SQL Server, and for sdk deployments).
+    reuseOperational: true
+    database: twilio_messaging
+    sslMode: Require
+    # Required when reuseOperational=false (operational DB is SQL Server, or sdk mode).
+    # Render fails if these are missing while reuseOperational=false:
+    # host: my-postgres-host
+    # username: twilio_app
+  # Twilio account. The auth token is a secret (shared Secret key TwilioMessaging_AuthToken).
+  accountSid: ""
+  # true only when the account SID/auth token are Twilio TEST credentials
+  isTestCredentials: false
+  # Event Hubs (messaging.provider=EventHub). Auth to Event Hubs + the checkpoint blob is Azure
+  # Workload Identity, wired by cloudIdentity (cloudIdentity.enabled + cloudIdentity.azure.*) -
+  # independent of secretsManagement.provider.
+  eventHubs:
+    fullyQualifiedNamespace: my-ehns.servicebus.windows.net
+    checkpointing:
+      blobServiceUri: https://mystorage.blob.core.windows.net
+  # SQS/SNS (messaging.provider=SQS; auth via AWS IRSA / Pod Identity)
+  sqs:
+    region: us-east-1
+    inputQueueUrl: ""
+    outputTopicArn: ""
+    outputInternalTopicArn: ""
+    outputDeliveryStatusQueueUrl: ""
+    outputLinkClickQueueUrl: ""
+    outputInboundMessageQueueUrl: ""
+  # Pub/Sub (messaging.provider=PubSub; auth via GCP Workload Identity)
+  pubsub:
+    projectId: ""
+
+# ==========================
 # Diagnostics Mode
 # ==========================
 diagnosticsMode:
@@ -896,6 +959,7 @@ ingress:
     rabbitmqconsole: rpi-rabbitmq-console
     smartactivation: rpi-smartActivation
     observability: rpi-observability            # only used when observability.enabled=true
+    twiliomessaging: rpi-twiliomessaging        # only used when twiliomessaging.enabled=true
 
 # ==========================
 # Network Policy

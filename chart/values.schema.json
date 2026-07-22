@@ -1164,29 +1164,9 @@
               "type": "string",
               "description": "Cache provider type",
               "enum": [
-                "default",
                 "filesystem",
                 "azureblob"
               ]
-            },
-            "redisSettings": {
-              "type": "object",
-              "description": "Redis settings for state caching",
-              "additionalProperties": true,
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "description": "Redis deployment type: internal (chart-managed) or external (BYO)",
-                  "enum": [
-                    "internal",
-                    "external"
-                  ]
-                },
-                "connectionString": {
-                  "type": "string",
-                  "description": "Redis connection string (required if type=external)"
-                }
-              }
             },
             "azureStorageSettings": {
               "type": "object",
@@ -1493,6 +1473,124 @@
               "description": "Redis port"
             }
           }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "description": "CPU and memory resource requests and limits"
+        }
+      }
+    },
+    "twiliomessaging": {
+      "type": "object",
+      "description": "Twilio Messaging service (opt-in) - outbound/inbound SMS. Requires PostgreSQL.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable the Twilio Messaging service"
+        },
+        "replicas": {
+          "type": "integer",
+          "description": "Number of Twilio Messaging pod replicas",
+          "minimum": 0
+        },
+        "messaging": {
+          "type": "object",
+          "description": "Messaging transport selector",
+          "additionalProperties": true,
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "Active messaging transport",
+              "enum": [
+                "EventHub",
+                "SQS",
+                "PubSub"
+              ]
+            }
+          }
+        },
+        "redisSettings": {
+          "type": "object",
+          "description": "Redis (distributed locks / dedup). internal = chart-managed; external = BYO.",
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Redis deployment type: internal (chart-managed) or external (BYO)",
+              "enum": [
+                "internal",
+                "external"
+              ]
+            },
+            "hostname": {
+              "type": "string",
+              "description": "External Redis hostname (required when type=external)"
+            },
+            "port": {
+              "type": "integer",
+              "description": "Redis port"
+            },
+            "useTls": {
+              "type": "boolean",
+              "description": "Connect to external Redis over TLS (default true for cloud Redis)"
+            },
+            "user": {
+              "type": "string",
+              "description": "External Redis user (AWS ElastiCache IAM user id under sdk, or the Basic username under kubernetes/csi)"
+            },
+            "region": {
+              "type": "string",
+              "description": "AWS region of the cache (required for external Redis on AWS under sdk - ElastiCache IAM)"
+            },
+            "cacheName": {
+              "type": "string",
+              "description": "AWS ElastiCache replication-group / serverless cache name the IAM token is signed against (required for external Redis on AWS under sdk)"
+            },
+            "isServerless": {
+              "type": "boolean",
+              "description": "AWS ElastiCache serverless cache (only consulted for external Redis on AWS under sdk)"
+            }
+          }
+        },
+        "postgres": {
+          "type": "object",
+          "description": "PostgreSQL durable store (twilio_messaging database). Twilio does not support SQL Server.",
+          "additionalProperties": true,
+          "properties": {
+            "reuseOperational": {
+              "type": "boolean",
+              "description": "Reuse databases.operational when it is postgresql (same server, separate twilio_messaging database). Must be false when databases.operational is SQL Server or when secretsManagement.provider is sdk. Auth mode is derived from secretsManagement.provider (kubernetes/csi = password Basic; sdk = managed identity by platform), not set here."
+            },
+            "host": {
+              "type": "string",
+              "description": "PostgreSQL host (when reuseOperational=false)"
+            },
+            "port": {
+              "type": "integer",
+              "description": "PostgreSQL port"
+            },
+            "database": {
+              "type": "string",
+              "description": "PostgreSQL database name"
+            },
+            "username": {
+              "type": "string",
+              "description": "PostgreSQL username (when reuseOperational=false)"
+            },
+            "sslMode": {
+              "type": "string",
+              "description": "PostgreSQL SSL mode"
+            }
+          }
+        },
+        "accountSid": {
+          "type": "string",
+          "description": "Twilio Account SID. The auth token is a secret (shared Secret key TwilioMessaging_AuthToken)."
+        },
+        "isTestCredentials": {
+          "type": "boolean",
+          "description": "True only when the account SID/auth token are Twilio TEST credentials"
         },
         "resources": {
           "$ref": "#/definitions/resources",
