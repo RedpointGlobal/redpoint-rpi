@@ -392,6 +392,14 @@
           "description": "SDK settings \u2014 app reads from cloud vault directly (provider: sdk)",
           "additionalProperties": true,
           "properties": {
+            "useForAppSettings": {
+              "type": "boolean",
+              "description": "Read app settings (including the database connection) from the cloud vault. Keep true in SDK mode (all clouds)."
+            },
+            "useForConfigPasswords": {
+              "type": "boolean",
+              "description": "Store RPI config passwords in the cloud vault. Set false to keep them in the operational database instead (some vaults reject empty secret values)."
+            },
             "azure": {
               "type": "object",
               "description": "Azure Key Vault SDK settings",

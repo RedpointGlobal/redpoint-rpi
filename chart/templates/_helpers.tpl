@@ -703,6 +703,9 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 */}}
 {{- define "rpi.secrets.sdk.envvars" -}}
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
+{{- $sdk := .Values.secretsManagement.sdk | default dict -}}
+{{- $useForAppSettings := ternary $sdk.useForAppSettings true (hasKey $sdk "useForAppSettings") -}}
+{{- $useForConfigPasswords := ternary $sdk.useForConfigPasswords true (hasKey $sdk "useForConfigPasswords") -}}
 {{- if eq .Values.global.deployment.platform "azure" }}
 - name: CloudIdentity__Azure__CredentialType
   value: "AzureIdentity"
@@ -711,9 +714,9 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 - name: KeyVault__Provider
   value: "Azure"
 - name: KeyVault__UseForAppSettings
-  value: "true"
+  value: {{ $useForAppSettings | quote }}
 - name: KeyVault__UseForConfigPasswords
-  value: "true"
+  value: {{ $useForConfigPasswords | quote }}
 - name: KeyVault__AzureSettings__VaultURI
   value: {{ .Values.secretsManagement.sdk.azure.vaultUri | quote }}
 - name: KeyVault__AzureSettings__AppSettingsVaultURI
@@ -724,16 +727,16 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 - name: KeyVault__Provider
   value: "Google"
 - name: KeyVault__UseForAppSettings
-  value: "true"
+  value: {{ $useForAppSettings | quote }}
 - name: KeyVault__UseForConfigPasswords
-  value: "true"
+  value: {{ $useForConfigPasswords | quote }}
 {{- else if eq .Values.global.deployment.platform "amazon" }}
 - name: KeyVault__Provider
   value: "Amazon"
 - name: KeyVault__UseForAppSettings
-  value: {{ .Values.secretsManagement.sdk.amazon.useForAppSettings | default "true" | quote }}
+  value: {{ $useForAppSettings | quote }}
 - name: KeyVault__UseForConfigPasswords
-  value: {{ .Values.secretsManagement.sdk.amazon.useForConfigPasswords | default "true" | quote }}
+  value: {{ $useForConfigPasswords | quote }}
 - name: KeyVault__AmazonSettings__AppSettingsTag
   value: {{ .Values.secretsManagement.sdk.amazon.secretTagKey | quote }}
 - name: AWS_REGION

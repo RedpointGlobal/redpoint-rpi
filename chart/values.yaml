@@ -330,6 +330,14 @@ secretsManagement:
   # SDK - App reads from cloud vault directly (provider: sdk)
   # --------------------------------------------------------
   sdk:
+    # Whether the app reads settings/credentials from the cloud vault (both
+    # default true, all clouds). Keep useForAppSettings true so the app reads
+    # its settings, including the database connection, from the vault. Set
+    # useForConfigPasswords to false to keep RPI config passwords in the
+    # operational database instead of the vault (some vaults reject empty
+    # secret values, which can fail provisioning when a credential is unset).
+    useForAppSettings: true
+    useForConfigPasswords: true
     azure:
       vaultUri: https://myvault.vault.azure.net/
       configurationReloadIntervalSeconds: 30

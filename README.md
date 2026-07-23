@@ -25,6 +25,7 @@ This chart deploys RPI on Kubernetes using Helm.
 | [Single Sign-On](docs/single-sign-on.md) | Microsoft Entra ID, Okta, Keycloak |
 | [Ingress](docs/ingress.md) | Chart-managed nginx, BYO controller, AWS ALB, Azure AGC |
 | [Storage](docs/storage.md) | Static and dynamic provisioning - EFS, Azure Files, Filestore |
+| [Google Cloud SQL (IAM)](docs/google-cloud-sql-iam.md) | PostgreSQL with passwordless IAM auth via the Cloud SQL Auth Proxy - keyless Workload Identity, required cloudsqlsuperuser grant |
 | [RPI Helm CLI](docs/readme-cli.md) | Pre-flight checks, secrets generation, deployment, troubleshooting |
 | [Custom Plugins](docs/plugins.md) | Realtime API plugins: decision, event, form, visitor profile, geolocation |
 | [RPI Observability](docs/observability.md) | Operational intelligence over RPI - incident analysis, live platform UI, lifecycle email/Teams notifications, AI providers |
