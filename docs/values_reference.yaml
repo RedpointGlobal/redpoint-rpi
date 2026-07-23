@@ -2466,8 +2466,25 @@ twiliomessaging:
   enabled: false
   eventHubs:
     checkpointing:
+      blobContainerName: sms-send-checkpoints
       blobServiceUri: 'https://mystorage.blob.core.windows.net'
     fullyQualifiedNamespace: my-ehns.servicebus.windows.net
+    inputHub:
+      consumerGroup: twilio-message-input-send
+      name: twilio-messaging-input
+    outputHub:
+      name: twilio-messaging-output
+    outputInternalHub:
+      deliveryStatusConsumerGroup: twilio-messaging-output-internal-delivery-status
+      inboundMessageConsumerGroup: twilio-messaging-output-internal-inbound-reply
+      linkClickConsumerGroup: twilio-messaging-output-internal-link-click
+      name: twilio-messaging-output-internal
+  # Public ingress exposure for the Twilio service.
+  ingress:
+    # Path prefixes exposed publicly (Twilio webhooks only, signature-validated). All other
+    # routes stay cluster-internal. Empty = nothing exposed publicly.
+    publicPaths:
+    - /api/v1/webhook
   # True only when the account SID/auth token are Twilio TEST credentials
   isTestCredentials: false
   # Messaging transport selector

@@ -182,18 +182,22 @@ Bulk send files are read from the shared File Output Directory PVC. Enable it (`
 
 ---
 
-## Ingress
+## Ingress (webhook paths only)
 
-When enabled, the service is published on its own host so Twilio can reach the webhook endpoints:
+Only the Twilio **webhook** paths are exposed publicly - these are secured by Twilio signature validation. The send, status, and messaging-service routes are **never** published; they remain reachable only inside the cluster through the `ClusterIP` Service. This is enforced by path-scoping the ingress rule (not by exposing the whole host).
 
 ```yaml
 ingress:
   domain: example.com
   hosts:
     twiliomessaging: rpi-twiliomessaging   # -> rpi-twiliomessaging.example.com
+twiliomessaging:
+  ingress:
+    publicPaths:
+      - /api/v1/webhook        # covers /status, /inbound, /link-click; default
 ```
 
-> The route publishes the whole host. The webhook routes (`/api/v1/webhook/*`) are the intended public surface; if you need to keep the unauthenticated send/status routes off the public internet, restrict them with an ingress path allow-list or a source-range annotation in your overrides.
+`publicPaths` is the complete public surface for the host: every listed prefix routes to the Twilio Service, and any other path on that host returns 404 at the ingress. Add the version-less alias (`/api/webhook`) if Twilio is pointed at it. Set `publicPaths: []` to expose nothing publicly (fully cluster-internal). Because the Service is `ClusterIP`, in-cluster callers still reach every route directly via `rpi-twiliomessaging.<namespace>.svc`.
 
 ---
 

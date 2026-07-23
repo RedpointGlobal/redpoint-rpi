@@ -779,6 +779,9 @@ serviceAccount:
   enabled: true
 service:
   port: 80
+ingress:
+  publicPaths:
+    - /api/v1/webhook
 messaging:
   provider: EventHub
 redisSettings:

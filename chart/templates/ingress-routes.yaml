@@ -165,17 +165,21 @@ spec:
               port:
                 number: {{ (.Values.observability.service | default dict).apiPort | default 8080 }}
     {{- end }}
-    {{- if $tmCfg.enabled }}
+    {{- if and $tmCfg.enabled $tmCfg.ingress.publicPaths }}
+    # Only the Twilio webhook paths are exposed publicly (signature-validated by the app).
+    # Send / status / messaging-service routes stay cluster-internal via the ClusterIP Service.
     - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.twiliomessaging "domain" $ingCfg.domain) }}
       http:
         paths:
-        - path: /
+        {{- range $tmCfg.ingress.publicPaths }}
+        - path: {{ . }}
           pathType: Prefix
           backend:
             service:
               name: rpi-twiliomessaging
               port:
                 number: {{ $tmCfg.service.port }}
+        {{- end }}
     {{- end }}
 
 ---

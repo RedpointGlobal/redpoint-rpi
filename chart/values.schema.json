@@ -1494,6 +1494,20 @@
           "description": "Number of Twilio Messaging pod replicas",
           "minimum": 0
         },
+        "ingress": {
+          "type": "object",
+          "description": "Public ingress exposure for the Twilio service.",
+          "additionalProperties": true,
+          "properties": {
+            "publicPaths": {
+              "type": "array",
+              "description": "Path prefixes exposed publicly (Twilio webhooks only, signature-validated). All other routes stay cluster-internal. Empty = nothing exposed publicly.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "messaging": {
           "type": "object",
           "description": "Messaging transport selector",

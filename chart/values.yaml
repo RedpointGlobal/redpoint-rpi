@@ -805,6 +805,13 @@ rebrandly:
 twiliomessaging:
   enabled: false
   replicas: 1
+  # Public ingress is restricted to the Twilio webhook paths only (secured by Twilio
+  # signature validation). Send / status / messaging-service routes are never exposed;
+  # they stay reachable only inside the cluster via the ClusterIP Service. Set to an empty
+  # list to expose nothing publicly (fully cluster-internal).
+  ingress:
+    publicPaths:
+      - /api/v1/webhook
   # Messaging transport: EventHub | SQS | PubSub
   messaging:
     provider: EventHub
@@ -847,10 +854,24 @@ twiliomessaging:
   # Event Hubs (messaging.provider=EventHub). Auth to Event Hubs + the checkpoint blob is Azure
   # Workload Identity, wired by cloudIdentity (cloudIdentity.enabled + cloudIdentity.azure.*) -
   # independent of secretsManagement.provider.
+  # The hub names, consumer groups, and checkpoint container below MUST match the entities you
+  # provision in the namespace (the SDK does not create them). Defaults are the twilio-messaging-*
+  # names; override to match your Event Hubs namespace.
   eventHubs:
     fullyQualifiedNamespace: my-ehns.servicebus.windows.net
+    inputHub:
+      name: twilio-messaging-input
+      consumerGroup: twilio-message-input-send
+    outputHub:
+      name: twilio-messaging-output
+    outputInternalHub:
+      name: twilio-messaging-output-internal
+      deliveryStatusConsumerGroup: twilio-messaging-output-internal-delivery-status
+      linkClickConsumerGroup: twilio-messaging-output-internal-link-click
+      inboundMessageConsumerGroup: twilio-messaging-output-internal-inbound-reply
     checkpointing:
       blobServiceUri: https://mystorage.blob.core.windows.net
+      blobContainerName: sms-send-checkpoints
   # SQS/SNS (messaging.provider=SQS; auth via AWS IRSA / Pod Identity)
   sqs:
     region: us-east-1
