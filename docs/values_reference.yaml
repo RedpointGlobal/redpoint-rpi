@@ -219,6 +219,12 @@ secretsManagement:
     google:
       # Google Cloud project ID for Secret Manager
       projectId: ''
+    # Read app settings (including the database connection) from the cloud vault. Keep true in
+    # SDK mode (all clouds).
+    useForAppSettings: false
+    # Store RPI config passwords in the cloud vault. Set false to keep them in the operational
+    # database instead (some vaults reject empty secret values).
+    useForConfigPasswords: false
 
 # Pod-to-cloud authentication. Required for sdk and csi secrets modes. Authentication
 # mechanism derived from global.deployment.platform.
@@ -338,7 +344,7 @@ ingress:
   # TLS certificate source: kubernetes (K8s Secret) or acm (AWS Certificate Manager)
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
-  className: qa-d9a0b5
+  className: qa-f87668
   # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
@@ -1981,6 +1987,10 @@ redpointAI:
     SearchKey: ''
   # Enable Redpoint AI features
   enabled: false
+  # RedpointAI logging settings
+  logging:
+    # Verbose NLP request/response tracing for diagnostics (default false)
+    enableTrace: false
   # Model storage settings
   modelStorage:
     # Blob folder name for models
@@ -1989,8 +1999,6 @@ redpointAI:
     ContainerName: my_blob_container_name
     # Embeddings model name
     EmbeddingsModel: text-embedding-ada-002
-    # Enable verbose NLP request/response tracing for diagnostics (default false)
-    EnableTrace: false
     # Model embedding dimensions
     ModelDimensions: 1536
     # Azure Storage connection string for models

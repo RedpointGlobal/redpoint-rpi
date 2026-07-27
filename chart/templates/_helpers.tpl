@@ -705,7 +705,8 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
 {{- $sdk := .Values.secretsManagement.sdk | default dict -}}
 {{- $useForAppSettings := ternary $sdk.useForAppSettings true (hasKey $sdk "useForAppSettings") -}}
-{{- $useForConfigPasswords := ternary $sdk.useForConfigPasswords true (hasKey $sdk "useForConfigPasswords") -}}
+{{- $configPwDefault := ternary false true (eq .Values.global.deployment.platform "google") -}}
+{{- $useForConfigPasswords := ternary $sdk.useForConfigPasswords $configPwDefault (hasKey $sdk "useForConfigPasswords") -}}
 {{- if eq .Values.global.deployment.platform "azure" }}
 - name: CloudIdentity__Azure__CredentialType
   value: "AzureIdentity"

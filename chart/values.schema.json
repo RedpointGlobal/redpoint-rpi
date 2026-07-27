@@ -2063,7 +2063,7 @@
     "redpointAI": {
       "type": "object",
       "description": "Redpoint AI configuration for natural language, cognitive search, and model storage",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -2072,7 +2072,7 @@
         "naturalLanguage": {
           "type": "object",
           "description": "Natural language AI settings (OpenAI / Azure OpenAI)",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "properties": {
             "ApiKey": {
               "type": "string",
@@ -2096,10 +2096,21 @@
             }
           }
         },
+        "logging": {
+          "type": "object",
+          "description": "RedpointAI logging settings",
+          "additionalProperties": false,
+          "properties": {
+            "enableTrace": {
+              "type": "boolean",
+              "description": "Verbose NLP request/response tracing for diagnostics (default false)"
+            }
+          }
+        },
         "cognitiveSearch": {
           "type": "object",
           "description": "Azure Cognitive Search settings",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "properties": {
             "SearchEndpoint": {
               "type": "string",
@@ -2114,7 +2125,7 @@
         "modelStorage": {
           "type": "object",
           "description": "Model storage settings",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "properties": {
             "ConnectionString": {
               "type": "string",
@@ -2135,10 +2146,6 @@
             "BlobFolder": {
               "type": "string",
               "description": "Blob folder name for models"
-            },
-            "EnableTrace": {
-              "type": "boolean",
-              "description": "Enable verbose NLP request/response tracing for diagnostics (default false)"
             }
           }
         }

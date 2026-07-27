@@ -330,14 +330,13 @@ secretsManagement:
   # SDK - App reads from cloud vault directly (provider: sdk)
   # --------------------------------------------------------
   sdk:
-    # Whether the app reads settings/credentials from the cloud vault (both
-    # default true, all clouds). Keep useForAppSettings true so the app reads
-    # its settings, including the database connection, from the vault. Set
-    # useForConfigPasswords to false to keep RPI config passwords in the
-    # operational database instead of the vault (some vaults reject empty
-    # secret values, which can fail provisioning when a credential is unset).
-    useForAppSettings: true
-    useForConfigPasswords: true
+    # Cloud-vault behavior in SDK mode. Both are overridable on any cloud:
+    #   useForAppSettings - read app settings (incl. the database connection)
+    #     from the vault. Default true; keep true in SDK mode.
+    #   useForConfigPasswords - store RPI config passwords in the vault.
+    #     Default true on azure/amazon; false on google (Google Secret Manager
+    #     rejects empty secret values, so an unset credential fails
+    #     provisioning) - on google they are kept in the operational database.
     azure:
       vaultUri: https://myvault.vault.azure.net/
       configurationReloadIntervalSeconds: 30
@@ -1143,8 +1142,9 @@ redpointAI:
     ModelDimensions: 1536
     ContainerName: my_blob_container_name
     BlobFolder: my_blob_container_folder_name
+  logging:
     # Verbose NLP request/response tracing for diagnostics. Off by default.
-    EnableTrace: false
+    enableTrace: false
 
 # ==========================
 # Smart Activation
