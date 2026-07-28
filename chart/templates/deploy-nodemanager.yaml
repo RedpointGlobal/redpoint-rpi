@@ -1,4 +1,5 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "nodemanager")) -}}
+{{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
 {{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
@@ -163,14 +164,28 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
+      {{- if or (eq (include "rpi.cloudSqlProxy.enabled" .) "true") (eq (include "rpi.telemetry.mode.otel" .) "true") }}
+      initContainers:
+        {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+        {{- end }}
+        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
+        {{- include "rpi.otel.initContainer" . | nindent 8 }}
+        {{- end }}
+      {{- end }}
       containers:
       - env:
+        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
+        {{- include "rpi.otel.envvars.shared" (dict "root" . "svc" "rpi-nodemanager") | nindent 8 }}
+        {{- end }}
         {{- if .Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
         {{- end }}
         - name: RPIExecution__InternalAddress
           value: "http://rpi-nodemanager"
+        - name: RPIExecution__TriggersMaxDaysInactive
+          value: {{ $execCfg.jobExecution.triggersMaxDaysInactive | quote }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
         - name: Logging__Database__LogLevel__Default
@@ -188,7 +203,7 @@ spec:
         - name: RPI__UserManagement__UseExternalUserManagement
           value: 'true'
         - name: RPI__UserManagement__Keycloak__Address
-          value: "http://cdp-keycloak/auth"
+          value: "http://cdp-keycloak/auth/"
         - name: RPI__UserManagement__Keycloak__Realm
           value: redpoint-mercury
         - name: RPI__UserManagement__Keycloak__ClientId
@@ -258,6 +273,10 @@ spec:
           value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
         {{- end }}
         {{- end }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: ODBCINI
+          value: /odbc-config/odbc.ini
+        {{- end }}
         {{- if not $rtCfg.multitenant }}
         - name: RealtimeAPIAddressOverride
           value: "http://rpi-realtimeapi"
@@ -279,7 +298,7 @@ spec:
             secretKeyRef:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
-        {{- end }} 
+        {{- end }}
         {{- if eq .Values.databases.operational.provider "postgresql" }}
         - name: RPI_OperationalDatabaseType
           value: "PostgreSQL"
@@ -322,6 +341,8 @@ spec:
           value: {{ .Values.redpointAI.modelStorage.ContainerName | quote }}
         - name: RPI__NLP__Model__BlobFolder
           value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
+        - name: RPI__NLP__EnableTrace
+          value: {{ .Values.redpointAI.logging.enableTrace | quote }}
         {{- end }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
@@ -332,6 +353,15 @@ spec:
           name: web-port
           protocol: TCP
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+        {{- end }}
         {{- if $cfg.resources.enabled }}
         resources:
           {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
@@ -354,14 +384,22 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
+          {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
+          {{- include "rpi.otel.volumeMount" . | nindent 10 }}
+          {{- end }}
           - name: tempstore
             mountPath: /tmp
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          - name: odbc-config
+            mountPath: /app/odbc-config/odbc2.ini
+            subPath: odbc2.ini
+          - name: odbcini
+            mountPath: /odbc-config
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ .configMapName | quote }}
-            mountPath: {{ .ConfigMapFilePath }}/{{ .keyName }}
-            subPath: {{ .keyName }}
+          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -386,14 +424,23 @@ spec:
           {{- include "rpi.customCACerts.volumeMount" . | nindent 10 }}
           {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 10 }}
       volumes:
+        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
+        {{- include "rpi.otel.volume" . | nindent 8 }}
+        {{- end }}
         - name: tempstore
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: odbc-config
+          configMap:
+            name: odbc-config
+            defaultMode: 0777
+        - name: odbcini
+          emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
         {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ .configMapName | quote }}
+        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
           configMap:
-            name: {{ .configMapName | quote }}
+            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}
