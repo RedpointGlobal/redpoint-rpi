@@ -713,6 +713,22 @@ interactionapi:
   enabled: true
   replicas: 1
   enableRPIAuthentication: true
+  # Native-auth password policy, enforced when users are created or change
+  # their password. The Interaction API is the identity provider; the policy
+  # also applies on the Integration API (both share one user store).
+  passwordPolicy:
+    requiredLength: 6
+    requiredUniqueChars: 1
+    requireDigit: true
+    requireNonAlphanumeric: true
+    requireLowercase: true
+    requireUppercase: true
+  # Account lockout after repeated failed sign-in attempts. Optional: when a
+  # key is unset the application default applies. lockoutTimeSpan is a .NET
+  # TimeSpan, e.g. "00:05:00" for five minutes.
+  accountLockout: {}
+    # maxFailedAccessAttempts: 5
+    # lockoutTimeSpan: "00:05:00"
   autoscaling:
     enabled: false
 
@@ -745,6 +761,15 @@ nodemanager:
 deploymentapi:
   enabled: true
   replicas: 1
+  # OIDC authentication for the Deployment API endpoints. Disabled by default.
+  # When enabled, all four values below are required (the render fails if any
+  # is missing); there are no defaults.
+  authentication:
+    enabled: false
+    # issuer: https://login.example.com/realms/rpi
+    # hostAddress: https://deployment.example.com
+    # audience: rpi-deploymentapi
+    # clientId: rpi-deploymentapi
   # Use exported tenant template files for new tenant creation
   templateTenant:
     useTemplateFiles: false

@@ -697,6 +697,41 @@ Usage: {{- include "rpi.cloudidentity.awsAccessKeyEnvvars" . | nindent 10 }}
 {{- end -}}
 
 {{/*
+RPI native-auth account policy env vars (password policy + account lockout),
+shared by the Interaction and Integration APIs (one user store, one policy;
+the Interaction API is the identity provider). Password-policy defaults
+mirror the application's own; lockout settings emit only when set, so the
+application defaults apply otherwise. Operators override under
+interactionapi.passwordPolicy / interactionapi.accountLockout.
+Usage: {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
+*/}}
+{{- define "rpi.auth.accountPolicy.envvars" -}}
+{{- $ia := .Values.interactionapi | default dict -}}
+{{- $pp := $ia.passwordPolicy | default dict -}}
+{{- $lo := $ia.accountLockout | default dict -}}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequiredLength
+  value: {{ ternary $pp.requiredLength 6 (hasKey $pp "requiredLength") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequiredUniqueChars
+  value: {{ ternary $pp.requiredUniqueChars 1 (hasKey $pp "requiredUniqueChars") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireDigit
+  value: {{ ternary $pp.requireDigit true (hasKey $pp "requireDigit") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireNonAlphanumeric
+  value: {{ ternary $pp.requireNonAlphanumeric true (hasKey $pp "requireNonAlphanumeric") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireLowercase
+  value: {{ ternary $pp.requireLowercase true (hasKey $pp "requireLowercase") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireUppercase
+  value: {{ ternary $pp.requireUppercase true (hasKey $pp "requireUppercase") | quote }}
+{{- if hasKey $lo "maxFailedAccessAttempts" }}
+- name: Authentication__RPIAuthentication__MaxFailedAccessAttempts
+  value: {{ $lo.maxFailedAccessAttempts | quote }}
+{{- end }}
+{{- if hasKey $lo "lockoutTimeSpan" }}
+- name: Authentication__RPIAuthentication__LockoutTimeSpan
+  value: {{ $lo.lockoutTimeSpan | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
 SDK vault env vars. Only when secretsManagement.provider == "sdk".
 Configures the app to read secrets from the cloud vault at runtime.
 Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}

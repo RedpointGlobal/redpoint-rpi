@@ -159,6 +159,19 @@ spec:
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
         {{- end }}
+        {{- $auth := $cfg.authentication | default dict }}
+        {{- if $auth.enabled }}
+        - name: Authentication__Enabled
+          value: "true"
+        - name: Authentication__Issuer
+          value: {{ required "deploymentapi.authentication.issuer is required when deploymentapi.authentication.enabled=true" $auth.issuer | quote }}
+        - name: Authentication__HostAddress
+          value: {{ required "deploymentapi.authentication.hostAddress is required when deploymentapi.authentication.enabled=true" $auth.hostAddress | quote }}
+        - name: Authentication__Audience
+          value: {{ required "deploymentapi.authentication.audience is required when deploymentapi.authentication.enabled=true" $auth.audience | quote }}
+        - name: Authentication__ClientId
+          value: {{ required "deploymentapi.authentication.clientId is required when deploymentapi.authentication.enabled=true" $auth.clientId | quote }}
+        {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
         - name: Logging__Database__LogLevel__Default

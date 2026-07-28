@@ -619,4 +619,3 @@ spec:
           value: {{ .Values.nodeSelector.value }}
       {{- end }}
 {{- end }}
-

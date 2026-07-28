@@ -251,6 +251,7 @@ spec:
         - name: Authentication__RPIAuthentication__EnableTransportSecurityRequirement
           value: "false"
         {{- end }}
+        {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
         - name: EnableSwagger
           value: {{ $cfg.enableSwagger | quote }}
         {{- with (include "rpi.secrets.sdk.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}

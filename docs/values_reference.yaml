@@ -750,6 +750,14 @@ databaseUpgrade:
 
 # Interaction API service configuration — main API for client/UI interactions
 interactionapi:
+  # Account lockout after repeated failed sign-in attempts (deployment-wide; the Integration
+  # API shares the same user store). Keys are optional; unset keys use the application
+  # defaults.
+  accountLockout:
+    # Failed sign-in attempts before the account is locked (no chart default)
+    maxFailedAccessAttempts: null
+    # Lockout duration as a .NET TimeSpan, e.g. 00:05:00 (no chart default)
+    lockoutTimeSpan: ''
   allowSavingLoginDetails: true
   alwaysShowClientsAtLogin: true
   authMetaHttpEnabled: true
@@ -775,6 +783,21 @@ interactionapi:
     default: Error
     rpiError: Error
     rpiTrace: Error
+  # Native-auth password policy enforced when users are created or change their password
+  # (deployment-wide; the Integration API shares the same user store)
+  passwordPolicy:
+    # Require at least one digit (default true)
+    requireDigit: true
+    # Require at least one lowercase letter (default true)
+    requireLowercase: true
+    # Require at least one non-alphanumeric character (default true)
+    requireNonAlphanumeric: true
+    # Require at least one uppercase letter (default true)
+    requireUppercase: true
+    # Minimum password length (default 6)
+    requiredLength: 6
+    # Minimum number of distinct characters (default 1)
+    requiredUniqueChars: 1
   podAnnotations: {}
   podDisruptionBudget:
     enabled: false
@@ -1614,6 +1637,19 @@ callbackapi:
 
 # Deployment API service configuration — manages tenant provisioning and database upgrades
 deploymentapi:
+  # OIDC authentication for the Deployment API endpoints (Deployment API only)
+  authentication:
+    # Enable OIDC authentication (default false). When true, issuer, hostAddress, audience,
+    # and clientId are all required.
+    enabled: false
+    # OIDC token issuer (required when enabled; no default)
+    issuer: ''
+    # Host address the Deployment API is reached on (required when enabled; no default)
+    hostAddress: ''
+    # Expected token audience (required when enabled; no default)
+    audience: ''
+    # OIDC client ID (required when enabled; no default)
+    clientId: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false

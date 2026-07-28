@@ -1225,6 +1225,52 @@
           "description": "Number of Interaction API pod replicas",
           "minimum": 0
         },
+        "accountLockout": {
+          "type": "object",
+          "description": "Account lockout after repeated failed sign-in attempts (deployment-wide; the Integration API shares the same user store). Keys are optional; unset keys use the application defaults.",
+          "additionalProperties": false,
+          "properties": {
+            "maxFailedAccessAttempts": {
+              "type": "integer",
+              "description": "Failed sign-in attempts before the account is locked (no chart default)"
+            },
+            "lockoutTimeSpan": {
+              "type": "string",
+              "description": "Lockout duration as a .NET TimeSpan, e.g. 00:05:00 (no chart default)"
+            }
+          }
+        },
+        "passwordPolicy": {
+          "type": "object",
+          "description": "Native-auth password policy enforced when users are created or change their password (deployment-wide; the Integration API shares the same user store)",
+          "additionalProperties": false,
+          "properties": {
+            "requiredLength": {
+              "type": "integer",
+              "description": "Minimum password length (default 6)"
+            },
+            "requiredUniqueChars": {
+              "type": "integer",
+              "description": "Minimum number of distinct characters (default 1)"
+            },
+            "requireDigit": {
+              "type": "boolean",
+              "description": "Require at least one digit (default true)"
+            },
+            "requireNonAlphanumeric": {
+              "type": "boolean",
+              "description": "Require at least one non-alphanumeric character (default true)"
+            },
+            "requireLowercase": {
+              "type": "boolean",
+              "description": "Require at least one lowercase letter (default true)"
+            },
+            "requireUppercase": {
+              "type": "boolean",
+              "description": "Require at least one uppercase letter (default true)"
+            }
+          }
+        },
         "enableRPIAuthentication": {
           "type": "boolean",
           "description": "Enable RPI authentication for this service"
@@ -1308,6 +1354,33 @@
       "description": "Deployment API service configuration \u2014 manages tenant provisioning and database upgrades",
       "additionalProperties": true,
       "properties": {
+        "authentication": {
+          "type": "object",
+          "description": "OIDC authentication for the Deployment API endpoints (Deployment API only)",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable OIDC authentication (default false). When true, issuer, hostAddress, audience, and clientId are all required."
+            },
+            "issuer": {
+              "type": "string",
+              "description": "OIDC token issuer (required when enabled; no default)"
+            },
+            "hostAddress": {
+              "type": "string",
+              "description": "Host address the Deployment API is reached on (required when enabled; no default)"
+            },
+            "audience": {
+              "type": "string",
+              "description": "Expected token audience (required when enabled; no default)"
+            },
+            "clientId": {
+              "type": "string",
+              "description": "OIDC client ID (required when enabled; no default)"
+            }
+          }
+        },
         "enabled": {
           "type": "boolean",
           "description": "Enable the Deployment API service"
