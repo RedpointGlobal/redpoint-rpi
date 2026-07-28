@@ -1,4 +1,8 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "nodemanager")) -}}
+{{- /* Trigger housekeeping runs on Node Manager but its inactivity threshold is
+       configured once, under executionservice.jobExecution - resolve that same
+       merged value so the two services can never disagree. */ -}}
+{{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
 {{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
@@ -183,6 +187,8 @@ spec:
         {{- end }}
         - name: RPIExecution__InternalAddress
           value: "http://rpi-nodemanager"
+        - name: RPIExecution__TriggersMaxDaysInactive
+          value: {{ $execCfg.jobExecution.triggersMaxDaysInactive | quote }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
         - name: Logging__Database__LogLevel__Default
