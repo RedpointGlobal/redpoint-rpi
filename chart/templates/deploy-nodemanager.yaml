@@ -1,7 +1,4 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "nodemanager")) -}}
-{{- /* Trigger housekeeping runs on Node Manager but its inactivity threshold is
-       configured once, under executionservice.jobExecution - resolve that same
-       merged value so the two services can never disagree. */ -}}
 {{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
