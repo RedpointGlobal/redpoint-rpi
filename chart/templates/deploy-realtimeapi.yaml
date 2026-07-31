@@ -961,8 +961,23 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Key
             value: "Password"
           {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if eq $cfg.queueProvider.provider "rabbitmq" }}
+          {{- if eq $cfg.queueProvider.rabbitmq.type "internal" }}
+          {{- /* The internal broker's password is chart-generated into rpi-internal-services
+               (the same Secret RABBITMQ_DEFAULT_PASS reads) in EVERY secrets mode - it is
+               never customer material. Only an external broker's credential comes from the
+               shared Secret (k8s/csi) or the vault (sdk). */}}
+          - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Value
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                key: RealtimeAPI_RabbitMQ_Password
+          - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Value
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                key: RealtimeAPI_RabbitMQ_Password
+          {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Value
             valueFrom:
               secretKeyRef:
@@ -975,9 +990,9 @@ spec:
                 key: RealtimeAPI_RabbitMQ_Password
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "redis" }}
-          {{- if  $cfg.cacheProvider.enabled }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          {{- if and (eq $cfg.cacheProvider.provider "redis") $cfg.cacheProvider.enabled }}
+          {{- $redisType := $cfg.cacheProvider.redis.redisSettings.type | default "internal" }}
+          {{- if or (eq $redisType "internal") (not (eq .Values.secretsManagement.provider "sdk")) }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
             value: {{ $cfg.cacheProvider.provider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
@@ -987,17 +1002,20 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key
             value: "IPAddress"
           {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.cacheProvider.provider "redis" }}
-          {{- if  $cfg.cacheProvider.enabled }}
+          {{- if eq $redisType "internal" }}
+          {{- /* The internal cache's connection string (host + chart-generated password) is
+               chart-wired from rpi-internal-services in EVERY secrets mode. */}}
+          - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                key: RealtimeAPI_RedisCache_ConnectionString
+          {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: RealtimeAPI_RedisCache_ConnectionString
-          {{- end }}
           {{- end }}
           {{- end }}
           {{- if eq $cfg.cacheProvider.provider "azureredis" }}
@@ -1490,15 +1508,7 @@ spec:
           ports:
             - containerPort: 6379
               name: redis
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "$(REDIS_PASSWORD)"]
-          {{- end }}
-          {{- if eq .Values.secretsManagement.provider "sdk" }}
-          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-          {{- end }}
-          {{- if eq .Values.secretsManagement.provider "sdk" }}
-          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-          {{- end }}
           env:
           - name: REDIS_PASSWORD
             valueFrom:
@@ -1539,12 +1549,7 @@ spec:
           {{- end }}
           readinessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
               {{- if eq .Values.secretsManagement.provider "sdk" }}
               command: ["sh", "-c", "redis-cli ping | grep PONG"]
               {{- end }}
@@ -1554,12 +1559,7 @@ spec:
             failureThreshold: 6
           livenessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
               {{- if eq .Values.secretsManagement.provider "sdk" }}
               command: ["sh", "-c", "redis-cli ping | grep PONG"]
               {{- end }}

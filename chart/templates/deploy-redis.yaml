@@ -57,9 +57,7 @@ data:
     # Networking / timeouts
     bind 0.0.0.0
     port 6379
-    {{- if not (eq .Values.secretsManagement.provider "sdk") }}
     protected-mode yes
-    {{- end }}
     timeout 300
     tcp-keepalive 60
     tcp-backlog 511
@@ -164,12 +162,7 @@ spec:
           ports:
             - containerPort: 6379
               name: redis
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "$(REDIS_PASSWORD)"]
-          {{- end }}
-          {{- if eq .Values.secretsManagement.provider "sdk" }}
-          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-          {{- end }}
           env:
           - name: REDIS_PASSWORD
             valueFrom:
@@ -204,24 +197,14 @@ spec:
           {{- end }}
           readinessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 6
           livenessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 3

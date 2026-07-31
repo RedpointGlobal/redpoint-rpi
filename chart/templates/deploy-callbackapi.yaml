@@ -431,7 +431,13 @@ spec:
           value: "Password"
         {{- end }}
         {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
+        - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+              key: RealtimeAPI_RabbitMQ_Password
+        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
           valueFrom:
             secretKeyRef:
