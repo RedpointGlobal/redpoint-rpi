@@ -555,31 +555,10 @@ spec:
           - name: RealtimeAPIConfiguration__IdentitySettings__CALMergeExclusions__{{ $i }}
             value: {{ $v | quote }}
           {{- end }}
-          {{- if eq .Values.global.deployment.platform "azure" }}
-          - name: RealtimeAPIConfiguration__Queues__FormQueuePath
-            value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.eventsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__CacheOutputQueuePath
-            value: {{ $cfg.queueProvider.queueNames.cacheOutputQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__RecommendationsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.recommendationsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
-            value: {{ $cfg.queueProvider.queueNames.listenerQueuePath | quote }}
-          {{- end }}
-          {{- if eq .Values.global.deployment.platform "amazon" }}
-          - name: RealtimeAPIConfiguration__Queues__FormQueuePath
-            value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.eventsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__CacheOutputQueuePath
-            value: {{ $cfg.queueProvider.queueNames.cacheOutputQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__RecommendationsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.recommendationsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
-            value: {{ $cfg.queueProvider.queueNames.listenerQueuePath | quote }}
-          {{- end }}
-          {{- if eq .Values.global.deployment.platform "google" }}
+          {{- /* Google Pub/Sub addresses queues as topic/subscription pairs; every other
+               provider takes the queue name verbatim. The format follows the QUEUE
+               PROVIDER, not the platform - rabbitmq on GKE uses plain names. */}}
+          {{- if eq $cfg.queueProvider.provider "googlepubsub" }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath
             value: "{{ $cfg.queueProvider.queueNames.formQueuePath }}/{{ $cfg.queueProvider.queueNames.formQueuePath }}"
           - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
@@ -590,8 +569,7 @@ spec:
             value: "{{ $cfg.queueProvider.queueNames.recommendationsQueuePath }}/{{ $cfg.queueProvider.queueNames.recommendationsQueuePath }}"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
             value: "{{ $cfg.queueProvider.queueNames.listenerQueuePath }}/{{ $cfg.queueProvider.queueNames.listenerQueuePath }}"
-          {{- end }}
-          {{- if eq .Values.global.deployment.platform "selfhosted" }}
+          {{- else }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath
             value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}
           - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
