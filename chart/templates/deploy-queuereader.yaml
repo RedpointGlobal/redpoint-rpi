@@ -190,8 +190,6 @@ spec:
         - name: Plugins__Rebrandly__BaseUrl
           value: "http://rpi-rebrandly"
         {{- end }}
-        - name: Plugins__LuxSci__SendRequestCount
-          value: {{ $cfgExec.jobExecution.luxScisendRequestCount | quote }}
         {{- if .Values.OpenIdProviders.enabled }}
         {{- if eq .Values.OpenIdProviders.name "keycloak" }}
         - name: RPI__UserManagement__UseExternalUserManagement
@@ -277,10 +275,7 @@ spec:
           value: "http://rpi-interactionapi"
         - name: RPI__ServiceHostPortNumber
           value: {{ $iaCfg.service.port | quote }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if eq .Values.global.deployment.platform "azure" }}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
         - name: GOOGLE_APPLICATION_CREDENTIALS
@@ -360,8 +355,6 @@ spec:
         {{- if $cfg.realtimeConfiguration.isDistributed }}
         - name: InternalCache__IsEnabled
           value: "true"
-        - name: InternalCache__BackupToOpsDBInterval
-          value: {{ $cfg.internalCache.backupToOpsDBInterval | quote }}
         - name: InternalCache__Provider
           value: "Redis"
         {{- end }}

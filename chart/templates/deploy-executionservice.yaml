@@ -232,14 +232,10 @@ spec:
           value: "true"
         - name: InternalCache__StatePersistence__Provider
           value: "FileSystem"
-        - name: InternalCache__BackupToOpsDBInterval
-          value: {{ $cfg.internalCache.backupToOpsDBInterval | quote }}
         - name: InternalCache__MaxNumberRetries
           value: {{ $cfg.internalCache.maxNumberRetries | quote }}
         - name: InternalCache__MaxRetryDelay
           value: {{ $cfg.internalCache.maxRetryDelay | quote }}
-        - name: InternalCache__FailOnPrimaryDataLoss
-          value: {{ $cfg.internalCache.failOnPrimaryDataLoss | quote }}
         - name: InternalCache__FailOnCacheConnectionError
           value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
         {{- end }}
@@ -323,8 +319,12 @@ spec:
         - name: RPI__Diagnostics__UseDotNetTools__UseGcDump
           value: {{ $diag.dotNetTools.useGcDump | quote }}
         {{- end }}
-        - name: Plugins__LuxSci__SendRequestCount
-          value: {{ $cfg.jobExecution.luxScisendRequestCount | quote }}
+        - name: Plugins__LuxSci__MaxConcurrentApiRequestsPerAccount
+          value: {{ $cfg.jobExecution.luxSci.maxConcurrentApiRequestsPerAccount | quote }}
+        - name: Plugins__LuxSci__MaxDegreeOfParallelism
+          value: {{ $cfg.jobExecution.luxSci.maxDegreeOfParallelism | quote }}
+        - name: Plugins__LuxSci__NumberOfDaysToBacktrack
+          value: {{ $cfg.jobExecution.luxSci.numberOfDaysToBacktrack | quote }}
         - name: RPIExecution__InternalAddress
           value: "http://rpi-executionservice"
         - name: RPIExecution__AuditTaskEvents
@@ -371,6 +371,7 @@ spec:
         - name: RealtimeAPIAddressOverride
           value: "http://rpi-realtimeapi"
         {{- end }}
+        {{- with (include "rpi.realtime.clientOverrides" . | trim) }}{{- . | nindent 8 }}{{- end }}
         - name: Authentication__EnableRPIAuthentication
           value: {{ $cfg.enableRPIAuthentication | quote }}
         - name: RPI__SMTP__EmailSenderAddress
@@ -412,10 +413,7 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.redpointAI.enabled }}
         - name: RPI__NLP__ApiBase
           value: {{ .Values.redpointAI.naturalLanguage.ApiBase | quote }} 

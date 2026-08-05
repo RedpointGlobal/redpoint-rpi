@@ -131,6 +131,11 @@ databases:
   operational:
     # Supported: sqlserver, postgresql, sqlserveronvm
     provider: sqlserver
+    # Cloud SQL for PostgreSQL authenticated via GKE Workload Identity
+    # (Application Default Credentials) instead of username/password.
+    # Requires provider=postgresql, platform=google, and cloudIdentity
+    # enabled; not combinable with cloudSqlProxy.
+    googleWorkloadIdentity: false
     server_host: <my-database-server-host>
     server_username: <my-database-server-username>
     server_password: <my-database-server-password>
@@ -514,6 +519,14 @@ realtimeapi:
   enabled: true
   replicas: 1
   rpiClientID: 00000000-0000-0000-0000-000000000000
+  # Per-client Realtime API address overrides (multitenant only; requires
+  # realtimeapi.multitenant=true). Each entry routes one client (tenant) to a
+  # specific Realtime API base address; clients not listed use the
+  # cluster-wide address.
+  clientAddressOverrides: []
+  # clientAddressOverrides:
+  #   - clientId: 00000000-0000-0000-0000-000000000000
+  #     address: https://realtime-eu.example.com
   authentication:
     # Supported: basic, oauth
     type: basic

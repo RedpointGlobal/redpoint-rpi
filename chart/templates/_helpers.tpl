@@ -1841,3 +1841,59 @@ pipeline; traces stay off (no spans, no spanmetrics).
   mountPath: /otel-auto
 {{- end -}}
 
+
+{{/*
+Operational database type consumed by the RPI services. SQL Server is the
+product default and emits nothing. PostgreSQL emits PostgreSQL, or
+GoogleCloudSQLPostgreSQL when databases.operational.googleWorkloadIdentity
+selects Cloud SQL authentication via GKE Workload Identity (Application
+Default Credentials). The Workload Identity path requires platform=google,
+cloudIdentity enabled, and no Cloud SQL Auth Proxy: the proxy and native
+ADC authentication are alternative ways to reach the same instance.
+*/}}
+{{- define "rpi.operationalDatabaseType.envvar" -}}
+{{- $db := .Values.databases.operational -}}
+{{- $wi := default false $db.googleWorkloadIdentity -}}
+{{- if $wi -}}
+{{- if ne $db.provider "postgresql" -}}
+{{- fail "databases.operational.googleWorkloadIdentity requires databases.operational.provider=postgresql" -}}
+{{- end -}}
+{{- if ne .Values.global.deployment.platform "google" -}}
+{{- fail "databases.operational.googleWorkloadIdentity requires global.deployment.platform=google" -}}
+{{- end -}}
+{{- if not .Values.cloudIdentity.enabled -}}
+{{- fail "databases.operational.googleWorkloadIdentity requires cloudIdentity.enabled=true (the pods authenticate with Application Default Credentials)" -}}
+{{- end -}}
+{{- if ($db.cloudSqlProxy).enabled -}}
+{{- fail "databases.operational.googleWorkloadIdentity cannot be combined with databases.operational.cloudSqlProxy.enabled - use the proxy or native Workload Identity authentication, not both" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $db.provider "postgresql" }}
+- name: RPI__OperationalDatabaseType
+  value: {{ $wi | ternary "GoogleCloudSQLPostgreSQL" "PostgreSQL" | quote }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Per-client Realtime API address overrides (RealtimeAPIClientOverrides__<n>__*),
+consumed by the Interaction API and Execution Service. Each entry routes one
+client (tenant) GUID to a specific Realtime API base address. Only meaningful
+when multiple Realtime API instances exist, so emission requires
+realtimeapi.multitenant=true; a populated list on a single-tenant deployment
+fails at render rather than being silently ignored. Empty list emits nothing.
+*/}}
+{{- define "rpi.realtime.clientOverrides" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $overrides := default (list) .Values.realtimeapi.clientAddressOverrides -}}
+{{- if and $overrides (not $rtCfg.multitenant) -}}
+{{- fail "realtimeapi.clientAddressOverrides requires realtimeapi.multitenant=true - per-client addresses only apply when multiple Realtime API instances exist" -}}
+{{- end -}}
+{{- if $rtCfg.multitenant -}}
+{{- range $i, $o := $overrides }}
+- name: RealtimeAPIClientOverrides__{{ $i }}__ClientID
+  value: {{ required "realtimeapi.clientAddressOverrides entries require clientId" $o.clientId | quote }}
+- name: RealtimeAPIClientOverrides__{{ $i }}__Address
+  value: {{ required "realtimeapi.clientAddressOverrides entries require address" $o.address | quote }}
+{{- end }}
+{{- end -}}
+{{- end -}}

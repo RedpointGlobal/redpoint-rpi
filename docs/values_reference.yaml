@@ -130,6 +130,10 @@ databases:
       port: null
     # Enable TLS encryption for database connections
     encrypt: true
+    # Authenticate to Cloud SQL for PostgreSQL via GKE Workload Identity (Application Default
+    # Credentials). Requires provider=postgresql, global.deployment.platform=google, and
+    # cloudIdentity.enabled=true; cannot be combined with cloudSqlProxy.enabled.
+    googleWorkloadIdentity: false
     # Database provider type
     provider: sqlserver
     # Name of the Pulse operational database
@@ -344,7 +348,7 @@ ingress:
   # TLS certificate source: kubernetes (K8s Secret) or acm (AWS Certificate Manager)
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
-  className: qa-f87668
+  className: qa-d9a0b5
   # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
@@ -774,7 +778,6 @@ interactionapi:
     prometheus_scrape: false
   # Enable RPI authentication for this service
   enableRPIAuthentication: true
-  enableSwagger: true
   # Enable the Interaction API service
   enabled: true
   logging:
@@ -977,11 +980,9 @@ executionservice:
       containerName: rpi
       # Use cloud identity for authentication
       useCloudIdentity: false
-    backupToOpsDBInterval: '00:00:20'
     # Enable internal cache
     enabled: true
     failOnCacheConnectionError: true
-    failOnPrimaryDataLoss: true
     maxNumberRetries: '100'
     maxRetryDelay: '00:01:00'
     # Cache provider type
@@ -991,7 +992,10 @@ executionservice:
     defaultMaintenanceModeBufferTime: '00:05:00'
     executionShutdownWaitForActivity: '00:08:00'
     internalAddress: ''
-    luxScisendRequestCount: 5
+    luxSci:
+      maxConcurrentApiRequestsPerAccount: 5
+      maxDegreeOfParallelism: 10
+      numberOfDaysToBacktrack: 30
     maxSmartAssetInstancesForOfferCodes: '100000'
     maxThreadsPerExecutionService: 100
     overrideCustomSQLReservedWords: false
@@ -1106,8 +1110,6 @@ queuereader:
   errorQueuePath: listenerQueueError
   # Internal cache used by the queue reader.
   internalCache:
-    # How often cache state is backed up to the operational DB (e.g., '00:00:20').
-    backupToOpsDBInterval: '00:00:20'
     # Cache provider (e.g., redis).
     provider: redis
     redisSettings:
@@ -1320,6 +1322,10 @@ realtimeapi:
           storage: 50Gi
       # Redis deployment type: internal (chart-managed) or external (BYO)
       type: internal
+  # Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true (only
+  # meaningful with multiple Realtime API instances); render fails if set on a single-tenant
+  # deployment. Clients not listed use the cluster-wide address.
+  clientAddressOverrides: []
   customMetrics:
     enabled: false
     prometheus_scrape: true

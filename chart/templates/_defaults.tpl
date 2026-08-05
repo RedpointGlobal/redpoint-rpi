@@ -427,12 +427,13 @@ jobExecution:
     enabled: true
     maxConcurrentWorkflowActivities: 100
     maximumQueueTime: "24:00:00"
-  luxScisendRequestCount: 5
+  luxSci:
+    maxConcurrentApiRequestsPerAccount: 5
+    maxDegreeOfParallelism: 10
+    numberOfDaysToBacktrack: 30
 internalCache:
-  backupToOpsDBInterval: "00:00:20"
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
-  failOnPrimaryDataLoss: true
   failOnCacheConnectionError: true
 seedService:
   memoryCacheSize: "10"
@@ -488,7 +489,6 @@ rollout:
 serviceAccount:
   enabled: true
 authMetaHttpEnabled: true
-enableSwagger: true
 allowSavingLoginDetails: true
 alwaysShowClientsAtLogin: true
 useExternalUserManagement: false
@@ -662,7 +662,6 @@ seedService:
 realtimeConfiguration:
   isDistributed: true
 internalCache:
-  backupToOpsDBInterval: "00:00:20"
   redisSettings:
     replicas: 1
     resources:

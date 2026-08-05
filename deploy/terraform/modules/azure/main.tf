@@ -90,6 +90,12 @@ resource "azurerm_mssql_database" "pulse_logging" {
 # ----------------------------------------------------------
 # Key Vault (conditional — for SDK or CSI secrets management)
 # ----------------------------------------------------------
+# No network_acls block: this reference module owns no network topology (AKS
+# and its VNet pre-exist; no subnet or operator IP inputs), so a deny-default
+# ACL would break both secret seeding and CSI/SDK access from the cluster.
+# Access control is AAD access policies + purge protection; customers restrict
+# vault networking per their own topology.
+# nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
 resource "azurerm_key_vault" "rpi" {
   count = var.enable_keyvault ? 1 : 0
 

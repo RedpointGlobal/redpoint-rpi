@@ -299,10 +299,7 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.redpointAI.enabled }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiKey

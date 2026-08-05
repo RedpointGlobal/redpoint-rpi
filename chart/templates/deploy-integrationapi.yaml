@@ -355,10 +355,7 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
         - name: RPI__FileOutput__Directory
           value: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}

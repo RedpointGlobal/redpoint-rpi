@@ -126,6 +126,10 @@
                 "sqlserveronvm"
               ]
             },
+            "googleWorkloadIdentity": {
+              "type": "boolean",
+              "description": "Authenticate to Cloud SQL for PostgreSQL via GKE Workload Identity (Application Default Credentials). Requires provider=postgresql, global.deployment.platform=google, and cloudIdentity.enabled=true; cannot be combined with cloudSqlProxy.enabled."
+            },
             "server_host": {
               "type": "string",
               "description": "Database server hostname or IP address"
@@ -593,6 +597,25 @@
         "rpiClientID": {
           "type": "string",
           "description": "RPI Client ID (GUID) for this realtime instance"
+        },
+        "clientAddressOverrides": {
+          "type": "array",
+          "description": "Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true (only meaningful with multiple Realtime API instances); render fails if set on a single-tenant deployment. Clients not listed use the cluster-wide address.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["clientId", "address"],
+            "properties": {
+              "clientId": {
+                "type": "string",
+                "description": "Client (tenant) GUID this override applies to"
+              },
+              "address": {
+                "type": "string",
+                "description": "Realtime API base address for that client"
+              }
+            }
+          }
         },
         "geolocation": {
           "type": "object",
@@ -1452,7 +1475,6 @@
           "properties": {
             "provider": { "type": "string", "description": "Cache provider (e.g., redis)." },
             "type": { "type": "string", "enum": ["internal", "external"], "description": "internal (chart-managed) or external (bring your own)." },
-            "backupToOpsDBInterval": { "type": "string", "description": "How often cache state is backed up to the operational DB (e.g., '00:00:20')." },
             "redisSettings": {
               "type": "object",
               "additionalProperties": true,

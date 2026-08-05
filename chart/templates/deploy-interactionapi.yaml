@@ -350,8 +350,7 @@ spec:
           value: "false"
         {{- end }}
         {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
-        - name: EnableSwagger
-          value: {{ $cfg.enableSwagger | quote }}
+        {{- with (include "rpi.realtime.clientOverrides" . | trim) }}{{- . | nindent 8 }}{{- end }}
         - name: RPI__SMTP__EmailSenderAddress
           value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
         - name: RPI__SMTP__Address
@@ -395,10 +394,7 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.redpointAI.enabled }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiKey

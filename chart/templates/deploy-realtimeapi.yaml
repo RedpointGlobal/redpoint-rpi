@@ -357,10 +357,7 @@ spec:
                 key: ConnectionString_Operations_Database
                 name: {{ include "rpi.secrets.secretName" . | quote }}
           {{- end }}
-          {{- if eq .Values.databases.operational.provider "postgresql" }}
-          - name: RPI_OperationalDatabaseType
-            value: "PostgreSQL"
-          {{- end }}
+          {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 10 }}{{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if eq $cfg.authentication.type "basic" }}
           - name: RealtimeAPIConfiguration__AppSettings__RPIAuthToken
