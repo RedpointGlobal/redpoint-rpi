@@ -2,16 +2,6 @@
 {{- $cfg := .Values.observability | default dict -}}
 {{- if $cfg.enabled -}}
 
-{{- $authCfg := $cfg.auth | default dict -}}
-{{- $authMode := $authCfg.mode | default "public" -}}
-{{- if eq $authMode "native" -}}
-{{- $nativeCfg := $authCfg.native | default dict -}}
-{{- $ingForCheck := fromYaml (include "rpi.merged.ingress" .) -}}
-{{- if and (not $nativeCfg.authorizationHost) (not (($ingForCheck.hosts | default dict).client)) -}}
-{{- fail "auth.mode=native requires either auth.native.authorizationHost OR ingress.hosts.client (used to auto-derive Authentication__RPIAuthentication__AuthorizationHost). Both are unset." -}}
-{{- end -}}
-{{- end -}}
-
 {{- $name := "rpi-observability" -}}
 {{- $service := $cfg.service | default dict -}}
 {{- $resources := $cfg.resources | default dict -}}

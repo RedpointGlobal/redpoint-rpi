@@ -1626,24 +1626,42 @@ observability:
       recipients: []
 
   # ---- Authentication and authorization ---------------------------------
-  # When enabled, the observability service participates in the RPI trust domain:
-  # identity is delegated to whichever IDP RPI is configured against
-  # (native rpi-interactionapi, Microsoft Entra, Keycloak, or Okta);
-  # authorization is resolved through RPI's normalized user/group/
-  # permission model in the operational database. Disabled by default
-  # so existing deployments preserve the legacy unauthenticated path
-  # until the operator explicitly opts in.
-  auth:
-    # Single-provider deployment model. Each deployment resolves to
-    # exactly ONE of:
-    #   public  -- no authentication; UI is fully anonymous
-    #   native  -- RPI native auth (rpi-interactionapi / OpenIddict)
-    #   entra   -- Microsoft Entra ID
-    # Hybrid configurations are rejected at chart-render time.
-    # Switching modes is a deployment-time decision, not a runtime
-    # negotiation. Authentication mode and auth-provider configuration
-    # use the standard RPI Authentication__* env-var contract.
-    mode: public
+  # Two modes:
+  #   Anonymous          -- enabled: false (default). No login, no
+  #                         authentication middleware.
+  #   RPI Authentication -- enabled: true. Observability participates in
+  #                         the authentication model the RPI deployment
+  #                         already uses: the identity provider is
+  #                         whichever one RPI is configured against
+  #                         (MicrosoftEntraID or OpenIdProviders:
+  #                         Okta / Keycloak). There is no Observability-
+  #                         specific identity-provider configuration:
+  #                         enabling authentication never requires
+  #                         re-entering tenant IDs, authority URLs, or
+  #                         provider settings already supplied to RPI.
+  #                         If RPI has no identity provider configured,
+  #                         Observability runs anonymous.
+  #
+  # One identity-provider-side step: add Observability's redirect URI
+  #   https://<observability host>/auth/callback
+  # to the EXISTING RPI client registration (all supported providers
+  # accept multiple redirect URIs on one registration). On Microsoft
+  # Entra, add it under the "Mobile and desktop applications" platform
+  # (Web-platform URIs require a client secret; SPA-platform URIs
+  # cannot be redeemed server-side).
+  #
+  # RPI's provider registrations are public clients, so no secret is
+  # needed. Some organizations register confidential OIDC clients; in
+  # those environments populate the chart's standard RPI Secret key
+  # OIDC_Client_Secret with the registration's EXISTING client secret.
+  # This reuses the organization's existing application registration
+  # rather than creating a second one.
+  #
+  # Authorization stays an Observability concern: capabilities resolve
+  # through RPI's user/group model plus the capabilityMap below,
+  # independent of which identity provider authenticates the user.
+  authentication:
+    enabled: false
 
     # Tenant scope comes from observability.clientId; there is no separate
     # auth-side tenant field.
@@ -1659,40 +1677,12 @@ observability:
     # this many seconds after assignment.
     authorizationCacheTtlSeconds: 60
 
-    # Hostname the observability service is reachable at; used to build the OIDC
-    # redirect URI advertised to the IDP for Entra mode. AUTO-DERIVED
-    # from ingress.hosts.observability + ingress.domain when left empty.
+    # Hostname the observability service is reachable at; used to build
+    # the OIDC redirect URI. AUTO-DERIVED from
+    # ingress.hosts.observability + ingress.domain when left empty.
     # Override only if the observability service is fronted by a different external
     # hostname (custom CNAME, external load balancer, etc.).
     ingressHost: ""
-
-    # ---- Native posture overrides --------------------------------------
-    # Used only when mode=native. Defaults are derived from the
-    # canonical RPI ingress block.
-    native:
-      # AUTO-DERIVED from ingress.hosts.client + ingress.domain (the
-      # rpi-interactionapi public host) when left empty.
-      authorizationHost: ""
-      # Optional separate metadata host (auth-meta endpoints). RPI
-      # services that use a different metadata host set this; most
-      # deployments leave it empty.
-      authMetaHttpHost: ""
-      # The OpenIddict client ID Observability uses. The customer (RPI
-      # platform / DBA / identity admin) pre-registers a confidential
-      # OpenIddict client with this ClientId and populates the chart's
-      # standard RPI Secret (default: redpoint-rpi-secrets) under the
-      # key Observability_NativeAuth_ClientSecret with the matching
-      # ClientSecret.
-      clientId: rpi-observability
-
-    # ---- Entra posture overrides ---------------------------------------
-    # Used only when mode=entra. Defaults to the chart-wide
-    # MicrosoftEntraID block. Override here only if Observability
-    # needs different Entra config than the rest of the RPI deployment.
-    microsoft:
-      tenantId: ""              # default: MicrosoftEntraID.tenant_id
-      clientApplicationId: ""   # default: MicrosoftEntraID.interaction_client_id
-      apiApplicationId: ""      # default: MicrosoftEntraID.interaction_api_id
 
     # Capability map: optional overlay for CUSTOM RPI groups only.
     #

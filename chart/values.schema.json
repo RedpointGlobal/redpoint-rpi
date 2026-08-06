@@ -2628,40 +2628,19 @@
             }
           }
         },
-        "auth": {
+        "authentication": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Authentication for the observability UI/API. Selects a single auth model and authorizes users through RPI's normalized user/group model.",
+          "description": "Two modes. Anonymous (enabled=false, default): no login, no authentication middleware. RPI Authentication (enabled=true): Observability participates in the authentication model the RPI deployment already uses - the identity provider is whichever one RPI is configured against (MicrosoftEntraID, or OpenIdProviders Okta/Keycloak). There is no Observability-specific identity-provider configuration; if RPI has no identity provider, Observability runs anonymous. Authorization stays an Observability concern (RPI user/group model + capabilityMap).",
           "properties": {
-            "mode": {
-              "type": "string",
-              "enum": ["public", "native", "entra"],
-              "description": "Authentication model. public: no authentication (anonymous UI). native: RPI native auth (rpi-interactionapi / OpenIddict). entra: Microsoft Entra ID. Exactly one; hybrid is rejected at chart-render time."
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable RPI Authentication. The identity provider is inherited from the RPI deployment's own configuration; the only provider-side step is adding https://<observability host>/auth/callback as a redirect URI on the existing RPI client registration. Confidential registrations additionally populate the OIDC_Client_Secret key in the chart's standard RPI Secret with the registration's existing secret."
             },
             "cookieSecure":               { "type": "boolean", "description": "Set the Secure attribute on session cookies. Set false only for local development without TLS." },
             "sessionLifetimeSeconds":     { "type": "integer", "minimum": 60, "description": "Session lifetime in seconds. Default 28800 (8 hours)." },
             "authorizationCacheTtlSeconds": { "type": "integer", "minimum": 0, "description": "Per-process authorization cache TTL in seconds. Set 0 to disable. Default 60." },
-            "ingressHost":                { "type": "string", "description": "Hostname the observability service is reached at; used to build the Entra OIDC redirect URI. Auto-derived from ingress.hosts.observability + ingress.domain when empty; override only for custom CNAME / external LB scenarios." },
-            "native": {
-              "type": "object",
-              "additionalProperties": true,
-              "description": "Used only when mode=native. Defaults derive from the RPI ingress block.",
-              "properties": {
-                "authorizationHost": { "type": "string", "description": "rpi-interactionapi public host. Auto-derived from ingress.hosts.client + ingress.domain when empty." },
-                "authMetaHttpHost":  { "type": "string", "description": "Optional separate auth-metadata host; most deployments leave empty." },
-                "clientId":          { "type": "string", "description": "OpenIddict client ID Observability uses. Pre-register a confidential client with this ID and populate Observability_NativeAuth_ClientSecret." }
-              }
-            },
-            "microsoft": {
-              "type": "object",
-              "additionalProperties": true,
-              "description": "Used only when mode=entra. Defaults to the chart-wide MicrosoftEntraID block; override only when Observability needs different Entra config.",
-              "properties": {
-                "tenantId":            { "type": "string" },
-                "clientApplicationId": { "type": "string" },
-                "apiApplicationId":    { "type": "string" }
-              }
-            },
+            "ingressHost":                { "type": "string", "description": "Hostname the observability service is reached at; used to build the OIDC redirect URI. Auto-derived from ingress.hosts.observability + ingress.domain when empty; override only for custom CNAME / external LB scenarios." },
             "capabilityMap": {
               "type": "object",
               "additionalProperties": true,

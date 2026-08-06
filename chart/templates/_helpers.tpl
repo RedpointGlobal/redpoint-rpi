@@ -1320,141 +1320,110 @@ Usage: {{- include "rpi.observability.runtimeEnvvars" . | nindent 8 }}
 
 
 {{/*
-Mode-aware auth env-vars for the observability container.
-observability.auth.mode is the single canonical switch (public |
-native | entra). It is emitted in every mode; the runtime derives
-per-provider activation from this one value.
+Authentication env vars for the observability container. Two modes:
+Anonymous (observability.authentication.enabled=false, the default -
+only OBSERVABILITY__AUTH__ENABLED=false is emitted) and RPI
+Authentication (enabled=true - Observability participates in the
+authentication model the RPI deployment already uses).
 
-Always emitted:
-  OBSERVABILITY__AUTH__MODE                             public | native | entra
+RPI is the source of truth for the identity provider. The provider
+vars are the SAME Authentication__* contract, sourced from the SAME
+chart-wide values blocks, that the RPI services consume - never a
+parallel Observability copy:
 
-Additionally emitted when mode != public:
-  OBSERVABILITY__AUTH__COOKIE_SECURE                    true | false
-  OBSERVABILITY__AUTH__SESSION_LIFETIME_SECONDS         <values>
-  OBSERVABILITY__AUTH__AUTHZ_CACHE_TTL_SECONDS          <values>
-  OBSERVABILITY__AUTH__INGRESS_HOST                     <values>
-  OBSERVABILITY__AUTH__CAPABILITY_MAP                   <JSON-encoded values>
-  Authentication__EnableRPIAuthentication               (native mode only)
-  Authentication__RPIAuthentication__AuthorizationHost  (native mode only)
-  Authentication__Microsoft__Enable                     (entra mode only)
-  Authentication__Microsoft__TenantID                   (entra mode only)
-  Authentication__Microsoft__ClientApplicationID        (entra mode only)
-  Authentication__Microsoft__APIApplicationID           (entra mode only)
+  MicrosoftEntraID enabled     -> Authentication__Microsoft__Enable
+                                  Authentication__Microsoft__TenantID
+                                  Authentication__Microsoft__ClientApplicationID
+                                  Authentication__Microsoft__APIApplicationID
+  OpenIdProviders enabled      -> Authentication__OpenIdProviders__0__Name
+     (Okta | Keycloak)            Authentication__OpenIdProviders__0__AuthorizationHost
+                                  Authentication__OpenIdProviders__0__ClientID
+                                  Authentication__OpenIdProviders__0__MetadataHost (Keycloak)
+  neither                      -> no provider vars; the service runs anonymous
 
-Plus secretKeyRef bindings (all from the chart's standard RPI Secret,
-default name redpoint-rpi-secrets, resolved via rpi.secrets.secretName):
-  Observability_NativeAuth_ClientSecret  (customer-populated; the
-                                          OpenIddict client and its
-                                          secret are provisioned
-                                          externally by the RPI
-                                          platform / DBA / identity
-                                          admin -- Observability does
-                                          NOT create or modify any
-                                          identity records)
-  Observability_OAuth_ClientSecret       (customer-populated; federated
-                                          only)
+Session + authorization vars emitted when enabled:
+  OBSERVABILITY__AUTH__COOKIE_SECURE
+  OBSERVABILITY__AUTH__SESSION_LIFETIME_SECONDS
+  OBSERVABILITY__AUTH__AUTHZ_CACHE_TTL_SECONDS
+  OBSERVABILITY__AUTH__INGRESS_HOST
+  OBSERVABILITY__AUTH__CAPABILITY_MAP
 
-The session signing key is generated on first start and persisted
-on the pod's PVC at /data/session_signing_key -- not in any K8s
-Secret. See app/auth/session.py.
+Secret binding (non-SDK modes; from the chart's standard RPI Secret,
+resolved via rpi.secrets.secretName): OIDC_Client_Secret, bound with
+optional=true. RPI's provider registrations are public clients (the
+OIDC exchange uses PKCE, no secret); organizations whose registration
+is confidential populate the key with the registration's EXISTING
+client secret. In SDK mode the service fetches the same key from the
+cloud vault.
 
-The runtime startup validator (app/auth/native_validator.py) refuses
-to start when native auth is enabled but Observability_NativeAuth_
-ClientSecret is missing from the K8s Secret. The validator does NOT
-read OpenIddictApplications.
+The session signing key is generated on first start and persisted on
+the pod's PVC at /data/session_signing_key - no K8s Secret entry, no
+env var. Rotation: write the existing file to
+/data/session_signing_key.previous and delete
+/data/session_signing_key so a new one is generated.
 
 Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
 */}}
 {{- define "rpi.observability.authEnvvars" -}}
 {{- $cfg := .Values.observability | default dict -}}
-{{- $auth := $cfg.auth | default dict -}}
-{{- $mode := $auth.mode | default "public" -}}
-{{- if not (or (eq $mode "public") (eq $mode "native") (eq $mode "entra")) -}}
-{{- fail (printf "observability.auth.mode must be one of: public | native | entra. Got: %q" $mode) -}}
-{{- end -}}
-- name: OBSERVABILITY__AUTH__MODE
-  value: {{ $mode | quote }}
-{{- if ne $mode "public" -}}
+{{- $authn := $cfg.authentication | default dict -}}
+{{- $enabled := $authn.enabled | default false -}}
+- name: OBSERVABILITY__AUTH__ENABLED
+  value: {{ $enabled | quote }}
+{{- if $enabled -}}
 {{- $secretName := include "rpi.secrets.secretName" . -}}
 {{- $secretsProvider := .Values.secretsManagement.provider | default "kubernetes" -}}
 {{- $isSdk := eq $secretsProvider "sdk" -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
 {{- $observabilityHost := include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.observability "domain" $ingCfg.domain) -}}
-{{- $clientHost := include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.client "domain" $ingCfg.domain) -}}
-{{- $ingressHost := $auth.ingressHost | default $observabilityHost }}
+{{- $ingressHost := $authn.ingressHost | default $observabilityHost }}
 - name: OBSERVABILITY__AUTH__COOKIE_SECURE
-  value: {{ ternary $auth.cookieSecure true (hasKey $auth "cookieSecure") | quote }}
+  value: {{ ternary $authn.cookieSecure true (hasKey $authn "cookieSecure") | quote }}
 - name: OBSERVABILITY__AUTH__SESSION_LIFETIME_SECONDS
-  value: {{ $auth.sessionLifetimeSeconds | default 28800 | quote }}
+  value: {{ $authn.sessionLifetimeSeconds | default 28800 | quote }}
 - name: OBSERVABILITY__AUTH__AUTHZ_CACHE_TTL_SECONDS
-  value: {{ $auth.authorizationCacheTtlSeconds | default 60 | quote }}
+  value: {{ $authn.authorizationCacheTtlSeconds | default 60 | quote }}
 - name: OBSERVABILITY__AUTH__INGRESS_HOST
   value: {{ $ingressHost | quote }}
 - name: OBSERVABILITY__AUTH__CAPABILITY_MAP
-  value: {{ $auth.capabilityMap | default dict | toJson | quote }}
-{{- if eq $mode "native" }}
-{{/* Native = the standard RPI authentication contract (Authentication__*
-     env vars) consumed directly. The OpenIddict client (default
-     ClientId rpi-observability) is pre-registered externally; the
-     observability service reads its secret from the chart's standard
-     RPI Secret (default: redpoint-rpi-secrets). */}}
-{{- $nativeBlock := $auth.native | default dict -}}
-{{- $nativeAuthHost := $nativeBlock.authorizationHost | default (printf "https://%s" $clientHost) -}}
-{{- $nativeMetaHost := $nativeBlock.authMetaHttpHost | default "" -}}
-- name: Authentication__EnableRPIAuthentication
-  value: "true"
-- name: Authentication__RPIAuthentication__AuthorizationHost
-  value: {{ $nativeAuthHost | quote }}
-{{- if $nativeMetaHost }}
-- name: Authentication__RPIAuthentication__AuthMetaHttpHost
-  value: {{ $nativeMetaHost | quote }}
-{{- end }}
-- name: OBSERVABILITY__AUTH__NATIVE__CLIENT_ID
-  value: {{ $nativeBlock.clientId | default "rpi-observability" | quote }}
-{{- if not $isSdk }}
-# Native confidential client secret. Customer pre-registers the
-# OpenIddict client and populates this Secret key. Observability
-# never writes to OpenIddictApplications.
-- name: Observability_NativeAuth_ClientSecret
-  valueFrom:
-    secretKeyRef:
-      name: {{ $secretName | quote }}
-      key: Observability_NativeAuth_ClientSecret
-{{- end }}
-{{- end }}
-{{- if eq $mode "entra" }}
-{{/* Entra = Microsoft Entra ID. The standard chart-wide MicrosoftEntraID
-     block carries the IDs by default; observability.auth.microsoft can
-     override per-deployment. */}}
-{{- $msChartWide := .Values.MicrosoftEntraID | default dict -}}
-{{- $ms := $auth.microsoft | default dict -}}
-{{- $tenantId := $ms.tenantId | default $msChartWide.tenant_id -}}
-{{- $clientAppId := $ms.clientApplicationId | default $msChartWide.interaction_client_id -}}
-{{- $apiAppId := $ms.apiApplicationId | default $msChartWide.interaction_api_id -}}
+  value: {{ $authn.capabilityMap | default dict | toJson | quote }}
+{{- if .Values.MicrosoftEntraID.enabled }}
 - name: Authentication__Microsoft__Enable
   value: "true"
 - name: Authentication__Microsoft__TenantID
-  value: {{ required "observability.auth.microsoft.tenantId (or chart-wide MicrosoftEntraID.tenant_id) is required for Entra mode" $tenantId | quote }}
+  value: {{ .Values.MicrosoftEntraID.tenant_id | quote }}
 - name: Authentication__Microsoft__ClientApplicationID
-  value: {{ required "observability.auth.microsoft.clientApplicationId (or chart-wide MicrosoftEntraID.interaction_client_id) is required for Entra mode" $clientAppId | quote }}
+  value: {{ .Values.MicrosoftEntraID.interaction_client_id | quote }}
 - name: Authentication__Microsoft__APIApplicationID
-  value: {{ required "observability.auth.microsoft.apiApplicationId (or chart-wide MicrosoftEntraID.interaction_api_id) is required for Entra mode" $apiAppId | quote }}
+  value: {{ .Values.MicrosoftEntraID.interaction_api_id | quote }}
+{{- else if .Values.OpenIdProviders.enabled }}
+{{- if eq .Values.OpenIdProviders.name "Okta" }}
+- name: Authentication__OpenIdProviders__0__Name
+  value: "Okta"
+- name: Authentication__OpenIdProviders__0__AuthorizationHost
+  value: {{ .Values.OpenIdProviders.authorizationHost | quote }}
+- name: Authentication__OpenIdProviders__0__ClientID
+  value: {{ .Values.OpenIdProviders.clientID | quote }}
+{{- end }}
+{{- if eq .Values.OpenIdProviders.name "keycloak" }}
+- name: Authentication__OpenIdProviders__0__Name
+  value: "Keycloak"
+- name: Authentication__OpenIdProviders__0__AuthorizationHost
+  value: {{ .Values.OpenIdProviders.authorizationHost | quote }}
+- name: Authentication__OpenIdProviders__0__ClientID
+  value: {{ .Values.OpenIdProviders.clientID | quote }}
+- name: Authentication__OpenIdProviders__0__MetadataHost
+  value: "http://cdp-keycloak/auth/realms/redpoint-mercury"
+{{- end }}
+{{- end }}
 {{- if not $isSdk }}
-# Entra OAuth client secret. Customer-populated in the chart's
-# standard RPI Secret (default: redpoint-rpi-secrets) with the
-# secret value registered with the IDP.
-- name: Observability_OAuth_ClientSecret
+- name: OIDC_Client_Secret
   valueFrom:
     secretKeyRef:
       name: {{ $secretName | quote }}
-      key: Observability_OAuth_ClientSecret
+      key: OIDC_Client_Secret
+      optional: true
 {{- end }}
-{{- end }}
-{{/* Session signing key is generated on first start and persisted on
-     the pod's PVC at /data/session_signing_key. No K8s Secret entry
-     is required and no env var is injected. Rotation: operator writes
-     the existing file to /data/session_signing_key.previous and
-     deletes /data/session_signing_key so a new one is generated. */}}
 {{- end }}
 {{- end -}}
 
