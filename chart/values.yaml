@@ -1325,75 +1325,30 @@ observability:
 
   # ---- Intelligence (AI surface) -----------------------------------------
   # The observability AI features (incident summarization, failure
-  # explanation, RCA) turn on with observability.enabled. intelligence.provider
-  # selects one backend:
+  # explanation, RCA). Disabled by default: every AI-narrated surface
+  # renders its deterministic narrative instead, so the product is fully
+  # usable without AI.
   #
-  #   local         in-cluster inference (default; no external dependency)
-  #   helmAssistant Redpoint-managed AI (no cloud AI infrastructure to run)
-  #   azure         Azure OpenAI / Azure AI Foundry
-  #   aws           Bedrock
+  # When enabled, select exactly one managed cloud AI provider:
   #
-  # Only provider=local runs an in-cluster serving component; the others call
-  # the provider's API directly, using managed identity where Workload
-  # Identity / IRSA is configured (no static keys required).
+  #   azure   Azure AI Foundry / Azure OpenAI
+  #   aws     Amazon Bedrock
+  #
+  # Provider selection is explicit: there is no default and no fallback.
+  # Enabling intelligence without a provider fails `helm template` with a
+  # clear error. Providers call the cloud AI API directly, using managed
+  # identity where Workload Identity / IRSA is configured (no static keys
+  # required).
   intelligence:
-    # Active AI backend. Only provider=local runs an in-cluster serving
-    # component; configure the matching sub-block below.
-    provider: local                          # local | helmAssistant | azure | aws
+    enabled: false
+
+    # REQUIRED when enabled=true. One of: azure | aws. Configure the
+    # matching sub-block below.
+    provider: ""
 
     # Per-inference timeout. When exceeded, the analysis cycle proceeds
-    # without an AI summary. Sized for CPU inference of ~1000-token briefings
-    # on a standard worker with the default local model; lower it on GPU
-    # profiles or smaller workloads.
+    # without an AI summary.
     timeoutSeconds: 240
-
-    # ---- Local (in-cluster serving) ------------------------------------
-    # Consumed only when provider=local. Runs a self-contained model image
-    # (no runtime downloads; deployable in air-gapped clusters). The bundled
-    # model is fixed; switch provider to helmAssistant | azure | aws for a
-    # different model.
-    local:
-      # Default points at the in-cluster Service. Override only if the
-      # operator self-hosts the serving layer elsewhere on the cluster.
-      baseUrl: ""                            # blank = http://rpi-observability-llm.<ns>.svc.cluster.local:8000/v1
-
-      # When enabled, the chart deploys the in-cluster serving layer. Disable
-      # when you self-host it elsewhere - then set local.baseUrl to your endpoint.
-      deployment:
-        enabled: true
-
-        # Container image override. Blank uses the default Redpoint serving
-        # image. Set to an internal-registry mirror; the image must serve the
-        # same bundled model. A different model variant is not supported under
-        # provider=local - switch provider to helmAssistant | azure | aws.
-        image: ""
-        imagePullPolicy: ""                  # blank = global.deployment.images.imagePullPolicy
-
-        # Container resources. Blank requests sensible defaults
-        # sized for the 7B Q4 model on standard worker nodes.
-        resources: {}
-
-        service:
-          port: 8000
-
-        serviceAccount:
-          enabled: true
-          annotations: {}
-
-        # Backend CLI args appended to the image's entrypoint. The
-        # image already wires the essential flags (model path, host,
-        # port, threads, context size). Use this for operator-
-        # specific tuning (KV cache size, sampling parameters, etc.).
-        extraArgs: []
-
-    # ---- helmAssistant (Redpoint-managed AI) ---------------------------
-    # Consumed only when provider=helmAssistant. Redpoint-managed AI: no cloud
-    # AI infrastructure to provision. Populate the Secret key
-    # Observability_HelmAssistant_ApiKey (issued by Redpoint; fetched from the
-    # vault in SDK mode).
-    helmAssistant:
-      # Helm Assistant base URL. Blank = the Redpoint-hosted endpoint.
-      url: ""                                # blank = https://rpi-helm-assistant.redpointcdp.com
 
     # ---- Azure (AI Foundry or Azure OpenAI) -----------------------------
     # Consumed only when provider=azure. Endpoint + deployment are

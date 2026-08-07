@@ -1203,34 +1203,34 @@ true
 {{- end -}}
 
 {{/*
-Intelligence Runtime env vars. Emits the active provider topology
-for the observability service to construct at lifespan start. The
-`provider` selector picks one of: local | helmAssistant | azure | aws.
-Only the active provider's config block is emitted; inactive blocks
-are silent.
+Intelligence env vars. The AI surface is disabled by default; when
+observability.intelligence.enabled=true the administrator must select
+a managed cloud AI provider explicitly (azure | aws) - there is no
+default provider and no fallback. Only the active provider's config
+block is emitted.
 
-The Intelligence Runtime is part of the observability solution, not
-a separate feature -- observability.enabled controls the whole
-solution. Local is the in-cluster runtime served by the
-rpi-observability-llm image; azure/google/aws are cloud
-integrations.
+The observability service owns the AI workflows; provider-specific
+authentication and SDK integration live in the service's provider
+adapters behind a common interface. The chart's job is only to name
+the provider and pass its connection facts.
 
 Usage: {{- include "rpi.observability.intelligenceEnvvars" . | nindent 8 }}
 */}}
 {{- define "rpi.observability.intelligenceEnvvars" -}}
 {{- $cfg := .Values.observability | default dict -}}
 {{- $intel := $cfg.intelligence | default dict -}}
-{{- $provider := lower (default "local" $intel.provider) -}}
-{{- $local := $intel.local | default dict -}}
-{{- $helmAssistant := $intel.helmAssistant | default dict -}}
+{{- $enabled := $intel.enabled | default false -}}
 {{- $azure := $intel.azure | default dict -}}
 {{- $aws := $intel.aws | default dict -}}
 {{- $secret := include "rpi.secrets.secretName" . -}}
 {{- $secretsProvider := .Values.secretsManagement.provider | default "kubernetes" -}}
 {{- $isSdk := eq $secretsProvider "sdk" -}}
-{{- /* Validate the provider selector at chart-render time. */ -}}
-{{- if not (has $provider (list "local" "helmassistant" "azure" "aws")) }}
-{{- fail (printf "observability.intelligence.provider=%q is not one of: local | helmAssistant | azure | aws" $provider) }}
+- name: OBSERVABILITY__INTELLIGENCE__ENABLED
+  value: {{ $enabled | quote }}
+{{- if $enabled }}
+{{- $provider := lower (default "" $intel.provider) -}}
+{{- if not (has $provider (list "azure" "aws")) }}
+{{- fail (printf "observability.intelligence.provider=%q is invalid. observability.intelligence.enabled=true requires an explicit provider: azure | aws. There is no default provider." (default "" $intel.provider)) }}
 {{- end }}
 - name: OBSERVABILITY__INTELLIGENCE__PROVIDER
   value: {{ $provider | quote }}
@@ -1238,38 +1238,7 @@ Usage: {{- include "rpi.observability.intelligenceEnvvars" . | nindent 8 }}
 - name: OBSERVABILITY__INTELLIGENCE__TIMEOUT_SECONDS
   value: {{ $intel.timeoutSeconds | quote }}
 {{- end }}
-{{- if eq $provider "local" }}
-# Local provider (in-cluster serving layer). The model identifier
-# matches what the active rpi-observability-llm image reports via
-# /v1/models. The model is shipped with the image and is not a
-# customer-configurable knob; operators who need a different model
-# switch intelligence.provider to helmAssistant | azure | aws.
-{{- if hasKey $local "model" }}
-{{- fail "observability.intelligence.local.model is not configurable. The model is shipped with the rpi-observability-llm image. To use a different model, set observability.intelligence.provider to helmAssistant | azure | aws and configure that provider's block." }}
-{{- end }}
-{{- if hasKey $local "embeddingsModel" }}
-{{- fail "observability.intelligence.local.embeddingsModel is not configurable. The model is shipped with the rpi-observability-llm image and serves both chat and embeddings. To use a different model, set observability.intelligence.provider to helmAssistant | azure | aws." }}
-{{- end }}
-- name: OBSERVABILITY__INTELLIGENCE__LOCAL__BASE_URL
-  value: {{ $local.baseUrl | default (printf "http://rpi-observability-llm.%s.svc.cluster.local:8000/v1" .Release.Namespace) | quote }}
-- name: OBSERVABILITY__INTELLIGENCE__LOCAL__MODEL
-  value: "Qwen/Qwen2.5-7B-Instruct"
-{{- else if eq $provider "helmassistant" }}
-# Redpoint-managed provider (Helm Assistant). The customer provisions
-# no cloud AI infrastructure; the only requirement is the customer-
-# populated Secret key Observability_HelmAssistant_ApiKey (issued by
-# Redpoint). In SDK mode the key is fetched from the cloud vault under
-# the same name, so it is not bound as an env var here.
-- name: OBSERVABILITY__INTELLIGENCE__HELM_ASSISTANT__URL
-  value: {{ $helmAssistant.url | default "https://rpi-helm-assistant.redpointcdp.com" | quote }}
-{{- if not $isSdk }}
-- name: Observability_HelmAssistant_ApiKey
-  valueFrom:
-    secretKeyRef:
-      name: {{ $secret | quote }}
-      key: Observability_HelmAssistant_ApiKey
-{{- end }}
-{{- else if eq $provider "azure" }}
+{{- if eq $provider "azure" }}
 # Azure cloud-integration provider (AI Foundry or Azure OpenAI).
 - name: OBSERVABILITY__INTELLIGENCE__AZURE__SERVICE
   value: {{ $azure.service | default "foundry" | quote }}
@@ -1294,6 +1263,7 @@ Usage: {{- include "rpi.observability.intelligenceEnvvars" . | nindent 8 }}
   value: {{ required "observability.intelligence.aws.region is required when intelligence.provider=aws" $aws.region | quote }}
 - name: OBSERVABILITY__INTELLIGENCE__AWS__MODEL_ID
   value: {{ required "observability.intelligence.aws.modelId is required when intelligence.provider=aws" $aws.modelId | quote }}
+{{- end }}
 {{- end }}
 {{- end -}}
 

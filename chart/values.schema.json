@@ -2651,53 +2651,15 @@
         "intelligence": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Intelligence Runtime topology. Part of the observability solution -- no solution-level enabled flag (observability.enabled controls the whole solution). The `provider` selector activates one of: local (in-cluster, served by rpi-observability-llm) | helmAssistant (Redpoint-managed AI service) | azure (AI Foundry / Azure OpenAI) | aws (Bedrock). Only the active provider's sub-block is consumed.",
+          "description": "Observability AI surface, managed cloud AI providers only. Disabled by default; every AI-narrated surface renders its deterministic narrative instead. When enabled=true an explicit provider is required (azure | aws) - there is no default; enabling without a provider fails chart validation. Only the active provider's sub-block is consumed.",
           "properties": {
+            "enabled": { "type": "boolean", "description": "Master switch for the AI surface. Default false: no AI provider is contacted and deterministic narratives render everywhere." },
             "provider": {
               "type": "string",
-              "enum": ["local", "helmAssistant", "azure", "aws"],
-              "description": "Active provider. Drives which provider the runtime registers and whether the chart renders the in-cluster serving StatefulSet (only when provider=local). helmAssistant calls the Redpoint-managed Helm Assistant service and requires no customer cloud AI configuration (only the Observability_HelmAssistant_ApiKey Secret key). When set to azure/aws, the chart fails at render time if that provider's required fields (endpoint+deployment / region+modelId) are missing."
+              "enum": ["", "azure", "aws"],
+              "description": "REQUIRED when enabled=true: azure (Azure AI Foundry / Azure OpenAI) or aws (Amazon Bedrock). No default. The chart fails at render time when intelligence is enabled without a valid provider, or when the selected provider's required fields (azure endpoint+deployment / aws region+modelId) are missing."
             },
             "timeoutSeconds": { "type": ["integer", "number"], "minimum": 1, "description": "Per-inference hard timeout. Bounds the observability cycle's exposure to slow inference. Applies to whichever provider is active." },
-            "local": {
-              "type": "object",
-              "additionalProperties": false,
-              "description": "Consumed only when provider=local. The bundled model is the only model under this provider and is not customer-configurable. To use a different model, switch intelligence.provider to helmAssistant | azure | aws.",
-              "properties": {
-                "baseUrl":          { "type": "string", "description": "Override the default in-cluster Service URL. Blank = http://rpi-observability-llm.<ns>.svc.cluster.local:8000/v1." },
-                "deployment": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "description": "Serving-layer StatefulSet. The chart deploys the self-contained rpi-observability-llm image (model + tokenizer + runtime baked in) deployable on standard worker nodes. Disable when the operator self-hosts the serving layer elsewhere.",
-                  "properties": {
-                    "enabled":         { "type": "boolean" },
-                    "image":           { "type": "string", "description": "Container image override. Blank = chart resolves the canonical Redpoint-built rpi-observability-llm image via rpi.image. Set to an internal registry mirror or regulated-registry path; the image must be a rpi-observability-llm build serving the canonical baked-in model. Overriding to a different model variant is NOT supported under provider=local." },
-                    "imagePullPolicy": { "type": "string" },
-                    "resources":       { "type": "object", "additionalProperties": true, "description": "Container resource requests + limits. Blank = chart picks sensible defaults sized for the 7B Q4 model on standard worker nodes." },
-                    "service": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
-                      }
-                    },
-                    "serviceAccount": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "properties": {
-                        "enabled":     { "type": "boolean" },
-                        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
-                      }
-                    },
-                    "extraArgs": {
-                      "type": "array",
-                      "items": { "type": "string" },
-                      "description": "Backend CLI args appended to the image's entrypoint. The image already wires the essential flags (model path, host, port, threads, context size). Use this for operator-specific tuning (KV cache size, custom sampling parameters)."
-                    }
-                  }
-                }
-              }
-            },
             "azure": {
               "type": "object",
               "additionalProperties": true,
@@ -2708,14 +2670,6 @@
                 "deployment":      { "type": "string" },
                 "apiVersion":      { "type": "string" },
                 "apiKeySecretKey": { "type": "string", "description": "Optional. When set in non-SDK mode, binds AZURE_INTELLIGENCE_API_KEY from this Secret key. Blank uses managed identity." }
-              }
-            },
-            "helmAssistant": {
-              "type": "object",
-              "additionalProperties": true,
-              "description": "Consumed only when provider=helmAssistant. The Redpoint-managed AI service -- the customer provisions no cloud AI infrastructure. Auth is the customer-populated Secret key Observability_HelmAssistant_ApiKey (issued by Redpoint).",
-              "properties": {
-                "url": { "type": "string", "description": "Helm Assistant base URL. Blank uses the Redpoint-hosted endpoint (https://rpi-helm-assistant.redpointcdp.com)." }
               }
             },
             "aws": {
