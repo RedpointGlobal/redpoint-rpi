@@ -1495,7 +1495,7 @@ Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
   value: {{ .timeoutSeconds | default 5 | quote }}
 - name: OBSERVABILITY__METRICS__BUFFER_SIZE
   value: {{ .bufferSize | default 240 | quote }}
-{{- $otelEnabled := eq (include "rpi.telemetry.mode" $) "otel" -}}
+{{- $otelEnabled := eq (include "rpi.telemetry.mode" $) "advanced" -}}
 {{- $enabledSvcs := list -}}
 {{- range $svc := (.services | default list) -}}
 {{-   $shortName := trimPrefix "rpi-" ($svc.dnsName | default "") -}}
@@ -1730,15 +1730,17 @@ Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
 
 {{- define "rpi.telemetry.mode" -}}
 {{- $tel := (.Values.observability).telemetry | default dict -}}
-{{- $tel.mode | default "scrape" -}}
+{{- $mode := $tel.mode | default "basic" -}}
+{{- if not (or (eq $mode "basic") (eq $mode "advanced")) -}}
+{{- fail (printf "observability.telemetry.mode must be one of: basic | advanced. Got: %q" $mode) -}}
+{{- end -}}
+{{- $mode -}}
 {{- end -}}
 
+{{/* True when advanced telemetry is selected: the OTel auto-instrumentation
+     + shared Collector path. */}}
 {{- define "rpi.telemetry.mode.otel" -}}
-{{- if eq (include "rpi.telemetry.mode" .) "otel" -}}true{{- end -}}
-{{- end -}}
-
-{{- define "rpi.otel.image" -}}
-{{ include "rpi.image" (dict "root" . "name" "rpi-observability-otel") }}
+{{- if eq (include "rpi.telemetry.mode" .) "advanced" -}}true{{- end -}}
 {{- end -}}
 
 {{- define "rpi.otel.collector.image" -}}
@@ -1757,7 +1759,9 @@ Metrics-only: native SqlClient db.client.* metrics ride the OTLP metrics
 pipeline; traces stay off (no spans, no spanmetrics).
 */}}
 {{- define "rpi.otel.envvars.shared" -}}
-{{- /* The native CLR profiler is libc-specific. glibc images load the
+{{- /* The instrumentation files ship inside the RPI service images at
+       /otel-auto; these env vars are the only activation mechanism. The
+       native CLR profiler is libc-specific: glibc images load the
        linux-x64 build; musl (Alpine) images need linux-musl-x64, else the
        profiler fails to load and NO telemetry is emitted. The musl image
        set is operator-declared (observability.telemetry.muslServices). */ -}}
@@ -1790,26 +1794,6 @@ pipeline; traces stay off (no spans, no spanmetrics).
 - name: OTEL_LOGS_EXPORTER
   value: none
 {{- end -}}
-
-{{- define "rpi.otel.initContainer" -}}
-- name: rpi-observability-otel
-  image: {{ include "rpi.otel.image" . }}
-  command: ["cp", "-a", "/autoinstrumentation/.", "/otel-auto/"]
-  volumeMounts:
-  - name: otel-auto
-    mountPath: /otel-auto
-{{- end -}}
-
-{{- define "rpi.otel.volume" -}}
-- name: otel-auto
-  emptyDir: {}
-{{- end -}}
-
-{{- define "rpi.otel.volumeMount" -}}
-- name: otel-auto
-  mountPath: /otel-auto
-{{- end -}}
-
 
 {{/*
 Operational database type consumed by the RPI services. SQL Server is the

@@ -163,15 +163,9 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
-      {{- $needsInitContainers := or (eq (include "rpi.cloudSqlProxy.enabled" .) "true") (eq (include "rpi.telemetry.mode.otel" .) "true") }}
-      {{- if $needsInitContainers }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
       initContainers:
-        {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
         {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
-        {{- end }}
-        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
-        {{- include "rpi.otel.initContainer" . | nindent 8 }}
-        {{- end }}
       {{- end }}
       containers:
       - env:
@@ -469,9 +463,6 @@ spec:
         volumeMounts:
           - name: tempstore
             mountPath: /tmp
-          {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
-          {{- include "rpi.otel.volumeMount" . | nindent 10 }}
-          {{- end }}
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if eq .credentialsType "serviceAccount" }}
@@ -504,9 +495,6 @@ spec:
       volumes:
         - name: tempstore
           emptyDir: {}
-        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
-        {{- include "rpi.otel.volume" . | nindent 8 }}
-        {{- end }}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
         {{- if eq .credentialsType "serviceAccount" }}

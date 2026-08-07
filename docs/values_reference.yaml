@@ -1978,29 +1978,31 @@ observability:
       storage: 5Gi
       # Empty string => use the cluster's default StorageClass.
       storageClassName: ''
-  # Telemetry source mode contract. Selects the IAPI metric source: native scrape (default) or
-  # zero-code OTel auto-instrumentation with a Collector sidecar. Modes are mutually
-  # exclusive; no fallback.
+  # Telemetry depth. basic (default): platform metrics only, scraped from each RPI service's
+  # native /metrics endpoint. advanced: adds automatic runtime instrumentation for database,
+  # HTTP, messaging and dependency telemetry via a single namespace-scoped OpenTelemetry
+  # Collector. Modes are mutually exclusive; no fallback.
   telemetry:
-    # scrape (default): rpi-observability scrapes the IAPI's native
-    # Microsoft.AspNetCore.Hosting Meter exposition on port 80. otel: an init container
-    # injects the OTel .NET auto-instrumentation runtime; the IAPI exports OTLP gRPC to a
-    # Collector sidecar in the same pod; the Collector re-exposes Prometheus on port 8889,
-    # which rpi-observability scrapes. Flipping the value re-rolls the IAPI deployment.
-    mode: scrape
+    # basic (default): platform metrics only - rpi-observability scrapes each RPI service's
+    # native /metrics exposition. advanced: participating services are auto-instrumented (OTel
+    # .NET auto-instrumentation, no application code changes) and export OTLP to the shared
+    # namespace-scoped Collector, which re-exposes Prometheus on port 8889 for rpi-
+    # observability to scrape. Flipping the value re-rolls the participating deployments.
+    mode: basic
     # RPI service DNS names whose container image is musl-based (Alpine). These get the linux-
     # musl-x64 OTel native profiler path instead of linux-x64; a musl image pointed at the
-    # glibc profiler emits no telemetry. Default: [rpi-integrationapi, rpi-callbackapi].
+    # glibc profiler emits no telemetry. Default: [rpi-integrationapi, rpi-callbackapi, rpi-
+    # deploymentapi].
     muslServices:
     - rpi-integrationapi
     - rpi-callbackapi
     - rpi-deploymentapi
-    # Configuration applied only when mode=otel.
+    # OpenTelemetry component configuration, applied only when mode=advanced.
     otel:
-      # OpenTelemetry Collector sidecar configuration.
+      # Shared namespace-scoped OpenTelemetry Collector configuration.
       collector:
-        # Resource shape for the Collector sidecar. Defaults sized for the metrics-only
-        # pipeline with memory_limiter at 100Mi soft cap.
+        # Resource shape for the shared Collector. Defaults sized for the metrics-only
+        # pipeline.
         resources:
           limits:
             cpu: 500m
