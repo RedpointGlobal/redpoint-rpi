@@ -1942,14 +1942,15 @@ observability:
       storageClassName: ''
   # Telemetry depth. basic (default): platform metrics only, scraped from each RPI service's
   # native /metrics endpoint. advanced: adds automatic runtime instrumentation for database,
-  # HTTP, messaging and dependency telemetry via a single namespace-scoped OpenTelemetry
-  # Collector. Modes are mutually exclusive; no fallback.
+  # HTTP, messaging and dependency telemetry via a private telemetry bridge bundled with the
+  # observability pod (an internal implementation detail, not shared cluster infrastructure).
+  # Modes are mutually exclusive; no fallback.
   telemetry:
     # basic (default): platform metrics only - rpi-observability scrapes each RPI service's
-    # native /metrics exposition. advanced: participating services are auto-instrumented (OTel
-    # .NET auto-instrumentation, no application code changes) and export OTLP to the shared
-    # namespace-scoped Collector, which re-exposes Prometheus on port 8889 for rpi-
-    # observability to scrape. Flipping the value re-rolls the participating deployments.
+    # native /metrics exposition. advanced: participating services are auto-instrumented (no
+    # application code changes) and report to the telemetry bridge bundled with the
+    # observability pod, which the observability service consumes locally. Flipping the value
+    # re-rolls the participating deployments.
     mode: basic
     # RPI service DNS names whose container image is musl-based (Alpine). These get the linux-
     # musl-x64 OTel native profiler path instead of linux-x64; a musl image pointed at the
@@ -1959,19 +1960,6 @@ observability:
     - rpi-integrationapi
     - rpi-callbackapi
     - rpi-deploymentapi
-    # OpenTelemetry component configuration, applied only when mode=advanced.
-    otel:
-      # Shared namespace-scoped OpenTelemetry Collector configuration.
-      collector:
-        # Resource shape for the shared Collector. Defaults sized for the metrics-only
-        # pipeline.
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 256Mi
   replicas: null
 
 # Redpoint AI configuration for natural language, cognitive search, and model storage

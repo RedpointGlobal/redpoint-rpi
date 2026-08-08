@@ -119,6 +119,13 @@ spec:
     port: {{ $service.apiPort | default 8080 }}
     protocol: TCP
     targetPort: api
+  {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
+  # Advanced telemetry: OTLP intake for the bundled telemetry bridge.
+  - name: otlp
+    port: 4317
+    protocol: TCP
+    targetPort: otlp
+  {{- end }}
   selector:
     app.kubernetes.io/name: {{ $name }}
 
@@ -215,6 +222,32 @@ spec:
         {{- end }}
         {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 8 }}
         {{- include "rpi.customCACerts.volumeMount" . | nindent 8 }}
+      {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
+      # Bundled Telemetry Collector: a private OTLP -> Prometheus bridge
+      # whose only consumer is the observability application. Runs the
+      # otelcol binary shipped inside the same image; :4317 is exposed
+      # through the Service for the instrumented RPI services, :8889
+      # stays pod-private (the application scrapes localhost).
+      - name: telemetry-bridge
+        image: {{ include "rpi.image" (dict "root" . "name" "rpi-observability") }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        command: ["/usr/local/bin/otelcol", "--config=/etc/otelcol/config.yaml"]
+        ports:
+        - name: otlp
+          containerPort: 4317
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 400Mi
+        {{- with $secCtx.container }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
       volumes:
       {{- if $storage.existingClaim }}
       - name: {{ $name }}-data

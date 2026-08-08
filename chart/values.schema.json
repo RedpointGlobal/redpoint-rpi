@@ -2564,54 +2564,17 @@
         "telemetry": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Telemetry depth. basic (default): platform metrics only, scraped from each RPI service's native /metrics endpoint. advanced: adds automatic runtime instrumentation for database, HTTP, messaging and dependency telemetry via a single namespace-scoped OpenTelemetry Collector. Modes are mutually exclusive; no fallback.",
+          "description": "Telemetry depth. basic (default): platform metrics only, scraped from each RPI service's native /metrics endpoint. advanced: adds automatic runtime instrumentation for database, HTTP, messaging and dependency telemetry via a private telemetry bridge bundled with the observability pod (an internal implementation detail, not shared cluster infrastructure). Modes are mutually exclusive; no fallback.",
           "properties": {
             "mode": {
               "type": "string",
               "enum": ["basic", "advanced"],
-              "description": "basic (default): platform metrics only - rpi-observability scrapes each RPI service's native /metrics exposition. advanced: participating services are auto-instrumented (OTel .NET auto-instrumentation, no application code changes) and export OTLP to the shared namespace-scoped Collector, which re-exposes Prometheus on port 8889 for rpi-observability to scrape. Flipping the value re-rolls the participating deployments."
+              "description": "basic (default): platform metrics only - rpi-observability scrapes each RPI service's native /metrics exposition. advanced: participating services are auto-instrumented (no application code changes) and report to the telemetry bridge bundled with the observability pod, which the observability service consumes locally. Flipping the value re-rolls the participating deployments."
             },
             "muslServices": {
               "type": "array",
               "items": { "type": "string" },
               "description": "RPI service DNS names whose container image is musl-based (Alpine). These get the linux-musl-x64 OTel native profiler path instead of linux-x64; a musl image pointed at the glibc profiler emits no telemetry. Default: [rpi-integrationapi, rpi-callbackapi, rpi-deploymentapi]."
-            },
-            "otel": {
-              "type": "object",
-              "additionalProperties": false,
-              "description": "OpenTelemetry component configuration, applied only when mode=advanced.",
-              "properties": {
-                "collector": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "description": "Shared namespace-scoped OpenTelemetry Collector configuration.",
-                  "properties": {
-                    "resources": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "description": "Resource shape for the shared Collector. Defaults sized for the metrics-only pipeline.",
-                      "properties": {
-                        "requests": {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "properties": {
-                            "cpu":    { "type": "string", "pattern": "^[0-9]+(m|\\.[0-9]+)?$" },
-                            "memory": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ki|M|G|K)?$" }
-                          }
-                        },
-                        "limits": {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "properties": {
-                            "cpu":    { "type": "string", "pattern": "^[0-9]+(m|\\.[0-9]+)?$" },
-                            "memory": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ki|M|G|K)?$" }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
             }
           }
         },

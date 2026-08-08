@@ -1713,18 +1713,17 @@ Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
 {{- if eq (include "rpi.telemetry.mode" .) "advanced" -}}true{{- end -}}
 {{- end -}}
 
-{{- define "rpi.otel.collector.image" -}}
-{{ include "rpi.image" (dict "root" . "name" "rpi-observability-otel-collector") }}
-{{- end -}}
-
-{{/* OTLP gRPC endpoint of the shared Collector Service. */}}
-{{- define "rpi.otel.collector.endpoint" -}}
-http://rpi-observability-otel-collector.{{ .Release.Namespace }}.svc.cluster.local:4317
+{{/* OTLP gRPC endpoint of the bundled telemetry bridge: a second
+     container in the Observability pod, reachable through the
+     Observability Service. */}}
+{{- define "rpi.otel.bridge.endpoint" -}}
+http://rpi-observability-api.{{ .Release.Namespace }}.svc.cluster.local:4317
 {{- end -}}
 
 {{/*
-OTel auto-instrumentation env for a DB-touching service reporting to the
-SHARED Collector. Call as (dict "root" $ "svc" "rpi-executionservice").
+OTel auto-instrumentation env for a participating service reporting to
+the telemetry bridge bundled with the Observability pod. Call as
+(dict "root" $ "svc" "rpi-executionservice").
 Metrics-only: native SqlClient db.client.* metrics ride the OTLP metrics
 pipeline; traces stay off (no spans, no spanmetrics).
 */}}
@@ -1756,7 +1755,7 @@ pipeline; traces stay off (no spans, no spanmetrics).
 - name: OTEL_METRICS_EXPORTER
   value: otlp
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
-  value: {{ include "rpi.otel.collector.endpoint" .root | quote }}
+  value: {{ include "rpi.otel.bridge.endpoint" .root | quote }}
 - name: OTEL_EXPORTER_OTLP_PROTOCOL
   value: grpc
 - name: OTEL_TRACES_EXPORTER

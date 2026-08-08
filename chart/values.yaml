@@ -1471,21 +1471,18 @@ observability:
   #   authoritative source for platform behavior in every mode.
   #
   # advanced: adds automatic runtime instrumentation for database, HTTP,
-  #   messaging and dependency telemetry. The instrumentation ships inside the
-  #   RPI service images; advanced mode activates it via environment variables
-  #   (no application code changes, no extra containers) and the services
-  #   report to a single namespace-scoped OpenTelemetry Collector, which
-  #   re-exposes Prometheus for the observability service to scrape. This is
-  #   what powers the database operation rates and latency on the Execution
-  #   Topology hub, per-service database-call tables, and the SQL leaderboards.
+  #   messaging and dependency telemetry. The instrumentation ships inside
+  #   the RPI service images; advanced mode activates it via environment
+  #   variables (no application code changes). The services report to a
+  #   private telemetry bridge bundled with the observability pod - an
+  #   internal implementation detail, not shared cluster infrastructure.
+  #   No extra images, deployments, or services to mirror or operate. This
+  #   is what powers the database operation rates and latency on the
+  #   Execution Topology hub, per-service database-call tables, and the SQL
+  #   leaderboards.
   #
   # The two modes are mutually exclusive; flipping the value re-rolls the
   # affected deployments.
-  #
-  # advanced mode pulls one extra image, the shared Collector. Mirror it for a
-  # private registry via global.deployment.images.overrides.<name> (full URI)
-  # or global.deployment.images.nameOverrides.<name> (alternate name):
-  #   rpi-observability-otel-collector  (opentelemetry-collector, core)
   telemetry:
     # basic (default) | advanced. See the mode description above. Participating
     # services under advanced: interactionapi, executionservice, nodemanager,
@@ -1502,17 +1499,6 @@ observability:
       - rpi-callbackapi
       - rpi-deploymentapi
 
-    otel:
-      collector:
-        # Shared Collector resource shape (it aggregates OTLP from all
-        # participating services).
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
 
   # ---- Incident-intelligence notifications (opt-in) ---------------------
   # Lifecycle-driven email notifications over the analyzer's ranked incidents
