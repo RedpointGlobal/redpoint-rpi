@@ -1220,49 +1220,54 @@ Usage: {{- include "rpi.observability.intelligenceEnvvars" . | nindent 8 }}
 {{- $cfg := .Values.observability | default dict -}}
 {{- $intel := $cfg.intelligence | default dict -}}
 {{- $enabled := $intel.enabled | default false -}}
-{{- $azure := $intel.azure | default dict -}}
-{{- $aws := $intel.aws | default dict -}}
+{{- $ai := .Values.redpointAI | default dict -}}
 {{- $secret := include "rpi.secrets.secretName" . -}}
 {{- $secretsProvider := .Values.secretsManagement.provider | default "kubernetes" -}}
 {{- $isSdk := eq $secretsProvider "sdk" -}}
 - name: OBSERVABILITY__INTELLIGENCE__ENABLED
   value: {{ $enabled | quote }}
 {{- if $enabled }}
-{{- $provider := lower (default "" $intel.provider) -}}
-{{- if not (has $provider (list "azure" "aws")) }}
-{{- fail (printf "observability.intelligence.provider=%q is invalid. observability.intelligence.enabled=true requires an explicit provider: azure | aws. There is no default provider." (default "" $intel.provider)) }}
+{{- if not ($ai.enabled | default false) }}
+{{- fail "observability.intelligence.enabled=true requires redpointAI.enabled=true. RPI owns AI infrastructure configuration (endpoint, deployment, API version, credentials); Observability inherits it rather than defining a second configuration surface. Enable redpointAI and configure it once." }}
 {{- end }}
+{{- $nl := $ai.naturalLanguage | default dict -}}
+{{- $endpoint := $nl.ApiBase | default "" -}}
+{{- $deployment := $nl.ChatGptEngine | default "" -}}
+{{- if not $endpoint }}
+{{- fail "redpointAI.naturalLanguage.ApiBase is required when observability.intelligence.enabled=true - Observability inherits the AI endpoint from RPI." }}
+{{- end }}
+{{- if not $deployment }}
+{{- fail "redpointAI.naturalLanguage.ChatGptEngine is required when observability.intelligence.enabled=true - Observability inherits the model deployment from RPI." }}
+{{- end }}
+# AI infrastructure is inherited from redpointAI. RPI owns the endpoint,
+# model deployment, API version, and credential; Observability owns only
+# its prompts, reasoning, and experiences.
 - name: OBSERVABILITY__INTELLIGENCE__PROVIDER
-  value: {{ $provider | quote }}
+  value: "azure"
+- name: OBSERVABILITY__INTELLIGENCE__AZURE__SERVICE
+  value: "openai"
+- name: OBSERVABILITY__INTELLIGENCE__AZURE__ENDPOINT
+  value: {{ $endpoint | quote }}
+- name: OBSERVABILITY__INTELLIGENCE__AZURE__DEPLOYMENT
+  value: {{ $deployment | quote }}
+{{- if $nl.ApiVersion }}
+- name: OBSERVABILITY__INTELLIGENCE__AZURE__API_VERSION
+  value: {{ $nl.ApiVersion | quote }}
+{{- end }}
 {{- if $intel.timeoutSeconds }}
 - name: OBSERVABILITY__INTELLIGENCE__TIMEOUT_SECONDS
   value: {{ $intel.timeoutSeconds | quote }}
 {{- end }}
-{{- if eq $provider "azure" }}
-# Azure cloud-integration provider (AI Foundry or Azure OpenAI).
-- name: OBSERVABILITY__INTELLIGENCE__AZURE__SERVICE
-  value: {{ $azure.service | default "foundry" | quote }}
-- name: OBSERVABILITY__INTELLIGENCE__AZURE__ENDPOINT
-  value: {{ required "observability.intelligence.azure.endpoint is required when intelligence.provider=azure" $azure.endpoint | quote }}
-- name: OBSERVABILITY__INTELLIGENCE__AZURE__DEPLOYMENT
-  value: {{ required "observability.intelligence.azure.deployment is required when intelligence.provider=azure" $azure.deployment | quote }}
-{{- if $azure.apiVersion }}
-- name: OBSERVABILITY__INTELLIGENCE__AZURE__API_VERSION
-  value: {{ $azure.apiVersion | quote }}
-{{- end }}
-{{- if and (not $isSdk) $azure.apiKeySecretKey }}
-- name: AZURE_INTELLIGENCE_API_KEY
+{{- if not $isSdk }}
+# The same platform credential the RPI services consume. The env-var name
+# is what SecretResolver reads; the Secret key is the platform's single
+# AI credential. In SDK mode the value is fetched from the cloud vault
+# under the same name instead.
+- name: RPI_NLP_API_KEY
   valueFrom:
     secretKeyRef:
       name: {{ $secret | quote }}
-      key: {{ $azure.apiKeySecretKey | quote }}
-{{- end }}
-{{- else if eq $provider "aws" }}
-# AWS cloud-integration provider (Bedrock).
-- name: OBSERVABILITY__INTELLIGENCE__AWS__REGION
-  value: {{ required "observability.intelligence.aws.region is required when intelligence.provider=aws" $aws.region | quote }}
-- name: OBSERVABILITY__INTELLIGENCE__AWS__MODEL_ID
-  value: {{ required "observability.intelligence.aws.modelId is required when intelligence.provider=aws" $aws.modelId | quote }}
+      key: RPI_NLP_API_KEY
 {{- end }}
 {{- end }}
 {{- end -}}

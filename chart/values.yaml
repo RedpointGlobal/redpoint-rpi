@@ -1340,36 +1340,16 @@ observability:
   # identity where Workload Identity / IRSA is configured (no static keys
   # required).
   intelligence:
+    # AI-assisted narration of operational state. Requires redpointAI.enabled=true:
+    # AI infrastructure is configured once, under redpointAI, and every Redpoint
+    # product consumes it. Observability inherits the endpoint, model deployment,
+    # API version, and credential from there; it never defines its own. Enabling
+    # this without redpointAI fails at render time with an explanatory message.
     enabled: false
-
-    # REQUIRED when enabled=true. One of: azure | aws. Configure the
-    # matching sub-block below.
-    provider: ""
 
     # Per-inference timeout. When exceeded, the analysis cycle proceeds
     # without an AI summary.
     timeoutSeconds: 240
-
-    # ---- Azure (AI Foundry or Azure OpenAI) -----------------------------
-    # Consumed only when provider=azure. Endpoint + deployment are
-    # required; the chart fails fast at render time if either is
-    # missing.
-    azure:
-      service: foundry                       # foundry | openai
-      endpoint: ""                           # e.g. https://<resource>.openai.azure.com
-      deployment: ""                         # the deployed model name
-      apiVersion: ""                         # only for service=openai
-      # Optional Secret key holding the Azure API key (non-SDK mode). Leave
-      # blank to use managed identity (preferred).
-      apiKeySecretKey: ""
-
-    # ---- AWS (Bedrock) -------------------------------------------------
-    # Consumed only when provider=aws. Region + modelId are required;
-    # the chart fails fast at render time if either is missing. Auth:
-    # IRSA + Pod Identity (reuses cloudIdentity.amazon).
-    aws:
-      region: ""                             # e.g. us-east-1
-      modelId: ""                            # e.g. anthropic.claude-3-5-sonnet-20241022-v2:0
 
   # ---- Token + request budget --------------------------------------------
   # Hard caps on AI usage. When exceeded, the next analysis cycle is skipped

@@ -2614,36 +2614,10 @@
         "intelligence": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Observability AI surface, managed cloud AI providers only. Disabled by default; every AI-narrated surface renders its deterministic narrative instead. When enabled=true an explicit provider is required (azure | aws) - there is no default; enabling without a provider fails chart validation. Only the active provider's sub-block is consumed.",
+          "description": "Observability AI surface. Requires redpointAI.enabled=true: AI infrastructure (endpoint, model deployment, API version, credential) is configured ONCE under redpointAI and inherited here, exactly as authentication is inherited from RPI. Observability owns only its prompts, operational reasoning, recommendations, and AI experiences. Enabling this while redpointAI is disabled fails chart validation. Disabled by default; every AI-narrated surface renders its deterministic narrative instead.",
           "properties": {
-            "enabled": { "type": "boolean", "description": "Master switch for the AI surface. Default false: no AI provider is contacted and deterministic narratives render everywhere." },
-            "provider": {
-              "type": "string",
-              "enum": ["", "azure", "aws"],
-              "description": "REQUIRED when enabled=true: azure (Azure AI Foundry / Azure OpenAI) or aws (Amazon Bedrock). No default. The chart fails at render time when intelligence is enabled without a valid provider, or when the selected provider's required fields (azure endpoint+deployment / aws region+modelId) are missing."
-            },
-            "timeoutSeconds": { "type": ["integer", "number"], "minimum": 1, "description": "Per-inference hard timeout. Bounds the observability cycle's exposure to slow inference. Applies to whichever provider is active." },
-            "azure": {
-              "type": "object",
-              "additionalProperties": true,
-              "description": "Consumed only when provider=azure.",
-              "properties": {
-                "service":         { "type": "string", "enum": ["foundry", "openai"] },
-                "endpoint":        { "type": "string" },
-                "deployment":      { "type": "string" },
-                "apiVersion":      { "type": "string" },
-                "apiKeySecretKey": { "type": "string", "description": "Optional. When set in non-SDK mode, binds AZURE_INTELLIGENCE_API_KEY from this Secret key. Blank uses managed identity." }
-              }
-            },
-            "aws": {
-              "type": "object",
-              "additionalProperties": true,
-              "description": "Consumed only when provider=aws.",
-              "properties": {
-                "region":   { "type": "string" },
-                "modelId":  { "type": "string" }
-              }
-            }
+            "enabled": { "type": "boolean", "description": "Master switch for the AI surface. Requires redpointAI.enabled=true. Default false: no AI provider is contacted and deterministic narratives render everywhere." },
+            "timeoutSeconds": { "type": ["integer", "number"], "minimum": 1, "description": "Per-inference hard timeout. Bounds the observability cycle's exposure to slow inference." }
           }
         },
         "budget": {
