@@ -1742,10 +1742,6 @@ pipeline; traces stay off (no spans, no spanmetrics).
   value: "{918728DD-259F-4A6A-AC2B-B85E1B658318}"
 - name: CORECLR_PROFILER_PATH
   value: /otel-auto/{{ $arch }}/OpenTelemetry.AutoInstrumentation.Native.so
-- name: DOTNET_ADDITIONAL_DEPS
-  value: /otel-auto/AdditionalDeps
-- name: DOTNET_SHARED_STORE
-  value: /otel-auto/store
 - name: DOTNET_STARTUP_HOOKS
   value: /otel-auto/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
 - name: OTEL_DOTNET_AUTO_HOME
