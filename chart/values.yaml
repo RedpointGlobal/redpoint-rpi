@@ -141,6 +141,8 @@ databases:
     server_password: <my-database-server-password>
     pulse_database_name: <my-pulse-database-name>
     pulse_logging_database_name: <my-logging-database-name>
+    # Schema the Deployment API uses within the operational database.
+    databaseSchema: "dbo"
     encrypt: true
 
     # Google Cloud SQL Auth Proxy (GKE only; PostgreSQL or SQL Server).

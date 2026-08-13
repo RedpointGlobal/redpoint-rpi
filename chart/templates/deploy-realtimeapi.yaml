@@ -465,8 +465,11 @@ spec:
             value: {{ $cfg.CacheWebFormData | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__EnableHelpPages
             value: {{ $cfg.enableHelpPages | quote }}
-          - name: RealtimeAPIConfiguration__AppSettings__CORSOrigins
-            value: {{ $cfg.CORSOrigins | quote }}
+          {{- /* string[] in the application: the array binder reads indexed keys only. */}}
+          {{- range $i, $origin := $cfg.CORSOrigins }}
+          - name: RealtimeAPIConfiguration__AppSettings__CORSOrigins__{{ $i }}
+            value: {{ $origin | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__AppSettings__DecisionCacheDuration
             value: {{ $cfg.decisionCacheDuration | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__RPIClientID
@@ -1154,6 +1157,13 @@ spec:
             value: {{ .Values.cloudIdentity.amazon.region | quote }}
           {{- end }}
           {{- if  $cfg.cacheProvider.enabled }}
+          {{- /* DataMaps is an ARRAY: these indices must mirror the application's baked
+               appsettings.json order exactly (0 Visitor Profile, 1 Visitor History,
+               2 Non Visitor Data, 3 Product Recommendations, 4 Visitor Backup,
+               5 Message History, 6 Visitor Readonly Parameters, 7 Offer History).
+               The chart manages only the six provider-backed maps; indices 4 and 6
+               are deliberately not emitted so Visitor Backup and Visitor Readonly
+               Parameters keep their baked configuration. */}}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Type
             value: "Visitor Profile"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Cache
@@ -1186,21 +1196,21 @@ spec:
             value: {{ $cfg.dataMaps.productRecommendation.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__CompressData
             value: {{ $cfg.dataMaps.productRecommendation.CompressData | quote }}
-          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Type
-            value: "Message History"
-          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
-          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__DaysToPersist
-            value: {{ $cfg.dataMaps.messageHistory.DaysToPersist | quote }}
-          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__CompressData
-            value: {{ $cfg.dataMaps.messageHistory.CompressData | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Type
-            value: "Offer History"
+            value: "Message History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Cache
             value: {{ $cfg.cacheProvider.provider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__DaysToPersist
-            value: {{ $cfg.dataMaps.offerHistory.DaysToPersist | quote }}
+            value: {{ $cfg.dataMaps.messageHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__CompressData
+            value: {{ $cfg.dataMaps.messageHistory.CompressData | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Type
+            value: "Offer History"
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Cache
+            value: {{ $cfg.cacheProvider.provider | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__DaysToPersist
+            value: {{ $cfg.dataMaps.offerHistory.DaysToPersist | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__CompressData
             value: {{ $cfg.dataMaps.offerHistory.CompressData | quote }}
           {{- end }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__EnableVisitorIDValidation
@@ -1213,8 +1223,10 @@ spec:
             value: {{ $cfg.idValidation.visitorID.enableLetters | quote }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__VisitorID__EnableNumbers
             value: {{ $cfg.idValidation.visitorID.enableNumbers | quote }}
-          - name: RealtimeAPIConfiguration__IDValidationSettings__VisitorID__PermittedCharacters
-            value: '{{ toJson $cfg.idValidation.visitorID.permittedCharacters }}'
+          {{- range $i, $ch := $cfg.idValidation.visitorID.permittedCharacters }}
+          - name: RealtimeAPIConfiguration__IDValidationSettings__VisitorID__PermittedCharacters__{{ $i }}
+            value: {{ $ch | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__EnableDeviceIDValidation
             value: {{ $cfg.idValidation.enableDeviceIDValidation | quote }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__MinimumLength
@@ -1225,8 +1237,10 @@ spec:
             value: {{ $cfg.idValidation.deviceID.enableLetters | quote }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__EnableNumbers
             value: {{ $cfg.idValidation.deviceID.enableNumbers | quote }}
-          - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__PermittedCharacters
-            value: '{{ toJson $cfg.idValidation.deviceID.permittedCharacters }}'
+          {{- range $i, $ch := $cfg.idValidation.deviceID.permittedCharacters }}
+          - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__PermittedCharacters__{{ $i }}
+            value: {{ $ch | quote }}
+          {{- end }}
           {{- if $cfg.customPlugins.enabled }}
           {{- range $pIndex, $plugin := $cfg.customPlugins.list }}
           - name: RealtimeAPIConfiguration__Plugins__{{ $pIndex }}__Name

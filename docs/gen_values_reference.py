@@ -105,7 +105,8 @@ def render_effective() -> dict:
         f.write(_DUMP_TPL % (svc_list, cross))
     try:
         out = subprocess.run(
-            ["helm", "template", "t", CHART, "--show-only",
+            ["helm", "template", "t", CHART,
+             "--namespace", "rpi-namespace", "--show-only",
              "templates/zzz-values-reference-dump.yaml"],
             capture_output=True, text=True, check=True,
         ).stdout

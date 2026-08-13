@@ -130,6 +130,10 @@
               "type": "boolean",
               "description": "Authenticate to Cloud SQL for PostgreSQL via GKE Workload Identity (Application Default Credentials). Requires provider=postgresql, global.deployment.platform=google, and cloudIdentity.enabled=true; cannot be combined with cloudSqlProxy.enabled."
             },
+            "databaseSchema": {
+              "type": "string",
+              "description": "Schema the Deployment API uses within the operational database"
+            },
             "server_host": {
               "type": "string",
               "description": "Database server hostname or IP address"

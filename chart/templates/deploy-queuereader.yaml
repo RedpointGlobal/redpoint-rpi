@@ -301,6 +301,27 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
+        - name: RPI__SMTP__EmailSenderAddress
+          value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
+        - name: RPI__SMTP__Address
+          value: {{ .Values.SMTPSettings.SMTP_Address | quote }}
+        - name: RPI__SMTP__Port
+          value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
+        - name: RPI__SMTP__EnableSSL
+          value: {{ .Values.SMTPSettings.EnableSSL | quote }}
+        - name: RPI__SMTP__UseCredentials
+          value: {{ .Values.SMTPSettings.UseCredentials | quote }}
+        {{- if .Values.SMTPSettings.UseCredentials }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: RPI__SMTP__Username
+          value: {{ .Values.SMTPSettings.SMTP_Username | quote }}
+        - name: RPI__SMTP__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: SMTP_Password
+        {{- end }}
+        {{- end }}
         - name: QueueService__QueueListener__IsEnabled
           value: {{ $cfg.queueListenerEnabled | quote }}
         - name: QueueService__RealtimeConfiguration__IsCallbackServiceProcessingEnabled
@@ -335,11 +356,13 @@ spec:
           value: {{ $cfg.listenerQueueErrorTTLDays | quote}}
         - name: QueueService__RealtimeConfiguration__IsDistributed
           value: {{ $cfg.realtimeConfiguration.isDistributed | quote }}
-        - name: QueueService__SeedService__MemoryCacheSize
+        - name: QueueService__MaintenanceModeBufferTime
+          value: {{ $cfg.maintenanceModeBufferTime | quote }}
+        - name: SeedService__MemoryCacheSize
           value: {{ $cfg.seedService.memoryCacheSize | quote }}
-        - name: QueueService__SeedService__MaxNumberRetries
+        - name: SeedService__MaxNumberRetries
           value: {{ $cfg.seedService.maxNumberRetries | quote }}
-        - name: QueueService__SeedService__MaxRetryDelay
+        - name: SeedService__MaxRetryDelay
           value: {{ $cfg.seedService.maxRetryDelay | quote }}
         - name: QueueService__PartitionHandler__PartitionLockDuration
           value: {{ $cfg.partitionHandler.partitionLockDuration | quote }}

@@ -21,6 +21,17 @@ The feature runs in the same cluster and namespace as the rest of RPI. It is con
 
 > Azure OpenAI is a proprietary Microsoft service and requires a separate license subscription from Microsoft to access.
 
+### Other products inherit this configuration
+
+Redpoint AI is where AI infrastructure is configured for the deployment. Other RPI
+components consume it rather than defining their own endpoint, model deployment, or
+credentials.
+
+[RPI Observability](observability.md) is the first: enabling
+`observability.intelligence.enabled` requires `redpointAI.enabled: true`, and
+Observability then inherits the endpoint, model deployment, API version, and the
+`RPI_NLP_API_KEY` credential from the configuration below. Nothing is configured twice.
+
 ---
 
 <details>

@@ -4,7 +4,6 @@
 {{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
 {{- $startup := fromYaml (include "rpi.merged.startupProbe" .) -}}
 {{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
-{{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $name := "rpi-deploymentapi" -}}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}

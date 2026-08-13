@@ -416,7 +416,7 @@ jobExecution:
   maxThreadsPerExecutionService: 100
   executionShutdownWaitForActivity: "00:08:00"
   overrideCustomSQLReservedWords: false
-  maxSmartAssetInstancesForOfferCodes: "100000"
+  maxSmartAssetInstancesForOfferReporting: "100000"
   rpdmOApiPrefixUri: /v1/
   rpdmOApiRequestTimeout: "200"
   taskTimeout: 60

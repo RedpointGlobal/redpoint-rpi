@@ -192,8 +192,8 @@ spec:
           value: {{ $cfg.logging.Console | quote }}
         - name: RPI__DateTimeSource
           value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
-        - name: RPIExecution__MaxSmartAssetInstancesForOfferCodes
-          value: {{ $cfg.jobExecution.maxSmartAssetInstancesForOfferCodes | quote }}
+        - name: RPIExecution__MaxSmartAssetInstancesForOfferReporting
+          value: {{ $cfg.jobExecution.maxSmartAssetInstancesForOfferReporting | quote }}
         {{- if .Values.rebrandly.enabled }}
         - name: Plugins__Rebrandly__BaseUrl
           value: "http://rpi-rebrandly"

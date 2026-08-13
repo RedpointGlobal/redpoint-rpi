@@ -128,6 +128,8 @@ databases:
       terminationGracePeriod: 30s
       # Local port the proxy listens on; used as ConnectionSettings__Port
       port: null
+    # Schema the Deployment API uses within the operational database
+    databaseSchema: dbo
     # Enable TLS encryption for database connections
     encrypt: true
     # Authenticate to Cloud SQL for PostgreSQL via GKE Workload Identity (Application Default
@@ -348,7 +350,7 @@ ingress:
   # TLS certificate source: kubernetes (K8s Secret) or acm (AWS Certificate Manager)
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
-  className: ceplatformapi
+  className: rpi-namespace
   # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
@@ -996,7 +998,7 @@ executionservice:
       maxConcurrentApiRequestsPerAccount: 5
       maxDegreeOfParallelism: 10
       numberOfDaysToBacktrack: 30
-    maxSmartAssetInstancesForOfferCodes: '100000'
+    maxSmartAssetInstancesForOfferReporting: '100000'
     maxThreadsPerExecutionService: 100
     overrideCustomSQLReservedWords: false
     rpdmOApiPrefixUri: /v1/
@@ -1806,34 +1808,17 @@ observability:
       # tracks that block's claimName + mountPath.
       enabled: true
   enabled: false
-  # Observability AI surface, managed cloud AI providers only. Disabled by default; every AI-
-  # narrated surface renders its deterministic narrative instead. When enabled=true an
-  # explicit provider is required (azure | aws) - there is no default; enabling without a
-  # provider fails chart validation. Only the active provider's sub-block is consumed.
+  # Observability AI surface. Requires redpointAI.enabled=true: AI infrastructure (endpoint,
+  # model deployment, API version, credential) is configured ONCE under redpointAI and
+  # inherited here, exactly as authentication is inherited from RPI. Observability owns only
+  # its prompts, operational reasoning, recommendations, and AI experiences. Enabling this
+  # while redpointAI is disabled fails chart validation. Disabled by default; every AI-
+  # narrated surface renders its deterministic narrative instead.
   intelligence:
-    # Consumed only when provider=aws.
-    aws:
-      modelId: ''
-      region: ''
-    # Consumed only when provider=azure.
-    azure:
-      # Optional. When set in non-SDK mode, binds AZURE_INTELLIGENCE_API_KEY from this Secret
-      # key. Blank uses managed identity.
-      apiKeySecretKey: ''
-      apiVersion: ''
-      deployment: ''
-      endpoint: ''
-      service: foundry
-    # Master switch for the AI surface. Default false: no AI provider is contacted and
-    # deterministic narratives render everywhere.
+    # Master switch for the AI surface. Requires redpointAI.enabled=true. Default false: no AI
+    # provider is contacted and deterministic narratives render everywhere.
     enabled: false
-    # REQUIRED when enabled=true: azure (Azure AI Foundry / Azure OpenAI) or aws (Amazon
-    # Bedrock). No default. The chart fails at render time when intelligence is enabled
-    # without a valid provider, or when the selected provider's required fields (azure
-    # endpoint+deployment / aws region+modelId) are missing.
-    provider: ''
     # Per-inference hard timeout. Bounds the observability cycle's exposure to slow inference.
-    # Applies to whichever provider is active.
     timeoutSeconds: 240
   metrics:
     bufferSize: 240
