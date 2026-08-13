@@ -1161,13 +1161,14 @@ spec:
                appsettings.json order exactly (0 Visitor Profile, 1 Visitor History,
                2 Non Visitor Data, 3 Product Recommendations, 4 Visitor Backup,
                5 Message History, 6 Visitor Readonly Parameters, 7 Offer History).
-               The chart manages only the six provider-backed maps; indices 4 and 6
-               are deliberately not emitted so Visitor Backup and Visitor Readonly
-               Parameters keep their baked configuration. */}}
+               Every map is operator-tunable through realtimeapi.dataMaps. An empty
+               Cache on the first four maps resolves to cacheProvider.provider; on
+               the remaining maps an empty Cache leaves the map uncached (the
+               application default). */}}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Type
             value: "Visitor Profile"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorProfile.Cache | default $cfg.cacheProvider.provider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__DaysToPersist
             value: {{ $cfg.dataMaps.visitorProfile.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__CompressData
@@ -1175,7 +1176,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__Type
             value: "Visitor History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorHistory.Cache | default $cfg.cacheProvider.provider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__DaysToPersist
             value: {{ $cfg.dataMaps.visitorHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__CompressData
@@ -1183,7 +1184,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__Type
             value: "Non Visitor Data"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.nonVisitorData.Cache | default $cfg.cacheProvider.provider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__DaysToPersist
             value: {{ $cfg.dataMaps.nonVisitorData.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__CompressData
@@ -1191,23 +1192,41 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__Type
             value: "Product Recommendations"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.productRecommendation.Cache | default $cfg.cacheProvider.provider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__DaysToPersist
             value: {{ $cfg.dataMaps.productRecommendation.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__CompressData
             value: {{ $cfg.dataMaps.productRecommendation.CompressData | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Type
+            value: "Visitor Backup"
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Cache
+            value: {{ $cfg.dataMaps.visitorBackup.Cache | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__DaysToPersist
+            value: {{ $cfg.dataMaps.visitorBackup.DaysToPersist | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__CompressData
+            value: {{ $cfg.dataMaps.visitorBackup.CompressData | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Type
             value: "Message History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.messageHistory.Cache | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__DaysToPersist
             value: {{ $cfg.dataMaps.messageHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__CompressData
             value: {{ $cfg.dataMaps.messageHistory.CompressData | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__Type
+            value: "Visitor Readonly Parameters"
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__Cache
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.Cache | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__DaysToPersist
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.DaysToPersist | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__CompressData
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.CompressData | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__KeySuffix
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.KeySuffix | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Type
             value: "Offer History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.offerHistory.Cache | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__DaysToPersist
             value: {{ $cfg.dataMaps.offerHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__CompressData

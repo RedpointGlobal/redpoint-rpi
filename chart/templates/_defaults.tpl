@@ -175,23 +175,38 @@ HashVisitorID: false
 EventListeningLocalCacheDuration: 60
 dataMaps:
   visitorProfile:
+    Cache: ""
     DaysToPersist: 365
     CompressData: true
   visitorHistory:
+    Cache: ""
     DaysToPersist: 365
     CompressData: true
   nonVisitorData:
+    Cache: ""
     DaysToPersist: 365
-    CompressData: true
+    CompressData: false
   productRecommendation:
+    Cache: ""
     DaysToPersist: 365
-    CompressData: true
-  offerHistory:
-    DaysToPersist: 365
-    CompressData: true
+    CompressData: false
+  visitorBackup:
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
   messageHistory:
-    DaysToPersist: 365
-    CompressData: true
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
+  visitorReadonlyParameters:
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
+    KeySuffix: "_p"
+  offerHistory:
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
 idValidation:
   enableVisitorIDValidation: true
   visitorID:

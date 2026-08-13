@@ -1339,23 +1339,38 @@ realtimeapi:
     list: []
   dataMaps:
     messageHistory:
-      CompressData: true
-      DaysToPersist: 365
+      Cache: ''
+      CompressData: false
+      DaysToPersist: 9999
     nonVisitorData:
-      CompressData: true
+      Cache: ''
+      CompressData: false
       DaysToPersist: 365
     offerHistory:
-      CompressData: true
-      DaysToPersist: 365
+      Cache: ''
+      CompressData: false
+      DaysToPersist: 9999
     productRecommendation:
-      CompressData: true
+      Cache: ''
+      CompressData: false
       DaysToPersist: 365
+    visitorBackup:
+      Cache: ''
+      CompressData: false
+      DaysToPersist: 9999
     visitorHistory:
+      Cache: ''
       CompressData: true
       DaysToPersist: 365
     visitorProfile:
+      Cache: ''
       CompressData: true
       DaysToPersist: 365
+    visitorReadonlyParameters:
+      Cache: ''
+      CompressData: false
+      DaysToPersist: 9999
+      KeySuffix: _p
   decisionCacheDuration: 60
   enableAuditMetricsInHeaders: true
   enableEventListening: true
