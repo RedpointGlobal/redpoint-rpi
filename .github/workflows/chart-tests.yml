@@ -1,0 +1,25 @@
+name: Chart regression suite
+
+on:
+  pull_request:
+    paths:
+      - "chart/**"
+      - "tests/chart/**"
+  push:
+    branches:
+      - main
+      - "release/**"
+    paths:
+      - "chart/**"
+      - "tests/chart/**"
+
+jobs:
+  chart-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Ensure PyYAML
+        run: python3 -c "import yaml" 2>/dev/null || pip install pyyaml
+      - name: Run the chart regression suite
+        run: ./tests/chart/test-chart-suite.sh

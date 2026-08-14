@@ -455,8 +455,12 @@ spec:
             value: {{ $cfg.RealtimeServerCookieName | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__RealtimeServerCookieExpires
             value: {{ $cfg.RealtimeServerCookieExpires | quote }}
+          {{- /* Optional: unset leaves the cookie host-only (variable omitted,
+               application default applies). */}}
+          {{- with $cfg.RealtimeServerCookieDomain }}
           - name: RealtimeAPIConfiguration__AppSettings__RealtimeServerCookieDomain
-            value: {{ $cfg.RealtimeServerCookieDomain | quote }}
+            value: {{ . | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__AppSettings__RealtimeAgentInProcessEnabled
             value: "true"
           - name: RealtimeAPIConfiguration__AppSettings__NoDaysPersistWebEvents
@@ -530,8 +534,12 @@ spec:
             value: {{ $s.value | quote }}
           {{- end }}
           {{- end }}
+          {{- /* Optional: unset keeps the visitor keyed on the RPI-assigned GUID
+               (variable omitted, application default applies). */}}
+          {{- with $ident.masterKeyName }}
           - name: RealtimeAPIConfiguration__IdentitySettings__MasterKeyName
-            value: {{ $ident.masterKeyName | default "" | quote }}
+            value: {{ . | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__IdentitySettings__MergeParameters
             value: {{ $ident.mergeParameters | quote }}
           - name: RealtimeAPIConfiguration__IdentitySettings__MergeCALAttributes

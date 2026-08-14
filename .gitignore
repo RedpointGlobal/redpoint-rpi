@@ -1,4 +1,7 @@
 test-*
+# The chart regression suite is first-class source, exempt from the local
+# test-* scratch pattern. CI runs ./tests/chart/test-chart-suite.sh.
+!tests/chart/test-*
 deployment
 values-*
 .claude
@@ -18,7 +21,11 @@ deploy/terraform/modules/*/.terraform.lock.hcl
 deploy/terraform/modules/*/generated-values.yaml
 deploy/terraform/examples/*/.terraform/
 deploy/terraform/examples/*/.terraform.lock.hcl
-.github
+# Internal workflows stay local; only the chart regression workflow is published.
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/chart-tests.yml
 scripts
 
 .pre-commit-config.yaml

@@ -221,10 +221,6 @@ secretsManagement:
       useADTokenForDatabaseConnection: true
       # Azure Key Vault URI
       vaultUri: 'https://myvault.vault.azure.net/'
-    # Google Secret Manager SDK settings
-    google:
-      # Google Cloud project ID for Secret Manager
-      projectId: ''
     # Read app settings (including the database connection) from the cloud vault. Keep true in
     # SDK mode (all clouds).
     useForAppSettings: false
@@ -830,7 +826,6 @@ interactionapi:
     enabled: true
   terminationGracePeriodSeconds: 120
   type: deployment
-  useExternalUserManagement: false
 
 # Integration API service configuration — handles external system integrations and Smart
 # Activation communication
@@ -911,7 +906,6 @@ executionservice:
       fallback:
         failureThreshold: 3
         replicas: 2
-      identityId: ''
       maxReplicaCount: 10
       metricName: execution_max_thread_count
       minReplicaCount: 2
@@ -993,7 +987,6 @@ executionservice:
     auditTaskEvents: true
     defaultMaintenanceModeBufferTime: '00:05:00'
     executionShutdownWaitForActivity: '00:08:00'
-    internalAddress: ''
     luxSci:
       maxConcurrentApiRequestsPerAccount: 5
       maxDegreeOfParallelism: 10
@@ -1155,9 +1148,6 @@ queuereader:
       volumeClaimTemplates:
         enabled: true
         storage: 100Gi
-      volumes:
-        claimName: rpi-queuereader-rabbitmq-data
-        enabled: false
     # internal (chart-managed) or external (bring your own).
     type: internal
   isCacheProcessingEnabled: true
@@ -1229,10 +1219,16 @@ realtimeapi:
   CacheWebFormData: false
   EventListeningLocalCacheDuration: 60
   HashVisitorID: false
+  # Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie
+  # host-only (the variable is not emitted).
   RealtimeServerCookieDomain: ''
+  # Enable the Realtime server visitor cookie.
   RealtimeServerCookieEnabled: false
+  # Realtime server visitor cookie lifetime in days.
   RealtimeServerCookieExpires: 60
+  # Mark the Realtime server visitor cookie HttpOnly.
   RealtimeServerCookieHttpOnly: false
+  # Name of the Realtime server visitor cookie.
   RealtimeServerCookieName: rg-visitor
   ThresholdBetweenPageVisitsMinutes: 1
   ThresholdBetweenSiteVisitsMinutes: 120
@@ -1252,8 +1248,6 @@ realtimeapi:
     oauth:
       # Access token lifetime in seconds
       accessTokenLifetimeSeconds: 360
-      # OAuth database name
-      databaseName: RPIRealtimeCore
       # Refresh token lifetime in seconds
       refreshTokenLifetimeSeconds: 360
     # Authentication type for the Realtime API
@@ -1277,16 +1271,6 @@ realtimeapi:
       instanceId: <my-bigtable-instance-id>
       # Google Cloud project ID
       projectId: <my-bigtable-project-id>
-    # In-memory SQL cache provider settings
-    inMemorySql:
-      # Cache database name
-      database_name: <my-cache-database-name>
-      # Cache database password
-      password: <my-cache-database-password>
-      # Cache database server host
-      server_host: <my-cache-database-server-host>
-      # Cache database username
-      username: <my-cache-database-username>
     # MongoDB cache provider settings
     mongodb:
       authMechanism: default
@@ -1296,20 +1280,12 @@ realtimeapi:
       databaseName: <my-realtime-cache-db>
       region: us-east-1
       roleArn: ''
-      # MongoDB connection string
-      connectionString: ''
     # Cache provider type. Empty resolves to the platform default: google -> googlebigtable,
     # azure/amazon/selfhosted -> mongodb.
     provider: ''
     # Redis cache provider settings
     redis:
-      # Redis connection settings
       redisSettings:
-        # Redis connection string (required if type=external)
-        connectionString: 'my-redis-host:6379,password=<your-password>,abortConnect=False'
-        podDisruptionBudget:
-          enabled: false
-          minAvailable: 1
         resources:
           enabled: true
           limits:
@@ -1451,7 +1427,7 @@ realtimeapi:
     # Alternative names the master key may appear under (e.g. CK for CustomerKey)
     masterKeyAliases: []
     # Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps
-    # the RPI-assigned GUID.
+    # the RPI-assigned GUID (the variable is not emitted).
     masterKeyName: ''
     # Merge cached-attribute-list attributes into the visitor profile
     mergeCALAttributes: true
@@ -1490,14 +1466,8 @@ realtimeapi:
       LingerTime: 0
       MaxRetryAttempt: 10
       UseAwsMsk: 'True'
-      # AWS IAM access key
-      accessKeyId: <my-aws-iam-access-key>
       # MSK bootstrap servers
       bootstrapServers: '<my-server1.c2.kafka.us-east-1.amazonaws.com:9198>'
-      # AWS region
-      region: <my-aws-region>
-      # AWS IAM secret access key
-      secretAccessKey: <my-aws-iam-secret-access-key>
     # Amazon SQS queue provider settings
     amazonsqs:
       # SQS credentials type
@@ -1512,18 +1482,10 @@ realtimeapi:
       - '0'
       ReceiveMessageBatchSize: 200
       SendMessageBatchSize: 200
-      # Azure Event Hubs connection string
-      connectionstring: 'Endpoint=sb://<my-namespace>.servicebus.windows.net/;SharedAccessKeyName=<my-policy>;SharedAccessKey=<my-key>;EntityPath=<my-hub>'
       # Event Hub name
       eventHubName: RPIQueueListener
-    # Azure Service Bus queue provider settings
-    azureservicebus:
-      # Azure Service Bus connection string
-      connectionstring: 'Endpoint=sb://<my-namespace>.servicebus.windows.net/;SharedAccessKeyName=<my-policy>;SharedAccessKey=<my-key>'
     # Azure Storage queue provider settings
     azurestorage:
-      # Azure Storage connection string
-      connectionString: DefaultEndpointsProtocol=https;AccountName=myAccoutName;AccountKey=myAccountAccessKey;EndpointSuffix=core.windows.net
       receiveVisibilityTimeout: 1
       sendVisibilityTimeout: 1
       # Azure Storage account name
@@ -1573,12 +1535,8 @@ realtimeapi:
         volumeClaimTemplates:
           enabled: true
           storage: 100Gi
-        volumes:
-          claimName: rpi-realtimeapi-rabbitmq-data
-          enabled: false
       # RabbitMQ deployment type: internal (chart-managed) or external (BYO)
       type: internal
-  realtimeProcessingEnabled: true
   # Number of Realtime API pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
@@ -1755,7 +1713,6 @@ rebrandly:
       enabled: false
       size: 50Gi
       storageClassName: default
-      type: dynamic
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
@@ -1768,8 +1725,6 @@ rebrandly:
   rollout:
     autoPromotionEnabled: true
     revisionHistoryLimit: 3
-  # Kubernetes secret name for Rebrandly credentials
-  secretName: rpi-rebrandly
   service:
     port: 80
   serviceAccount:

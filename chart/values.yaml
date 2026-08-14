@@ -350,8 +350,6 @@ secretsManagement:
       useADTokenForDatabaseConnection: true
     amazon:
       secretTagKey: ""
-    google:
-      projectId: ""
   # --------------------------------------------------------
   # CSI - CSI driver syncs vault to K8s Secret (provider: csi)
   # Pods consume secrets via secretKeyRef (same as kubernetes mode)
@@ -538,10 +536,16 @@ realtimeapi:
       listenerQueue: true
       recommendations: true
     oauth:
-      databaseName: RPIRealtimeCore
       accessTokenLifetimeSeconds: 360
       refreshTokenLifetimeSeconds: 360
   CORSOrigins: ["*"]
+  # Realtime server visitor cookie (defaults shown; uncomment to override).
+  # RealtimeServerCookieDomain is optional: unset leaves the cookie host-only.
+  # RealtimeServerCookieEnabled: false
+  # RealtimeServerCookieName: rg-visitor
+  # RealtimeServerCookieExpires: 60
+  # RealtimeServerCookieHttpOnly: false
+  # RealtimeServerCookieDomain: ".example.com"
 
   # Geolocation settings for real-time weather / location enrichment.
   # Disabled by default. When enabled, the settings below are applied AND the
@@ -624,14 +628,6 @@ realtimeapi:
     redis:
       # internal: chart-managed Redis | external: BYO Redis
       type: internal
-      redisSettings:
-        # Required if type=external
-        connectionString: "my-redis-host:6379,password=<your-password>,abortConnect=False"
-    inMemorySql:
-      server_host: <my-cache-database-server-host>
-      database_name: <my-cache-database-name>
-      username: <my-cache-database-username>
-      password: <my-cache-database-password>
     googlebigtable:
       projectId: <my-bigtable-project-id>
       instanceId: <my-bigtable-instance-id>
@@ -653,16 +649,12 @@ realtimeapi:
     amazonsqs:
       # Supported: accessKey (configure keys under cloudIdentity.amazonSettings)
       credentialsType: accessKey
-    azureservicebus:
-      connectionstring: Endpoint=sb://<my-namespace>.servicebus.windows.net/;SharedAccessKeyName=<my-policy>;SharedAccessKey=<my-key>
     azurestorage:
-      connectionString: DefaultEndpointsProtocol=https;AccountName=myAccoutName;AccountKey=myAccountAccessKey;EndpointSuffix=core.windows.net
       storageAccountName: myStorageAccountName
       useAzureIdentityAuthentication: false
     googlepubsub:
       projectId: <my-google-project-id>
     azureeventhubs:
-      connectionstring: Endpoint=sb://<my-namespace>.servicebus.windows.net/;SharedAccessKeyName=<my-policy>;SharedAccessKey=<my-key>;EntityPath=<my-hub>
       eventHubName: RPIQueueListener
       NamespaceName: my_eventhub_namespace_name
       PartitionIds:
@@ -671,9 +663,6 @@ realtimeapi:
       # internal: chart-managed RabbitMQ | external: BYO RabbitMQ
       type: internal
     amazonmsk:
-      region: <my-aws-region>
-      accessKeyId: <my-aws-iam-access-key>
-      secretAccessKey: <my-aws-iam-secret-access-key>
       bootstrapServers: <my-server1.c2.kafka.us-east-1.amazonaws.com:9198>
 
   # Custom Realtime plugins (see docs/plugins.md for examples)
@@ -835,7 +824,6 @@ queuereader:
 rebrandly:
   enabled: false
   apiKey: my_rebrandly_api_key
-  secretName: rpi-rebrandly
   redisSettings:
     # internal: chart-managed Redis | external: BYO Redis
     type: internal

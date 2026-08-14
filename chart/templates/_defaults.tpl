@@ -158,7 +158,6 @@ authentication:
     recommendations: true
 enableHelpPages: true
 enableEventListening: true
-realtimeProcessingEnabled: true
 ThresholdBetweenSiteVisitsMinutes: 120
 ThresholdBetweenPageVisitsMinutes: 1
 CacheWebFormData: false
@@ -302,9 +301,6 @@ queueProvider:
       volumeClaimTemplates:
         enabled: true
         storage: 100Gi
-      volumes:
-        enabled: false
-        claimName: rpi-realtimeapi-rabbitmq-data
       podDisruptionBudget:
         enabled: false
         minAvailable: 1
@@ -321,9 +317,6 @@ cacheProvider:
       volumeClaimTemplates:
         enabled: true
         storage: 50Gi
-      podDisruptionBudget:
-        enabled: false
-        minAvailable: 1
 {{- end -}}
 
 {{/* ------ Callback API ------ */}}
@@ -396,7 +389,6 @@ autoscaling:
     serverAddress: ""
     useTriggerAuthentication: true
     authenticationRef: rpi-executionservice
-    identityId: ""
     metricName: execution_max_thread_count
     query: ""
     threshold: "80"
@@ -426,7 +418,6 @@ podDisruptionBudget:
 resources:
   enabled: true
 jobExecution:
-  internalAddress: ""
   auditTaskEvents: true
   maxThreadsPerExecutionService: 100
   executionShutdownWaitForActivity: "00:08:00"
@@ -506,7 +497,6 @@ serviceAccount:
 authMetaHttpEnabled: true
 allowSavingLoginDetails: true
 alwaysShowClientsAtLogin: true
-useExternalUserManagement: false
 service:
   port: 80
 customMetrics:
@@ -703,9 +693,6 @@ internalQueues:
     volumeClaimTemplates:
       enabled: true
       storage: 100Gi
-    volumes:
-      enabled: false
-      claimName: rpi-queuereader-rabbitmq-data
 customMetrics:
   enabled: false
   prometheus_scrape: true
@@ -758,7 +745,6 @@ redisSettings:
       cpu: 3000m
   volumeClaimTemplates:
     enabled: false
-    type: dynamic
     size: 50Gi
     storageClassName: default
     accessModes: ReadWriteOnce
@@ -812,7 +798,6 @@ redisSettings:
       cpu: 3000m
   volumeClaimTemplates:
     enabled: false
-    type: dynamic
     size: 50Gi
     storageClassName: default
     accessModes: ReadWriteOnce
@@ -828,7 +813,6 @@ postgres:
 rds:
   region: us-east-1
 eventHubs:
-  fullyQualifiedNamespace: ""
   inputHub:
     name: twilio-messaging-input
     consumerGroup: twilio-message-input-send
@@ -840,7 +824,6 @@ eventHubs:
     linkClickConsumerGroup: twilio-messaging-output-internal-link-click
     inboundMessageConsumerGroup: twilio-messaging-output-internal-inbound-reply
   checkpointing:
-    blobServiceUri: ""
     blobContainerName: sms-send-checkpoints
 sqs:
   region: us-east-1

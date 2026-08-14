@@ -437,17 +437,6 @@
                   "description": "Tag key used to filter secrets in AWS Secrets Manager"
                 }
               }
-            },
-            "google": {
-              "type": "object",
-              "description": "Google Secret Manager SDK settings",
-              "additionalProperties": true,
-              "properties": {
-                "projectId": {
-                  "type": "string",
-                  "description": "Google Cloud project ID for Secret Manager"
-                }
-              }
             }
           }
         },
@@ -707,7 +696,7 @@
           "properties": {
             "masterKeyName": {
               "type": "string",
-              "description": "Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps the RPI-assigned GUID."
+              "description": "Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps the RPI-assigned GUID (the variable is not emitted)."
             },
             "masterKeyAliases": {
               "type": "array",
@@ -780,10 +769,6 @@
               "description": "OAuth authentication settings",
               "additionalProperties": true,
               "properties": {
-                "databaseName": {
-                  "type": "string",
-                  "description": "OAuth database name"
-                },
                 "accessTokenLifetimeSeconds": {
                   "type": "integer",
                   "description": "Access token lifetime in seconds"
@@ -802,6 +787,26 @@
           "items": {
             "type": "string"
           }
+        },
+        "RealtimeServerCookieEnabled": {
+          "type": "boolean",
+          "description": "Enable the Realtime server visitor cookie."
+        },
+        "RealtimeServerCookieName": {
+          "type": "string",
+          "description": "Name of the Realtime server visitor cookie."
+        },
+        "RealtimeServerCookieExpires": {
+          "type": "integer",
+          "description": "Realtime server visitor cookie lifetime in days."
+        },
+        "RealtimeServerCookieHttpOnly": {
+          "type": "boolean",
+          "description": "Mark the Realtime server visitor cookie HttpOnly."
+        },
+        "RealtimeServerCookieDomain": {
+          "type": "string",
+          "description": "Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie host-only (the variable is not emitted)."
         },
         "cacheProvider": {
           "type": "object",
@@ -829,10 +834,6 @@
               "description": "MongoDB cache provider settings",
               "additionalProperties": true,
               "properties": {
-                "connectionString": {
-                  "type": "string",
-                  "description": "MongoDB connection string"
-                },
                 "databaseName": {
                   "type": "string",
                   "description": "MongoDB database name"
@@ -855,40 +856,6 @@
                     "internal",
                     "external"
                   ]
-                },
-                "redisSettings": {
-                  "type": "object",
-                  "description": "Redis connection settings",
-                  "additionalProperties": true,
-                  "properties": {
-                    "connectionString": {
-                      "type": "string",
-                      "description": "Redis connection string (required if type=external)"
-                    }
-                  }
-                }
-              }
-            },
-            "inMemorySql": {
-              "type": "object",
-              "description": "In-memory SQL cache provider settings",
-              "additionalProperties": true,
-              "properties": {
-                "server_host": {
-                  "type": "string",
-                  "description": "Cache database server host"
-                },
-                "database_name": {
-                  "type": "string",
-                  "description": "Cache database name"
-                },
-                "username": {
-                  "type": "string",
-                  "description": "Cache database username"
-                },
-                "password": {
-                  "type": "string",
-                  "description": "Cache database password"
                 }
               }
             },
@@ -974,26 +941,11 @@
                 }
               }
             },
-            "azureservicebus": {
-              "type": "object",
-              "description": "Azure Service Bus queue provider settings",
-              "additionalProperties": true,
-              "properties": {
-                "connectionstring": {
-                  "type": "string",
-                  "description": "Azure Service Bus connection string"
-                }
-              }
-            },
             "azurestorage": {
               "type": "object",
               "description": "Azure Storage queue provider settings",
               "additionalProperties": true,
               "properties": {
-                "connectionString": {
-                  "type": "string",
-                  "description": "Azure Storage connection string"
-                },
                 "storageAccountName": {
                   "type": "string",
                   "description": "Azure Storage account name"
@@ -1020,10 +972,6 @@
               "description": "Azure Event Hubs queue provider settings",
               "additionalProperties": true,
               "properties": {
-                "connectionstring": {
-                  "type": "string",
-                  "description": "Azure Event Hubs connection string"
-                },
                 "eventHubName": {
                   "type": "string",
                   "description": "Event Hub name"
@@ -1061,18 +1009,6 @@
               "description": "Amazon MSK queue provider settings",
               "additionalProperties": true,
               "properties": {
-                "region": {
-                  "type": "string",
-                  "description": "AWS region"
-                },
-                "accessKeyId": {
-                  "type": "string",
-                  "description": "AWS IAM access key"
-                },
-                "secretAccessKey": {
-                  "type": "string",
-                  "description": "AWS IAM secret access key"
-                },
                 "bootstrapServers": {
                   "type": "string",
                   "description": "MSK bootstrap servers"
@@ -1536,10 +1472,6 @@
         "apiKey": {
           "type": "string",
           "description": "Rebrandly API key"
-        },
-        "secretName": {
-          "type": "string",
-          "description": "Kubernetes secret name for Rebrandly credentials"
         },
         "redisSettings": {
           "type": "object",
