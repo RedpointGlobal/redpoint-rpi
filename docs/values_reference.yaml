@@ -1298,7 +1298,8 @@ realtimeapi:
       roleArn: ''
       # MongoDB connection string
       connectionString: ''
-    # Cache provider type
+    # Cache provider type. Empty resolves to the platform default: google -> googlebigtable,
+    # azure/amazon/selfhosted -> mongodb.
     provider: ''
     # Redis cache provider settings
     redis:
@@ -1535,7 +1536,8 @@ realtimeapi:
     googlepubsub:
       # Google Cloud project ID
       projectId: <my-google-project-id>
-    # Queue provider type
+    # Queue provider type. Empty resolves to the platform default: azure -> azureservicebus,
+    # amazon -> amazonsqs, google -> googlepubsub, selfhosted -> rabbitmq.
     provider: ''
     # Queue name configuration for each message type
     queueNames:

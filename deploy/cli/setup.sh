@@ -2449,10 +2449,23 @@ cli_secrets() {
   secrets_provider="${secrets_provider:-kubernetes}"
   rt_enabled=$(read_val "$overrides" "realtimeapi.enabled")
   rt_enabled="${rt_enabled:-false}"
+  # Unset providers resolve to the chart's platform defaults.
   rt_cache_provider=$(read_val "$overrides" "realtimeapi.cacheProvider.provider")
-  rt_cache_provider="${rt_cache_provider:-mongodb}"
+  if [ -z "$rt_cache_provider" ]; then
+    case "$platform" in
+      google) rt_cache_provider="googlebigtable" ;;
+      *) rt_cache_provider="mongodb" ;;
+    esac
+  fi
   rt_queue_provider=$(read_val "$overrides" "realtimeapi.queueProvider.provider")
-  rt_queue_provider="${rt_queue_provider:-rabbitmq}"
+  if [ -z "$rt_queue_provider" ]; then
+    case "$platform" in
+      azure) rt_queue_provider="azureservicebus" ;;
+      amazon) rt_queue_provider="amazonsqs" ;;
+      google) rt_queue_provider="googlepubsub" ;;
+      *) rt_queue_provider="rabbitmq" ;;
+    esac
+  fi
 
   # Pre-fill database values from overrides if present
   local db_host db_user db_pulse db_logging

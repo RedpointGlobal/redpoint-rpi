@@ -599,6 +599,8 @@ realtimeapi:
   cacheProvider:
     enabled: true
     # Supported: mongodb, azureredis, redis, inMemorySql, googlebigtable
+    # Empty resolves to the platform default: google -> googlebigtable,
+    # azure/amazon/selfhosted -> mongodb.
     provider: ""
     mongodb:
       databaseName: <my-realtime-cache-db>
@@ -638,6 +640,8 @@ realtimeapi:
   queueProvider:
     enabled: true
     # Supported: amazonsqs, azureservicebus, googlepubsub, azureeventhubs, rabbitmq, azurestorage, amazonmsk
+    # Empty resolves to the platform default: azure -> azureservicebus,
+    # amazon -> amazonsqs, google -> googlepubsub, selfhosted -> rabbitmq.
     provider: ""
     queueNames:
       formQueuePath: RPIWebFormSubmission

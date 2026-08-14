@@ -1,4 +1,5 @@
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $rtQueueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $QueueReaderMQ := "rpi-queuereader-rabbitmq" -}}
@@ -227,7 +228,7 @@ spec:
 {{- end }}
 
 ---
-{{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+{{- if eq $rtQueueProvider "rabbitmq" }}
 {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
 {{- if $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
@@ -248,7 +249,7 @@ spec:
 
 ---
 {{- if $rtCfg.enabled }}
-{{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+{{- if eq $rtQueueProvider "rabbitmq" }}
 {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
 apiVersion: v1
 kind: ConfigMap

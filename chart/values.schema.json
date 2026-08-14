@@ -814,7 +814,7 @@
             },
             "provider": {
               "type": "string",
-              "description": "Cache provider type",
+              "description": "Cache provider type. Empty resolves to the platform default: google -> googlebigtable, azure/amazon/selfhosted -> mongodb.",
               "enum": [
                 "",
                 "mongodb",
@@ -920,7 +920,7 @@
             },
             "provider": {
               "type": "string",
-              "description": "Queue provider type",
+              "description": "Queue provider type. Empty resolves to the platform default: azure -> azureservicebus, amazon -> amazonsqs, google -> googlepubsub, selfhosted -> rabbitmq.",
               "enum": [
                 "",
                 "amazonsqs",

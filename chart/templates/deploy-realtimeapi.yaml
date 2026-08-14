@@ -1,4 +1,6 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $cacheProvider := include "rpi.realtime.cacheProvider" . -}}
+{{- $queueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
 {{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
@@ -553,7 +555,7 @@ spec:
           {{- /* Google Pub/Sub addresses queues as topic/subscription pairs; every other
                provider takes the queue name verbatim. The format follows the QUEUE
                PROVIDER, not the platform - rabbitmq on GKE uses plain names. */}}
-          {{- if eq $cfg.queueProvider.provider "googlepubsub" }}
+          {{- if eq $queueProvider "googlepubsub" }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath
             value: "{{ $cfg.queueProvider.queueNames.formQueuePath }}/{{ $cfg.queueProvider.queueNames.formQueuePath }}"
           - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
@@ -576,14 +578,14 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
             value: {{ $cfg.queueProvider.queueNames.listenerQueuePath | quote }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
+          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
             value: "RedPoint.Amazon.Server"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type
             value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
+          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Key
             value: "AccessKey"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Value
@@ -596,7 +598,7 @@ spec:
           {{- end }}
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
+          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Key
             value: "SecretKey"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
@@ -617,7 +619,7 @@ spec:
             value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
+          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Key
             value: "AccessKey"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Value
@@ -630,7 +632,7 @@ spec:
           {{- end }}
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
+          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key
             value: "SecretKey"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
@@ -646,7 +648,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Value
             value: {{ .Values.cloudIdentity.amazon.region | quote }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "azureservicebus" }}
+          {{- if eq $queueProvider "azureservicebus" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type
@@ -669,7 +671,7 @@ spec:
             value: "ConnectionString"
           {{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "azureservicebus" }}
+          {{- if eq $queueProvider "azureservicebus" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
@@ -677,7 +679,7 @@ spec:
                 key: RealtimeAPI_ServiceBus_ConnectionString
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "azureservicebus" }}
+          {{- if eq $queueProvider "azureservicebus" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
             valueFrom:
@@ -686,7 +688,7 @@ spec:
                 key: RealtimeAPI_ServiceBus_ConnectionString
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "googlepubsub" }}
+          {{- if eq $queueProvider "googlepubsub" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Google.Server"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -708,10 +710,10 @@ spec:
             value: {{ $cfg.queueProvider.googlepubsub.projectId | quote }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "mongodb" }}
+          {{- if eq $cacheProvider "mongodb" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Resonance.MongoDBCache"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -727,7 +729,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.cacheProvider.provider "mongodb" }}
+          {{- if eq $cacheProvider "mongodb" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Value
             valueFrom:
@@ -737,7 +739,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "mongodb" }}
+          {{- if eq $cacheProvider "mongodb" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__2__Key
             value: "CollectionName"
@@ -745,10 +747,10 @@ spec:
             value: {{ $cfg.cacheProvider.mongodb.collectionName | quote }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "googlebigtable" }}
+          {{- if eq $cacheProvider "googlebigtable" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Google.Server"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -763,10 +765,10 @@ spec:
             value: {{ $cfg.cacheProvider.googlebigtable.instanceId | quote }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "inMemorySql" }}
+          {{- if eq $cacheProvider "inMemorySql" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Resonance.Web.Shared"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -775,7 +777,7 @@ spec:
             value: "ConnectionString"
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "inMemorySql" }}
+          {{- if eq $cacheProvider "inMemorySql" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
@@ -787,7 +789,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- if  $cfg.queueProvider.enabled }}
-          {{- if eq $cfg.queueProvider.provider "azurestorage" }}
+          {{- if eq $queueProvider "azurestorage" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type
@@ -854,7 +856,7 @@ spec:
           {{- end }}
           {{- if .Values.cloudIdentity.enabled }}
           {{- if eq .Values.global.deployment.platform "azure" }}
-          {{- if eq $cfg.queueProvider.provider "azureeventhubs" }}
+          {{- if eq $queueProvider "azureeventhubs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Key
             value: "NamespaceName"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Value
@@ -862,7 +864,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "azureeventhubs" }}
+          {{- if eq $queueProvider "azureeventhubs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -897,7 +899,7 @@ spec:
             value: "EventHubConnectionString"
           {{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "azureeventhubs" }}
+          {{- if eq $queueProvider "azureeventhubs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
@@ -910,7 +912,7 @@ spec:
                 key: RealtimeAPI_EventHub_ConnectionString
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "rabbitmq" }}
+          {{- if eq $queueProvider "rabbitmq" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Resonance.RabbitMQAccess"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -956,7 +958,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Key
             value: "Password"
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "rabbitmq" }}
+          {{- if eq $queueProvider "rabbitmq" }}
           {{- if eq $cfg.queueProvider.rabbitmq.type "internal" }}
           {{- /* The internal broker's password is chart-generated into rpi-internal-services
                (the same Secret RABBITMQ_DEFAULT_PASS reads) in EVERY secrets mode - it is
@@ -985,11 +987,11 @@ spec:
                 key: RealtimeAPI_RabbitMQ_Password
           {{- end }}
           {{- end }}
-          {{- if and (eq $cfg.cacheProvider.provider "redis") $cfg.cacheProvider.enabled }}
+          {{- if and (eq $cacheProvider "redis") $cfg.cacheProvider.enabled }}
           {{- $redisType := $cfg.cacheProvider.redis.type | default "internal" }}
           {{- if or (eq $redisType "internal") (not (eq .Values.secretsManagement.provider "sdk")) }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Resonance.RedisCache"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -1013,11 +1015,11 @@ spec:
                 key: RealtimeAPI_RedisCache_ConnectionString
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "azureredis" }}
+          {{- if eq $cacheProvider "azureredis" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -1028,7 +1030,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.cacheProvider.provider "azureredis" }}
+          {{- if eq $cacheProvider "azureredis" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
@@ -1038,7 +1040,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
+          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Resonance.KafkaQueueAccess"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -1074,7 +1076,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__7__Key
             value: "AccessKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
+          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__7__Value
             valueFrom:
               secretKeyRef:
@@ -1085,7 +1087,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__8__Key
             value: "SecretKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
+          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__8__Value
             valueFrom:
               secretKeyRef:
@@ -1132,7 +1134,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__7__Key
             value: "AccessKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
+          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__7__Value
             valueFrom:
               secretKeyRef:
@@ -1143,7 +1145,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__8__Key
             value: "SecretKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
+          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__8__Value
             valueFrom:
               secretKeyRef:
@@ -1163,12 +1165,13 @@ spec:
                5 Message History, 6 Visitor Readonly Parameters, 7 Offer History).
                Every map is operator-tunable through realtimeapi.dataMaps. One
                uniform Cache rule for all eight maps: a per-map
-               dataMaps.<map>.Cache overrides; otherwise every map receives
-               cacheProvider.provider. */}}
+               dataMaps.<map>.Cache overrides; otherwise every map receives the
+               effective cache provider (rpi.realtime.cacheProvider: the
+               operator-set provider, else the platform default). */}}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Type
             value: "Visitor Profile"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Cache
-            value: {{ $cfg.dataMaps.visitorProfile.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorProfile.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__DaysToPersist
             value: {{ $cfg.dataMaps.visitorProfile.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__CompressData
@@ -1176,7 +1179,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__Type
             value: "Visitor History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__Cache
-            value: {{ $cfg.dataMaps.visitorHistory.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorHistory.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__DaysToPersist
             value: {{ $cfg.dataMaps.visitorHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__CompressData
@@ -1184,7 +1187,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__Type
             value: "Non Visitor Data"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__Cache
-            value: {{ $cfg.dataMaps.nonVisitorData.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.nonVisitorData.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__DaysToPersist
             value: {{ $cfg.dataMaps.nonVisitorData.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__CompressData
@@ -1192,7 +1195,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__Type
             value: "Product Recommendations"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__Cache
-            value: {{ $cfg.dataMaps.productRecommendation.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.productRecommendation.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__DaysToPersist
             value: {{ $cfg.dataMaps.productRecommendation.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__CompressData
@@ -1200,7 +1203,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Type
             value: "Visitor Backup"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Cache
-            value: {{ $cfg.dataMaps.visitorBackup.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorBackup.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__DaysToPersist
             value: {{ $cfg.dataMaps.visitorBackup.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__CompressData
@@ -1208,7 +1211,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Type
             value: "Message History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Cache
-            value: {{ $cfg.dataMaps.messageHistory.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.messageHistory.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__DaysToPersist
             value: {{ $cfg.dataMaps.messageHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__CompressData
@@ -1216,7 +1219,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__Type
             value: "Visitor Readonly Parameters"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__Cache
-            value: {{ $cfg.dataMaps.visitorReadonlyParameters.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__DaysToPersist
             value: {{ $cfg.dataMaps.visitorReadonlyParameters.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__CompressData
@@ -1226,7 +1229,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Type
             value: "Offer History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Cache
-            value: {{ $cfg.dataMaps.offerHistory.Cache | default $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.offerHistory.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__DaysToPersist
             value: {{ $cfg.dataMaps.offerHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__CompressData
@@ -1384,7 +1387,7 @@ spec:
 ---
 {{- if $cfg.enabled }}
 {{- if $cfg.cacheProvider.enabled }}
-{{- if eq $cfg.cacheProvider.provider "redis" }}
+{{- if eq $cacheProvider "redis" }}
 {{- if eq ($cfg.cacheProvider.redis.type | default "internal") "internal" }}
 apiVersion: v1
 kind: ConfigMap

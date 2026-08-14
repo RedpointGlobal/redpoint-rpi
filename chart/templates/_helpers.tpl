@@ -1798,6 +1798,45 @@ ADC authentication are alternative ways to reach the same instance.
 {{- end -}}
 
 {{/*
+Effective Realtime cache provider. The operator-set
+realtimeapi.cacheProvider.provider wins; when unset, the platform default
+applies (google: googlebigtable; azure, amazon, selfhosted: mongodb).
+Every template that branches on the cache provider consumes this helper,
+so a DataMap cache always resolves to a concrete provider.
+*/}}
+{{- define "rpi.realtime.cacheProvider" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- if $rtCfg.cacheProvider.provider -}}
+{{- $rtCfg.cacheProvider.provider -}}
+{{- else if eq .Values.global.deployment.platform "google" -}}
+googlebigtable
+{{- else -}}
+mongodb
+{{- end -}}
+{{- end -}}
+
+{{/*
+Effective Realtime queue provider. The operator-set
+realtimeapi.queueProvider.provider wins; when unset, the platform default
+applies (azure: azureservicebus; amazon: amazonsqs; google: googlepubsub;
+selfhosted: rabbitmq).
+*/}}
+{{- define "rpi.realtime.queueProvider" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- if $rtCfg.queueProvider.provider -}}
+{{- $rtCfg.queueProvider.provider -}}
+{{- else if eq .Values.global.deployment.platform "azure" -}}
+azureservicebus
+{{- else if eq .Values.global.deployment.platform "amazon" -}}
+amazonsqs
+{{- else if eq .Values.global.deployment.platform "google" -}}
+googlepubsub
+{{- else -}}
+rabbitmq
+{{- end -}}
+{{- end -}}
+
+{{/*
 Per-client Realtime API address overrides (RealtimeAPIClientOverrides__<n>__*),
 consumed by the Interaction API and Execution Service. Each entry routes one
 client (tenant) GUID to a specific Realtime API base address. Only meaningful
