@@ -1495,11 +1495,6 @@
           "properties": {
             "provider": { "type": "string", "description": "Queue provider (e.g., rabbitmq)." },
             "type": { "type": "string", "enum": ["internal", "external"], "description": "internal (chart-managed) or external (bring your own)." },
-            "tenantIds": {
-              "type": "array",
-              "description": "RPI client IDs (GUIDs) served by these queues.",
-              "items": { "type": "string" }
-            },
             "rabbitmqSettings": {
               "type": "object",
               "additionalProperties": true,

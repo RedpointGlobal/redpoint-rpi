@@ -657,9 +657,7 @@ isEventProcessingEnabled: true
 isCacheProcessingEnabled: true
 queueListenerEnabled: true
 isCallbackServiceProcessingEnabled: true
-nonActiveQueuePath: listenerQueueNonActive
 listenerQueueNonActiveTTLDays: 14
-errorQueuePath: listenerQueueError
 listenerQueueErrorTTLDays: 14
 maintenanceModeBufferTime: "00:01:00"
 threadPoolSize: 10
@@ -674,8 +672,6 @@ seedService:
   memoryCacheSize: "10"
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
-realtimeConfiguration:
-  isDistributed: true
 internalCache:
   redisSettings:
     replicas: 1

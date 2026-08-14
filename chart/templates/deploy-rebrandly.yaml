@@ -74,8 +74,8 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
-    {{- with $cfg.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- with .Values.customLabels }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.customAnnotations }}
   annotations:

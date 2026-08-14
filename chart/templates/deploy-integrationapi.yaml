@@ -22,7 +22,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -375,7 +375,6 @@ spec:
         {{- end }}
         {{- end }}
         {{- if .Values.redpointAI.enabled }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiBase
           value: {{ .Values.redpointAI.naturalLanguage.ApiBase | quote }} 
         - name: RPI__NLP__ApiVersion
@@ -396,7 +395,6 @@ spec:
           value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
         - name: RPI__NLP__EnableTrace
           value: {{ .Values.redpointAI.logging.enableTrace | quote }}
-        {{- end }}
         {{- end }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}

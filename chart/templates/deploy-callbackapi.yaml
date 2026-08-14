@@ -45,7 +45,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -642,7 +642,7 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $name }}-{{ $instance.name}}
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 4 }}
   {{- $saAnnotations := include "rpi.mergedAnnotations" (dict "root" $ "type" "serviceAccount") | trim }}
   {{- $ciAnnotations := include "rpi.cloudidentity.saAnnotations" $ | trim }}
   {{- if or $saAnnotations $ciAnnotations }}
@@ -671,7 +671,7 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $name }}-{{ $instance.name}}
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 4 }}
   {{- $svcAnnotations := include "rpi.mergedAnnotations" (dict "root" $ "type" "service") | trim }}
   {{- if $svcAnnotations }}
   annotations:
@@ -701,11 +701,11 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $name }}-{{ $instance.name}}
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 4 }}
     {{- with $.Values.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with .Values.customAnnotations }}
+  {{- with $.Values.customAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -720,7 +720,7 @@ spec:
     metadata:
       labels:
         app: {{ $name }}-{{ $instance.name}}
-        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 8 }}
+        {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 8 }}
         {{- with $.Values.customLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -731,7 +731,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- with (include "rpi.cloudidentity.podLabels" (dict "root" $ "svcCloudIdentity" (hasKey $cfg "cloudIdentity" | ternary $cfg.cloudIdentity false)) | trim) }}{{- . | nindent 8 }}{{- end }}
-      {{- if or $.Values.commonAnnotations $.Values.customAnnotations $cfg.podAnnotations (or .Values.customMetrics.enabled $cfg.customMetrics.enabled) $.Values.serviceMesh.enabled }}
+      {{- if or $.Values.commonAnnotations $.Values.customAnnotations $cfg.podAnnotations (or $.Values.customMetrics.enabled $cfg.customMetrics.enabled) $.Values.serviceMesh.enabled }}
       annotations:
         {{- with $.Values.commonAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -742,8 +742,8 @@ spec:
         {{- with $cfg.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- if (or .Values.customMetrics.enabled $cfg.customMetrics.enabled) }}
-        prometheus.io/scrape: {{ or .Values.customMetrics.enabled $cfg.customMetrics.prometheus_scrape | quote }}
+        {{- if (or $.Values.customMetrics.enabled $cfg.customMetrics.enabled) }}
+        prometheus.io/scrape: {{ or $.Values.customMetrics.enabled $cfg.customMetrics.prometheus_scrape | quote }}
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
         {{- end }}
@@ -767,9 +767,9 @@ spec:
         {{- if eq (include "rpi.telemetry.mode.otel" $) "true" }}
         {{- include "rpi.otel.envvars.shared" (dict "root" $ "svc" "rpi-callbackapi") | nindent 8 }}
         {{- end }}
-        {{- if .Values.global.deployment.podTimezone }}
+        {{- if $.Values.global.deployment.podTimezone }}
         - name: TZ
-          value: {{ .Values.global.deployment.podTimezone | quote }}
+          value: {{ $.Values.global.deployment.podTimezone | quote }}
         {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
@@ -980,25 +980,31 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key
           value: "Hostname"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.hostname | quote }}
+          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.hostname | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "VirtualHost"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.virtualHost | quote }}
+          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.virtualhost | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "Username"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.username | quote }}
+          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "Password"
         {{- end }}
         {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
-        {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
+        {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
+        - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.internalSecretName" $ | quote }}
+              key: RealtimeAPI_RabbitMQ_Password
+        {{- else if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
-              key: RABBITMQ_Password
+              key: RealtimeAPI_RabbitMQ_Password
         {{- end }}
         {{- end }}
         {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
@@ -1065,8 +1071,8 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__9__Value
           value: {{ $rtCfg.queueProvider.amazonmsk.UseAwsMsk | quote }}
         {{- end }}
-        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
-        imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        image: {{ include "rpi.image" (dict "root" $ "name" $name) }}
+        imagePullPolicy: {{  $.Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
         name: callbackapi
         {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 8 }}
         ports:

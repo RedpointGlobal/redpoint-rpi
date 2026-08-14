@@ -395,7 +395,7 @@ Contract:
     .name       -- PDB metadata.name + selector matchLabels identifier
     .component  -- component label propagated to componentLabels
     .cfg        -- merged service config dict (provides
-                   .podDisruptionBudget.enabled, .podDisruptionBudget.maxUnavailable)
+                   .podDisruptionBudget.enabled, .podDisruptionBudget.minAvailable)
 */}}
 {{- define "rpi.block.pdb" -}}
 {{- $root := required "rpi.block.pdb: .root is required" .root -}}
@@ -411,7 +411,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" $root "name" $name "component" $component) | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}

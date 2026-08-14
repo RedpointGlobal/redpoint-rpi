@@ -16,7 +16,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $QueueReadercacheName "component" "cache") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $qrCfg.internalCache.redisSettings.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $qrCfg.internalCache.redisSettings.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $QueueReadercacheName }}

@@ -22,7 +22,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "worker") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}

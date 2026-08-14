@@ -800,6 +800,9 @@ queuereader:
   realtimeConfiguration:
     # Enable distributed processing for high-volume transactions
     isDistributed: false
+    # RPI client IDs for this cluster
+    # tenantIds:
+    #   - <client-guid>
   # Internal cache for distributed processing (top-level, not nested under realtimeConfiguration)
   internalCache:
     provider: redis
@@ -817,10 +820,7 @@ queuereader:
       hostname: "rpi-queuereader-rabbitmq"
       username: redpointrpi
       password: my_Super_Strong_Pwd
-    # RPI client IDs for this cluster
-    tenantIds:
-      - 00000000-0000-0000-0000-000000000000
-  errorQueuePath: listenerQueueError 
+  errorQueuePath: listenerQueueError
   nonActiveQueuePath: listenerQueueNonActive
   autoscaling:
     enabled: false

@@ -56,7 +56,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -986,7 +986,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- if and (eq $cfg.cacheProvider.provider "redis") $cfg.cacheProvider.enabled }}
-          {{- $redisType := $cfg.cacheProvider.redis.redisSettings.type | default "internal" }}
+          {{- $redisType := $cfg.cacheProvider.redis.type | default "internal" }}
           {{- if or (eq $redisType "internal") (not (eq .Values.secretsManagement.provider "sdk")) }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
             value: {{ $cfg.cacheProvider.provider | quote }}
@@ -1385,6 +1385,7 @@ spec:
 {{- if $cfg.enabled }}
 {{- if $cfg.cacheProvider.enabled }}
 {{- if eq $cfg.cacheProvider.provider "redis" }}
+{{- if eq ($cfg.cacheProvider.redis.type | default "internal") "internal" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -1590,7 +1591,7 @@ spec:
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
       volumes:
         - name: {{ $cacheName }}-config
-          secret:
+          configMap:
             name: {{ $cacheName }}-config
         {{- if not $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.enabled }}
         - name: {{ $cacheName }}-data
@@ -1606,6 +1607,7 @@ spec:
           requests:
             storage: {{ $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.storage | quote }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

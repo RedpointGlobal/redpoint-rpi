@@ -1158,9 +1158,6 @@ queuereader:
       volumes:
         claimName: rpi-queuereader-rabbitmq-data
         enabled: false
-    # RPI client IDs (GUIDs) served by these queues.
-    tenantIds:
-    - 00000000-0000-0000-0000-000000000000
     # internal (chart-managed) or external (bring your own).
     type: internal
   isCacheProcessingEnabled: true

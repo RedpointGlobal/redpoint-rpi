@@ -13,7 +13,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $QueueReaderMQ "component" "messaging") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $qrCfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $qrCfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $QueueReaderMQ }}
@@ -238,7 +238,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $RealtimeapiMQ  "component" "messaging") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $rtCfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $RealtimeapiMQ }}
