@@ -220,9 +220,16 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": true,
+                    "required": ["name", "projectId"],
+                    "allOf": [
+                      {
+                        "if": { "properties": { "credentialsType": { "const": "serviceAccount" } }, "required": ["credentialsType"] },
+                        "then": { "required": ["serviceAccountEmail"], "properties": { "serviceAccountEmail": { "minLength": 1 } } }
+                      }
+                    ],
                     "properties": {
-                      "name":                { "type": "string", "description": "Connection name (used as the ODBC DSN name)." },
-                      "projectId":           { "type": "string", "description": "Google Cloud project ID (BigQuery catalog)." },
+                      "name":                { "type": "string", "minLength": 1, "description": "Connection name (used as the ODBC DSN name)." },
+                      "projectId":           { "type": "string", "minLength": 1, "description": "Google Cloud project ID (BigQuery catalog)." },
                       "credentialsType":     { "type": "string", "enum": ["serviceAccount", "workloadIdentity"], "description": "serviceAccount: authenticate with a mounted service account key (provide serviceAccountEmail, configMapName, keyName). workloadIdentity: keyless, using the pod's Workload Identity service account." },
                       "OAuthMechanism":      { "type": ["integer", "string"], "description": "BigQuery ODBC driver auth mode: 0 for a service account key; the driver's Application Default Credentials value (typically 3) for workloadIdentity." },
                       "sqlDialect":          { "type": ["integer", "string"] },
@@ -646,8 +653,10 @@
               "description": "Key/value settings passed to the custom geolocation provider plugin",
               "items": {
                 "type": "object",
+                "additionalProperties": false,
+                "required": ["key", "value"],
                 "properties": {
-                  "key": { "type": "string" },
+                  "key": { "type": "string", "minLength": 1 },
                   "value": { "type": "string" }
                 }
               }
@@ -679,8 +688,10 @@
                   "description": "Key/value settings passed to the custom IP-lookup plugin",
                   "items": {
                     "type": "object",
+                    "additionalProperties": false,
+                    "required": ["key", "value"],
                     "properties": {
-                      "key": { "type": "string" },
+                      "key": { "type": "string", "minLength": 1 },
                       "value": { "type": "string" }
                     }
                   }
@@ -788,6 +799,30 @@
             "type": "string"
           }
         },
+        "dataMaps": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-DataMap overrides. An empty Cache inherits the effective cacheProvider.provider.",
+          "properties": {
+            "visitorProfile": { "$ref": "#/definitions/realtimeDataMap" },
+            "visitorHistory": { "$ref": "#/definitions/realtimeDataMap" },
+            "nonVisitorData": { "$ref": "#/definitions/realtimeDataMap" },
+            "productRecommendation": { "$ref": "#/definitions/realtimeDataMap" },
+            "visitorBackup": { "$ref": "#/definitions/realtimeDataMap" },
+            "messageHistory": { "$ref": "#/definitions/realtimeDataMap" },
+            "visitorReadonlyParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "Cache": { "type": "string", "description": "Cache assignment; empty inherits the effective cacheProvider.provider." },
+                "DaysToPersist": { "type": ["integer", "string"] },
+                "CompressData": { "type": ["boolean", "string"] },
+                "KeySuffix": { "type": "string" }
+              }
+            },
+            "offerHistory": { "$ref": "#/definitions/realtimeDataMap" }
+          }
+        },
         "RealtimeServerCookieEnabled": {
           "type": "boolean",
           "description": "Enable the Realtime server visitor cookie."
@@ -832,8 +867,21 @@
             "mongodb": {
               "type": "object",
               "description": "MongoDB cache provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "authMechanism": {
+                  "type": "string",
+                  "enum": ["default", "iamRole"],
+                  "description": "MongoDB authentication: default (connection string from the shared Secret) or iamRole (MONGODB-AWS via IRSA / Pod Identity)."
+                },
+                "roleArn": {
+                  "type": "string",
+                  "description": "IAM role ARN for MONGODB-AWS (authMechanism=iamRole only)."
+                },
+                "region": {
+                  "type": "string",
+                  "description": "AWS region for the STS endpoint (authMechanism=iamRole only)."
+                },
                 "databaseName": {
                   "type": "string",
                   "description": "MongoDB database name"
@@ -847,8 +895,13 @@
             "redis": {
               "type": "object",
               "description": "Redis cache provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "redisSettings": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Internal cache StatefulSet tuning (resources, volumeClaimTemplates)."
+                },
                 "type": {
                   "type": "string",
                   "description": "Redis deployment type: internal (chart-managed) or external (BYO)",
@@ -862,7 +915,7 @@
             "googlebigtable": {
               "type": "object",
               "description": "Google Bigtable cache provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
                 "projectId": {
                   "type": "string",
@@ -902,7 +955,7 @@
             "queueNames": {
               "type": "object",
               "description": "Queue name configuration for each message type",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
                 "formQueuePath": {
                   "type": "string",
@@ -933,8 +986,12 @@
             "amazonsqs": {
               "type": "object",
               "description": "Amazon SQS queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "visibilityTimeout": {
+                  "type": ["integer", "string"],
+                  "description": "SQS message visibility timeout in seconds."
+                },
                 "credentialsType": {
                   "type": "string",
                   "description": "SQS credentials type"
@@ -944,8 +1001,16 @@
             "azurestorage": {
               "type": "object",
               "description": "Azure Storage queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "sendVisibilityTimeout": {
+                  "type": ["integer", "string"],
+                  "description": "Send-side message visibility timeout."
+                },
+                "receiveVisibilityTimeout": {
+                  "type": ["integer", "string"],
+                  "description": "Receive-side message visibility timeout."
+                },
                 "storageAccountName": {
                   "type": "string",
                   "description": "Azure Storage account name"
@@ -959,7 +1024,7 @@
             "googlepubsub": {
               "type": "object",
               "description": "Google Pub/Sub queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
                 "projectId": {
                   "type": "string",
@@ -970,8 +1035,16 @@
             "azureeventhubs": {
               "type": "object",
               "description": "Azure Event Hubs queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "SendMessageBatchSize": {
+                  "type": ["integer", "string"],
+                  "description": "Send batch size."
+                },
+                "ReceiveMessageBatchSize": {
+                  "type": ["integer", "string"],
+                  "description": "Receive batch size."
+                },
                 "eventHubName": {
                   "type": "string",
                   "description": "Event Hub name"
@@ -992,8 +1065,13 @@
             "rabbitmq": {
               "type": "object",
               "description": "RabbitMQ queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "rabbitmqSettings": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "RabbitMQ settings. username defaults to the release namespace; hostname applies to external (BYO) RabbitMQ."
+                },
                 "type": {
                   "type": "string",
                   "description": "RabbitMQ deployment type: internal (chart-managed) or external (BYO)",
@@ -1007,8 +1085,14 @@
             "amazonmsk": {
               "type": "object",
               "description": "Amazon MSK queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "Acks": { "type": "string", "description": "Kafka producer acks mode." },
+                "CompressionType": { "type": "string", "description": "Kafka compression type." },
+                "MaxRetryAttempt": { "type": ["integer", "string"], "description": "Producer retry attempts." },
+                "BatchSize": { "type": ["integer", "string"], "description": "Producer batch size in bytes." },
+                "LingerTime": { "type": ["integer", "string"], "description": "Producer linger time." },
+                "UseAwsMsk": { "type": "string", "description": "Enable AWS MSK IAM authentication (True/False)." },
                 "bootstrapServers": {
                   "type": "string",
                   "description": "MSK bootstrap servers"
@@ -1031,7 +1115,47 @@
               "description": "List of custom plugin configurations",
               "items": {
                 "type": "object",
-                "additionalProperties": true
+                "additionalProperties": false,
+                "required": ["name", "factory"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "factory": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["assembly", "type"],
+                    "properties": {
+                      "assembly": { "type": "string", "minLength": 1 },
+                      "type": { "type": "string", "minLength": 1 }
+                    }
+                  },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "required": ["name"],
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "apiContextFilters": { "type": "array", "items": { "type": "string" } },
+                      "apiContentFilterOperator": { "type": "string" }
+                    }
+                  },
+                  "settings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["key"],
+                      "oneOf": [
+                        { "required": ["value"] },
+                        { "required": ["values"] }
+                      ],
+                      "properties": {
+                        "key": { "type": "string", "minLength": 1 },
+                        "value": { "type": "string" },
+                        "values": { "type": "array", "items": { "type": "string" } }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -1169,8 +1293,44 @@
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
-          "$ref": "#/definitions/autoscaling",
-          "description": "Horizontal Pod Autoscaler configuration"
+          "description": "Autoscaling (hpa or keda).",
+          "allOf": [
+            { "$ref": "#/definitions/autoscaling" },
+            {
+              "properties": {
+                "kedaScaledObject": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "KEDA Prometheus trigger settings (autoscaling.type=keda). serverAddress and query are operator-supplied.",
+                  "properties": {
+                    "serverAddress": { "type": "string", "description": "Prometheus server URL. Required when autoscaling.type=keda." },
+                    "useTriggerAuthentication": { "type": ["boolean", "string"] },
+                    "authenticationRef": { "type": "string" },
+                    "metricName": { "type": "string" },
+                    "query": { "type": "string", "description": "PromQL query. Required when autoscaling.type=keda." },
+                    "threshold": { "type": ["integer", "string"] },
+                    "pollingInterval": { "type": ["integer", "string"] },
+                    "minReplicaCount": { "type": ["integer", "string"] },
+                    "maxReplicaCount": { "type": ["integer", "string"] },
+                    "fallback": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "failureThreshold": { "type": ["integer", "string"] },
+                        "replicas": { "type": ["integer", "string"] }
+                      }
+                    },
+                    "behavior": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "HPA scaling behavior (scaleUp/scaleDown stabilization and policies)."
+                    },
+                    "terminationGracePeriodSeconds": { "type": ["integer", "string"] }
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -1418,9 +1578,7 @@
             "redisSettings": {
               "type": "object",
               "additionalProperties": true,
-              "properties": {
-                "connectionString": { "type": "string", "description": "Redis connection string (required when type=external)." }
-              }
+              "description": "Internal cache tuning. For type=external the connection string comes from the shared Secret key QueueReader_RedisCache_ConnectionString, never from values."
             }
           }
         },
@@ -1435,9 +1593,8 @@
               "type": "object",
               "additionalProperties": true,
               "properties": {
-                "hostname": { "type": "string", "description": "RabbitMQ hostname." },
-                "username": { "type": "string", "description": "RabbitMQ username." },
-                "password": { "type": "string", "description": "RabbitMQ password." }
+                "hostname": { "type": "string", "description": "RabbitMQ hostname (external/BYO)." },
+                "username": { "type": "string", "description": "RabbitMQ username. Defaults to the release namespace." }
               }
             }
           }
@@ -1488,15 +1645,7 @@
             },
             "hostname": {
               "type": "string",
-              "description": "Redis hostname (if type=external)"
-            },
-            "username": {
-              "type": "string",
-              "description": "Redis username"
-            },
-            "password": {
-              "type": "string",
-              "description": "Redis password"
+              "description": "Redis hostname (if type=external). The external Redis password comes from the shared Secret key Rebrandly_Redis_Password, never from values."
             },
             "useAzureCredentials": {
               "type": "boolean",
@@ -1555,6 +1704,76 @@
                 "SQS",
                 "PubSub"
               ]
+            }
+          }
+        },
+        "sqs": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "SQS/SNS transport settings (messaging.provider=SQS). Queue URLs and topic ARNs are operator-supplied.",
+          "properties": {
+            "region": { "type": "string", "description": "AWS region." },
+            "inputQueueUrl": { "type": "string", "description": "Input queue URL. Required when messaging.provider=SQS." },
+            "outputTopicArn": { "type": "string", "description": "Output topic ARN. Required when messaging.provider=SQS." },
+            "outputInternalTopicArn": { "type": "string", "description": "Internal output topic ARN. Required when messaging.provider=SQS." },
+            "outputDeliveryStatusQueueUrl": { "type": "string", "description": "Delivery-status queue URL. Required when messaging.provider=SQS." },
+            "outputLinkClickQueueUrl": { "type": "string", "description": "Link-click queue URL. Required when messaging.provider=SQS." },
+            "outputInboundMessageQueueUrl": { "type": "string", "description": "Inbound-message queue URL. Required when messaging.provider=SQS." }
+          }
+        },
+        "pubsub": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Pub/Sub transport settings (messaging.provider=PubSub). Auth via GCP Workload Identity.",
+          "properties": {
+            "projectId": { "type": "string", "description": "GCP project ID. Required when messaging.provider=PubSub." },
+            "inputTopicId": { "type": "string" },
+            "inputSubscriptionId": { "type": "string" },
+            "outputTopicId": { "type": "string" },
+            "outputInternalTopicId": { "type": "string" },
+            "outputDeliveryStatusSubscriptionId": { "type": "string" },
+            "outputLinkClickSubscriptionId": { "type": "string" },
+            "outputInboundMessageSubscriptionId": { "type": "string" }
+          }
+        },
+        "eventHubs": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Event Hubs transport settings (messaging.provider=EventHub). Auth via Azure Workload Identity.",
+          "properties": {
+            "fullyQualifiedNamespace": { "type": "string", "description": "Event Hubs namespace FQDN, e.g. <namespace>.servicebus.windows.net." },
+            "inputHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "consumerGroup": { "type": "string" }
+              }
+            },
+            "outputHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" }
+              }
+            },
+            "outputInternalHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "deliveryStatusConsumerGroup": { "type": "string" },
+                "linkClickConsumerGroup": { "type": "string" },
+                "inboundMessageConsumerGroup": { "type": "string" }
+              }
+            },
+            "checkpointing": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "blobServiceUri": { "type": "string", "description": "Checkpoint storage blob service URI." },
+                "blobContainerName": { "type": "string" }
+              }
             }
           }
         },
@@ -2472,8 +2691,18 @@
       "type": "object",
       "description": "Standalone in-cluster service that periodically reads Pulse_Logging (read-only), clusters errors, and asks an LLM (Anthropic / Azure Foundry / Bedrock / Vertex) to produce summaries plus chart recommendations. Reports stored locally in SQLite. Opt-in.",
       "additionalProperties": true,
+      "allOf": [
+        {
+          "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+          "then": { "required": ["clientId"], "properties": { "clientId": { "minLength": 1 } } }
+        }
+      ],
       "properties": {
         "enabled": { "type": "boolean" },
+        "clientId": {
+          "type": "string",
+          "description": "RPI ClientID GUID from Pulse dbo.rpi_Clients. REQUIRED when observability.enabled=true; rendering fails without it. No fallback or auto-detection."
+        },
         "replicas": { "type": "integer", "minimum": 1 },
         "serviceAccount": {
           "type": "object",
@@ -2666,117 +2895,6 @@
               }
             }
           }
-        }
-      }
-    },
-    "postInstall": {
-      "type": "object",
-      "description": "Post-install automation: license activation, cluster DB install, and optional tenant creation. Runs as a Helm post-install hook.",
-      "additionalProperties": true,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable post-install automation"
-        },
-        "existingSecret": {
-          "type": "string",
-          "description": "Use an existing K8s secret instead of inline values (keys: activation-key, admin-password, admin-username, admin-email)"
-        },
-        "activationKey": {
-          "type": "string",
-          "description": "RPI license activation key"
-        },
-        "systemName": {
-          "type": "string",
-          "description": "System name for license activation"
-        },
-        "adminUsername": {
-          "type": "string",
-          "description": "Initial admin username"
-        },
-        "adminPassword": {
-          "type": "string",
-          "description": "Initial admin password"
-        },
-        "adminEmail": {
-          "type": "string",
-          "description": "Initial admin email"
-        },
-        "tenant": {
-          "type": "object",
-          "description": "Automatic tenant creation configuration",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable automatic tenant creation"
-            },
-            "name": {
-              "type": "string",
-              "description": "Tenant name"
-            },
-            "existingSecret": {
-              "type": "string",
-              "description": "Existing secret for DW credentials"
-            },
-            "dataWarehouse": {
-              "type": "object",
-              "description": "Data warehouse configuration for the tenant",
-              "additionalProperties": true,
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "description": "Data warehouse provider (e.g., SQLServer)"
-                },
-                "server": {
-                  "type": "string",
-                  "description": "DW server hostname"
-                },
-                "database": {
-                  "type": "string",
-                  "description": "DW database name"
-                },
-                "username": {
-                  "type": "string",
-                  "description": "DW username"
-                },
-                "password": {
-                  "type": "string",
-                  "description": "DW password"
-                }
-              }
-            }
-          }
-        },
-        "waitTimeout": {
-          "type": [
-            "integer",
-            "string"
-          ],
-          "description": "Timeout in seconds to wait for services to be ready"
-        },
-        "backoffLimit": {
-          "type": "integer",
-          "description": "Number of retries before considering the job failed"
-        }
-      }
-    },
-    "preflight": {
-      "type": "object",
-      "description": "Pre-flight validation: checks DNS, DB connectivity, cloud identity, and secrets management before deployment",
-      "additionalProperties": true,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable pre-flight validation"
-        },
-        "mode": {
-          "type": "string",
-          "description": "Preflight mode: test (runs with helm test) or preInstall (blocks install on failure)",
-          "enum": [
-            "test",
-            "preInstall"
-          ]
         }
       }
     },
@@ -3132,6 +3250,15 @@
     }
   ],
   "definitions": {
+    "realtimeDataMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Cache": { "type": "string", "description": "Cache assignment; empty inherits the effective cacheProvider.provider." },
+        "DaysToPersist": { "type": ["integer", "string"] },
+        "CompressData": { "type": ["boolean", "string"] }
+      }
+    },
     "resources": {
       "type": "object",
       "description": "Kubernetes resource requests and limits",

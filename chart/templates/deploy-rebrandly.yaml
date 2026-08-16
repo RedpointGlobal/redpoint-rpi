@@ -171,11 +171,19 @@ spec:
 #        - name: Redis__Username
 #          value: {{ $cfg.redisSettings.username | quote }}
         {{- if not $cfg.redisSettings.useAzureCredentials }}
+        {{- if eq $cfg.redisSettings.type "internal" }}
         - name: Redis__Password
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.internalSecretName" $ | quote }}
               key: Rebrandly_RedisPassword
+        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Redis__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" $ | quote }}
+              key: Rebrandly_Redis_Password
+        {{- end }}
         {{- end }}
         - name: Redis__Port
           value: {{ $cfg.redisSettings.port | quote }}

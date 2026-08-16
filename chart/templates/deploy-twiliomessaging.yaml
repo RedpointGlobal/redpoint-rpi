@@ -46,6 +46,19 @@
 {{- fail "twiliomessaging external Redis on AWS (ElastiCache IAM) requires redisSettings.region and redisSettings.cacheName." }}
 {{- end }}
 {{- end }}
+{{- if not $cfg.accountSid }}
+{{- fail "twiliomessaging.accountSid is required when twiliomessaging.enabled=true (the Twilio Account SID; the auth token remains the TwilioMessaging_AuthToken Secret key)." }}
+{{- end }}
+{{- if eq $cfg.messaging.provider "SQS" }}
+{{- range $k := list "inputQueueUrl" "outputTopicArn" "outputInternalTopicArn" "outputDeliveryStatusQueueUrl" "outputLinkClickQueueUrl" "outputInboundMessageQueueUrl" }}
+{{- if not (get $cfg.sqs $k) }}
+{{- fail (printf "twiliomessaging.sqs.%s is required when twiliomessaging.messaging.provider=SQS." $k) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if and (eq $cfg.messaging.provider "PubSub") (not $cfg.pubsub.projectId) }}
+{{- fail "twiliomessaging.pubsub.projectId is required when twiliomessaging.messaging.provider=PubSub." }}
+{{- end }}
 {{- end }}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}

@@ -661,6 +661,7 @@ realtimeapi:
         - "0"
     rabbitmq:
       # internal: chart-managed RabbitMQ | external: BYO RabbitMQ
+      # rabbitmqSettings.username defaults to the release namespace; set to override.
       type: internal
     amazonmsk:
       bootstrapServers: <my-server1.c2.kafka.us-east-1.amazonaws.com:9198>
@@ -799,11 +800,10 @@ queuereader:
   # Internal cache for distributed processing (top-level, not nested under realtimeConfiguration)
   internalCache:
     provider: redis
-    # internal: chart-managed Redis | external: BYO Redis
+    # internal: chart-managed Redis | external: BYO Redis. For external, populate
+    # the shared Secret key QueueReader_RedisCache_ConnectionString with the
+    # Redis connection string (sdk mode resolves it from the vault).
     type: internal
-    redisSettings:
-      # Required if type=external
-      connectionString: "my-redis-host:6379,password=<your-password>,abortConnect=False"
   # Internal queue for distributed processing
   internalQueues:
     provider: rabbitmq
@@ -811,8 +811,9 @@ queuereader:
     type: internal
     rabbitmqSettings:
       hostname: "rpi-queuereader-rabbitmq"
-      username: redpointrpi
-      password: my_Super_Strong_Pwd
+      # username defaults to the release namespace; set to override. For external,
+      # populate the shared Secret key QueueReader_RabbitMQ_Password (sdk mode
+      # resolves it from the vault).
   errorQueuePath: listenerQueueError
   nonActiveQueuePath: listenerQueueNonActive
   autoscaling:
@@ -825,12 +826,12 @@ rebrandly:
   enabled: false
   apiKey: my_rebrandly_api_key
   redisSettings:
-    # internal: chart-managed Redis | external: BYO Redis
+    # internal: chart-managed Redis | external: BYO Redis. For external, populate
+    # the shared Secret key Rebrandly_Redis_Password (sdk mode resolves it from
+    # the vault); useAzureCredentials=true uses Azure identity instead.
     type: internal
-    # External Redis settings (if type=external)
+    # External Redis endpoint (if type=external)
     hostname: rpi-rebrandly-cache
-    username: my_redis_username
-    password: my_redis_password
     useAzureCredentials: false
     port: 6379
 
@@ -1665,41 +1666,3 @@ observability:
       cpu: 500m
       memory: 1Gi
 
-# ==========================
-# Post-Install Automation
-# ==========================
-# Automates license activation, cluster DB install, and optional tenant creation.
-# Runs as a Helm post-install hook (and ArgoCD PostSync).
-postInstall:
-  enabled: false
-  # Use an existing K8s secret instead of inline values
-  # Keys: activation-key, admin-password, admin-username, admin-email
-  # existingSecret: ""
-  activationKey: ""
-  systemName: ""
-  adminUsername: "coreuser"
-  adminPassword: ""
-  adminEmail: ""
-  tenant:
-    enabled: false
-    name: ""
-    # existingSecret: ""  # Keys: dw-server, dw-database, dw-username, dw-password
-    dataWarehouse:
-      provider: SQLServer
-      server: ""
-      database: ""
-      username: ""
-      password: ""
-  waitTimeout: 360
-  backoffLimit: 3
-
-# ==========================
-# Pre-flight Validation
-# ==========================
-# Validates configuration before deployment:
-#   DNS resolution, DB connectivity, cloud identity, secrets management.
-# mode: test     -> runs with `helm test rpi`
-# mode: preInstall -> blocks install on failure
-preflight:
-  enabled: false
-  mode: test

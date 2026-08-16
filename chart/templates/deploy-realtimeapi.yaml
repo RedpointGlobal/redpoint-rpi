@@ -14,7 +14,6 @@
 {{- $geoip := $geo.ipLookup | default dict -}}
 {{- $ident := $cfg.identitySettings | default dict -}}
 
-{{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- if $cfg.serviceAccount.enabled }}
 {{- if $cfg.enabled }}
@@ -129,7 +128,7 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
     {{- with .Values.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.customAnnotations }}
   annotations:
@@ -312,7 +311,7 @@ spec:
           {{- end }}
           {{- if $diag.dotNetTools.enabled }}
           - name: DOTNET_BUNDLE_EXTRACT_BASE_DIR
-            value: {{ $diag.dotNetTools.extractionBaseDir | quote }} 
+            value: {{ $diag.dotNetTools.extractionBaseDir | quote }}
           - name: RPI__Diagnostics__UseDotNetTools__Path
             value: {{  $diag.dotNetTools.path  | quote }}
           - name: RPI__Diagnostics__UseDotNetTools__UseCounters
@@ -417,7 +416,7 @@ spec:
             value: "PostgreSQL"
           {{- end }}
           {{- end }}
-          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }} 
+          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}
           - name: RealtimeAPIConfiguration__AppSettings__PluginAssemblyPath
             value: {{ .Values.storage.persistentVolumeClaims.Plugins.mountPath | quote }}
           {{- end }}
@@ -593,7 +592,6 @@ spec:
             value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Key
             value: "AccessKey"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Value
@@ -603,10 +601,8 @@ spec:
                 key: AWS_Access_Key_ID
           {{- end }}
           {{- end }}
-          {{- end }}
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Key
             value: "SecretKey"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
@@ -614,7 +610,6 @@ spec:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Key
@@ -627,7 +622,6 @@ spec:
             value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Key
             value: "AccessKey"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Value
@@ -637,10 +631,8 @@ spec:
                 key: AWS_Access_Key_ID
           {{- end }}
           {{- end }}
-          {{- end }}
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key
             value: "SecretKey"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
@@ -648,7 +640,6 @@ spec:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Key
@@ -678,17 +669,13 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key
             value: "ConnectionString"
           {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if eq $queueProvider "azureservicebus" }}
+          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: RealtimeAPI_ServiceBus_ConnectionString
-          {{- end }}
-          {{- end }}
-          {{- if eq $queueProvider "azureservicebus" }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
@@ -733,22 +720,12 @@ spec:
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Key
             value: "ConnectionString"
-          {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cacheProvider "mongodb" }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: RealtimeAPI_MongoCache_ConnectionString
           {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if eq $cacheProvider "mongodb" }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__2__Key
             value: "CollectionName"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__2__Value
@@ -783,11 +760,7 @@ spec:
             value: "RedPoint.Resonance.Web.Shared.Cache.SQLServerCache"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key
             value: "ConnectionString"
-          {{- end }}
-          {{- end }}
-          {{- if eq $cacheProvider "inMemorySql" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
               secretKeyRef:
@@ -940,7 +913,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Key
             value: "Username"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Value
-            value: {{ $cfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+            value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Key
             value: "Password"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
@@ -962,7 +935,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Key
             value: "Username"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Value
-            value: {{ $cfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+            value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Key
             value: "Password"
           {{- end }}
@@ -1034,12 +1007,6 @@ spec:
             value: "RedPoint.Azure.Server.AzureRedisCache.AzureRedisCacheHandler"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key
             value: "ConnectionString"
-          {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cacheProvider "azureredis" }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
               secretKeyRef:
@@ -1084,24 +1051,20 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__7__Key
             value: "AccessKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__7__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Access_Key_ID
           {{- end }}
-          {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__8__Key
             value: "SecretKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__8__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__9__Key
             value: "RegionEndpoint"
@@ -1142,24 +1105,20 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__7__Key
             value: "AccessKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__7__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Access_Key_ID
           {{- end }}
-          {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__8__Key
             value: "SecretKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__8__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__9__Key
             value: "RegionEndpoint"
@@ -1325,11 +1284,11 @@ spec:
             {{- include "rpi.snowflake.volumeMount" . | nindent 12 }}
             {{- end }}
             {{- end }}
-            {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}    
+            {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
             - name: fileoutputdirectory
               mountPath: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
             {{- end }}
-            {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}  
+            {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}
             - name: realtimeplugins
               mountPath: {{ .Values.storage.persistentVolumeClaims.Plugins.mountPath }}
             {{- end }}
@@ -1547,14 +1506,8 @@ spec:
                 name: {{ include "rpi.secrets.internalSecretName" . | quote }}
                 key: RealtimeAPI_RedisCache_Password
           volumeMounts:
-            {{- if $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.enabled }}
             - name: {{ $cacheName }}-data
               mountPath: /data
-            {{- end }}
-            {{- if not $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.enabled }}
-            - name: {{ $cacheName }}-data
-              mountPath: /data
-            {{- end }}
             - name: {{ $cacheName }}-config
               mountPath: /usr/local/etc/redis
           {{- if $cfg.cacheProvider.redis.redisSettings.resources.enabled }}

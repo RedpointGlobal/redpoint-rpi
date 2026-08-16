@@ -650,68 +650,6 @@ diagnosticsMode:
       runAsNonRoot: true
       runAsUser: 7777
 
-# Pre-flight validation: checks DNS, DB connectivity, cloud identity, and secrets management
-# before deployment
-preflight:
-  # Enable pre-flight validation
-  enabled: false
-  # Preflight mode: test (runs with helm test) or preInstall (blocks install on failure)
-  mode: test
-
-# Post-install automation: license activation, cluster DB install, and optional tenant
-# creation. Runs as a Helm post-install hook.
-postInstall:
-  # RPI license activation key
-  activationKey: ''
-  # Initial admin email
-  adminEmail: ''
-  # Initial admin password
-  adminPassword: ''
-  # Initial admin username
-  adminUsername: coreuser
-  # Number of retries before considering the job failed
-  backoffLimit: 3
-  deploymentapiHost: rpi-deploymentapi
-  deploymentapiPort: '80'
-  # Enable post-install automation
-  enabled: false
-  # Use an existing K8s secret instead of inline values (keys: activation-key, admin-password,
-  # admin-username, admin-email)
-  existingSecret: ''
-  maxReadyWaitSeconds: '600'
-  pollIntervalSeconds: '15'
-  resources:
-    limits:
-      cpu: 200m
-      memory: 128Mi
-    requests:
-      cpu: 50m
-      memory: 64Mi
-  # System name for license activation
-  systemName: ''
-  # Automatic tenant creation configuration
-  tenant:
-    # Data warehouse configuration for the tenant
-    dataWarehouse:
-      # DW database name
-      database: ''
-      # DW password
-      password: ''
-      # Data warehouse provider (e.g., SQLServer)
-      provider: SQLServer
-      # DW server hostname
-      server: ''
-      # DW username
-      username: ''
-    # Enable automatic tenant creation
-    enabled: false
-    # Existing secret for DW credentials
-    existingSecret: ''
-    # Tenant name
-    name: ''
-  # Timeout in seconds to wait for services to be ready
-  waitTimeout: 360
-
 # Validation pods that verify storage mounts and CSI secret mounts are working
 validationPods:
   # Enable validation pod deployments
@@ -885,7 +823,7 @@ integrationapi:
 
 # Execution Service configuration — handles selection rule execution and job processing
 executionservice:
-  # Horizontal Pod Autoscaler configuration
+  # Autoscaling (hpa or keda).
   autoscaling:
     enabled: false
     kedaScaledObject:
@@ -1107,9 +1045,9 @@ queuereader:
   internalCache:
     # Cache provider (e.g., redis).
     provider: redis
+    # Internal cache tuning. For type=external the connection string comes from the shared
+    # Secret key QueueReader_RedisCache_ConnectionString, never from values.
     redisSettings:
-      # Redis connection string (required when type=external).
-      connectionString: 'my-redis-host:6379,password=<your-password>,abortConnect=False'
       podDisruptionBudget:
         enabled: false
         minAvailable: 1
@@ -1131,10 +1069,8 @@ queuereader:
     # Queue provider (e.g., rabbitmq).
     provider: rabbitmq
     rabbitmqSettings:
-      # RabbitMQ hostname.
+      # RabbitMQ hostname (external/BYO).
       hostname: rpi-queuereader-rabbitmq
-      # RabbitMQ password.
-      password: my_Super_Strong_Pwd
       resources:
         enabled: true
         limits:
@@ -1142,12 +1078,12 @@ queuereader:
         requests:
           cpu: 100m
           memory: 256Mi
-      # RabbitMQ username.
-      username: redpointrpi
       virtualhost: /
       volumeClaimTemplates:
         enabled: true
         storage: 100Gi
+      # RabbitMQ username. Defaults to the release namespace.
+      username: ''
     # internal (chart-managed) or external (bring your own).
     type: internal
   isCacheProcessingEnabled: true
@@ -1273,18 +1209,23 @@ realtimeapi:
       projectId: <my-bigtable-project-id>
     # MongoDB cache provider settings
     mongodb:
+      # MongoDB authentication: default (connection string from the shared Secret) or iamRole
+      # (MONGODB-AWS via IRSA / Pod Identity).
       authMechanism: default
       # MongoDB collection name
       collectionName: <my-realtime-cache-collection>
       # MongoDB database name
       databaseName: <my-realtime-cache-db>
+      # AWS region for the STS endpoint (authMechanism=iamRole only).
       region: us-east-1
+      # IAM role ARN for MONGODB-AWS (authMechanism=iamRole only).
       roleArn: ''
     # Cache provider type. Empty resolves to the platform default: google -> googlebigtable,
     # azure/amazon/selfhosted -> mongodb.
     provider: ''
     # Redis cache provider settings
     redis:
+      # Internal cache StatefulSet tuning (resources, volumeClaimTemplates).
       redisSettings:
         resources:
           enabled: true
@@ -1311,6 +1252,7 @@ realtimeapi:
     enabled: false
     # List of custom plugin configurations
     list: []
+  # Per-DataMap overrides. An empty Cache inherits the effective cacheProvider.provider.
   dataMaps:
     messageHistory:
       Cache: ''
@@ -1341,6 +1283,7 @@ realtimeapi:
       CompressData: true
       DaysToPersist: 365
     visitorReadonlyParameters:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: false
       DaysToPersist: 9999
@@ -1460,11 +1403,17 @@ realtimeapi:
   queueProvider:
     # Amazon MSK queue provider settings
     amazonmsk:
+      # Kafka producer acks mode.
       Acks: None
+      # Producer batch size in bytes.
       BatchSize: '1000000'
+      # Kafka compression type.
       CompressionType: Snappy
+      # Producer linger time.
       LingerTime: 0
+      # Producer retry attempts.
       MaxRetryAttempt: 10
+      # Enable AWS MSK IAM authentication (True/False).
       UseAwsMsk: 'True'
       # MSK bootstrap servers
       bootstrapServers: '<my-server1.c2.kafka.us-east-1.amazonaws.com:9198>'
@@ -1472,6 +1421,7 @@ realtimeapi:
     amazonsqs:
       # SQS credentials type
       credentialsType: accessKey
+      # SQS message visibility timeout in seconds.
       visibilityTimeout: '301'
     # Azure Event Hubs queue provider settings
     azureeventhubs:
@@ -1480,13 +1430,17 @@ realtimeapi:
       # Partition IDs
       PartitionIds:
       - '0'
+      # Receive batch size.
       ReceiveMessageBatchSize: 200
+      # Send batch size.
       SendMessageBatchSize: 200
       # Event Hub name
       eventHubName: RPIQueueListener
     # Azure Storage queue provider settings
     azurestorage:
+      # Receive-side message visibility timeout.
       receiveVisibilityTimeout: 1
+      # Send-side message visibility timeout.
       sendVisibilityTimeout: 1
       # Azure Storage account name
       storageAccountName: myStorageAccountName
@@ -1517,6 +1471,8 @@ realtimeapi:
       recommendationsQueuePath: RPIWebRecommendations
     # RabbitMQ queue provider settings
     rabbitmq:
+      # RabbitMQ settings. username defaults to the release namespace; hostname applies to
+      # external (BYO) RabbitMQ.
       rabbitmqSettings:
         hostname: rpi-realtimeapi-rabbitmq
         podDisruptionBudget:
@@ -1530,7 +1486,6 @@ realtimeapi:
           requests:
             cpu: 100m
             memory: 256Mi
-        username: redpointrpi
         virtualhost: /
         volumeClaimTemplates:
           enabled: true
@@ -1630,9 +1585,6 @@ deploymentapi:
     audience: ''
     # OIDC client ID (required when enabled; no default)
     clientId: ''
-  customMetrics:
-    enabled: false
-    prometheus_scrape: false
   # Enable the Deployment API service
   enabled: true
   logging:
@@ -1676,9 +1628,6 @@ rebrandly:
   # Rebrandly API key
   apiKey: my_rebrandly_api_key
   baseUrl: 'https://api.rebrandly.com'
-  customMetrics:
-    enabled: false
-    prometheus_scrape: false
   # Enable the Rebrandly URL shortener service
   enabled: false
   enterpriseBaseUrl: 'https://enterprise-api.rebrandly.com'
@@ -1689,10 +1638,9 @@ rebrandly:
   podLabels: {}
   # Redis settings for Rebrandly caching
   redisSettings:
-    # Redis hostname (if type=external)
+    # Redis hostname (if type=external). The external Redis password comes from the shared
+    # Secret key Rebrandly_Redis_Password, never from values.
     hostname: rpi-rebrandly-cache
-    # Redis password
-    password: my_redis_password
     # Redis port
     port: 6379
     resources:
@@ -1706,8 +1654,6 @@ rebrandly:
     type: internal
     # Use Azure credentials for Redis
     useAzureCredentials: false
-    # Redis username
-    username: my_redis_username
     volumeClaimTemplates:
       accessModes: ReadWriteOnce
       enabled: false
@@ -1768,6 +1714,8 @@ observability:
   budget:
     maxRequestsPerHour: 60
     maxTokensPerHour: 200000
+  # RPI ClientID GUID from Pulse dbo.rpi_Clients. REQUIRED when observability.enabled=true;
+  # rendering fails without it. No fallback or auto-detection.
   clientId: ''
   diagnostics:
     fileOutput:
@@ -2411,10 +2359,14 @@ twiliomessaging:
   accountSid: ''
   # Enable the Twilio Messaging service
   enabled: false
+  # Event Hubs transport settings (messaging.provider=EventHub). Auth via Azure Workload
+  # Identity.
   eventHubs:
     checkpointing:
       blobContainerName: sms-send-checkpoints
+      # Checkpoint storage blob service URI.
       blobServiceUri: 'https://mystorage.blob.core.windows.net'
+    # Event Hubs namespace FQDN, e.g. <namespace>.servicebus.windows.net.
     fullyQualifiedNamespace: my-ehns.servicebus.windows.net
     inputHub:
       consumerGroup: twilio-message-input-send
@@ -2456,8 +2408,17 @@ twiliomessaging:
     port: null
     # PostgreSQL username (when reuseOperational=false)
     username: ''
+  # Pub/Sub transport settings (messaging.provider=PubSub). Auth via GCP Workload Identity.
   pubsub:
+    # GCP project ID. Required when messaging.provider=PubSub.
     projectId: ''
+    inputTopicId: ''
+    inputSubscriptionId: ''
+    outputTopicId: ''
+    outputInternalTopicId: ''
+    outputDeliveryStatusSubscriptionId: ''
+    outputLinkClickSubscriptionId: ''
+    outputInboundMessageSubscriptionId: ''
   # Redis (distributed locks / dedup). internal = chart-managed; external = BYO.
   redisSettings:
     # Redis deployment type: internal (chart-managed) or external (BYO)
@@ -2480,11 +2441,20 @@ twiliomessaging:
     isServerless: false
   # Number of Twilio Messaging pod replicas
   replicas: 1
+  # SQS/SNS transport settings (messaging.provider=SQS). Queue URLs and topic ARNs are
+  # operator-supplied.
   sqs:
+    # Input queue URL. Required when messaging.provider=SQS.
     inputQueueUrl: ''
+    # Delivery-status queue URL. Required when messaging.provider=SQS.
     outputDeliveryStatusQueueUrl: ''
+    # Inbound-message queue URL. Required when messaging.provider=SQS.
     outputInboundMessageQueueUrl: ''
+    # Internal output topic ARN. Required when messaging.provider=SQS.
     outputInternalTopicArn: ''
+    # Link-click queue URL. Required when messaging.provider=SQS.
     outputLinkClickQueueUrl: ''
+    # Output topic ARN. Required when messaging.provider=SQS.
     outputTopicArn: ''
+    # AWS region.
     region: us-east-1

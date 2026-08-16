@@ -44,7 +44,7 @@ SERVICES = [
 CROSSCUT = [
     "securityContext", "livenessProbe", "readinessProbe", "startupProbe",
     "topologySpreadConstraints", "ingress", "diagnosticsMode",
-    "networkPolicy", "postInstall", "databaseUpgrade",
+    "networkPolicy", "databaseUpgrade",
 ]
 
 # Reading order for top-level keys; anything else follows alphabetically.
@@ -57,7 +57,7 @@ TOP_ORDER = [
     "nodeSelector", "tolerations", "podAntiAffinity",
     "topologySpreadConstraints", "nodeProvisioning", "resources",
     "securityContext", "livenessProbe", "readinessProbe", "startupProbe",
-    "customMetrics", "diagnosticsMode", "preflight", "postInstall",
+    "customMetrics", "diagnosticsMode",
     "validationPods", "databaseUpgrade", "interactionapi", "integrationapi",
     "executionservice", "nodemanager", "queuereader", "realtimeapi",
     "callbackapi", "deploymentapi", "rebrandly", "observability", "redpointAI",

@@ -18,7 +18,6 @@
 ============================================================
 */}}
 
-
 {{/* ============================================================
      1. CROSS-CUTTING DEFAULTS
      ============================================================ */}}
@@ -104,8 +103,6 @@ internalImageOverride:
   image: registry.k8s.io/ingress-nginx/controller:v1.14.3@sha256:82917be97c0939f6ada1717bb39aa7e66c229d6cfb10dcfc8f1bd42f9efe0f81
 service:
   port: 80
-tls:
-  - secretName: ingress-tls
 {{- end -}}
 
 {{/* ------ Diagnostics Mode ------ */}}
@@ -132,7 +129,6 @@ netutils:
       add: ["NET_ADMIN", "NET_RAW"]
 {{- end -}}
 
-
 {{/* ============================================================
      2. RPI CORE SERVICES (.NET)
      ============================================================ */}}
@@ -149,13 +145,6 @@ rollout:
   revisionHistoryLimit: 3
 serviceAccount:
   enabled: true
-authentication:
-  type: basic
-  basic:
-    standard: false
-    forms: true
-    listenerQueue: true
-    recommendations: true
 enableHelpPages: true
 enableEventListening: true
 ThresholdBetweenSiteVisitsMinutes: 120
@@ -258,7 +247,6 @@ logging:
     other: Error
     console: "false"
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -288,7 +276,6 @@ queueProvider:
   rabbitmq:
     rabbitmqSettings:
       hostname: "rpi-realtimeapi-rabbitmq"
-      username: redpointrpi
       virtualhost: /
       resources:
         enabled: true
@@ -342,7 +329,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -371,7 +357,6 @@ customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 logging:
   default: Error
   database: Error
@@ -379,7 +364,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -503,9 +487,8 @@ customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 productUpdateFeed:
-  enabled: true 
+  enabled: true
   url: https://www.redpointglobal.com/feed/productfeed
 logging:
   default: Error
@@ -514,7 +497,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -546,7 +528,6 @@ customMetrics:
   enabled: false
   prometheus_scrape: true
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 logging:
   default: Error
   database: Error
@@ -554,7 +535,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -583,7 +563,6 @@ customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 logging:
   default: Error
   database: Error
@@ -591,7 +570,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -616,9 +594,6 @@ serviceAccount:
   enabled: true
 service:
   port: 80
-customMetrics:
-  enabled: false
-  prometheus_scrape: false
 terminationGracePeriodSeconds: 120
 logging:
   default: Error
@@ -681,8 +656,6 @@ internalCache:
 internalQueues:
   rabbitmqSettings:
     virtualhost: /
-    hostname: rpi-queuereader-rabbitmq
-    username: rabbitmq
     resources:
       enabled: true
       requests:
@@ -704,7 +677,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -716,7 +688,6 @@ podDisruptionBudget:
 resources:
   enabled: true
 {{- end -}}
-
 
 {{/* ============================================================
      3. SUPPORTING SERVICES
@@ -750,9 +721,6 @@ redisSettings:
     accessModes: ReadWriteOnce
 service:
   port: 80
-customMetrics:
-  enabled: false
-  prometheus_scrape: false
 terminationGracePeriodSeconds: 120
 logging:
   default: Error
@@ -769,19 +737,12 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-replicas: 1
 enableProbes: true
 serviceAccount:
   enabled: true
 service:
   port: 80
-ingress:
-  publicPaths:
-    - /api/v1/webhook
-messaging:
-  provider: EventHub
 redisSettings:
-  type: internal
   hostname: ""
   port: 6379
   user: ""
@@ -802,39 +763,14 @@ redisSettings:
     storageClassName: default
     accessModes: ReadWriteOnce
 postgres:
-  reuseOperational: true
   host: ""
   port: 5432
-  database: twilio_messaging
   username: ""
-  sslMode: Require
   maxPoolSize: 20
   minPoolSize: 2
 rds:
   region: us-east-1
-eventHubs:
-  inputHub:
-    name: twilio-messaging-input
-    consumerGroup: twilio-message-input-send
-  outputHub:
-    name: twilio-messaging-output
-  outputInternalHub:
-    name: twilio-messaging-output-internal
-    deliveryStatusConsumerGroup: twilio-messaging-output-internal-delivery-status
-    linkClickConsumerGroup: twilio-messaging-output-internal-link-click
-    inboundMessageConsumerGroup: twilio-messaging-output-internal-inbound-reply
-  checkpointing:
-    blobContainerName: sms-send-checkpoints
-sqs:
-  region: us-east-1
-  inputQueueUrl: ""
-  outputTopicArn: ""
-  outputInternalTopicArn: ""
-  outputDeliveryStatusQueueUrl: ""
-  outputLinkClickQueueUrl: ""
-  outputInboundMessageQueueUrl: ""
 pubsub:
-  projectId: ""
   inputTopicId: twilio-messaging-input
   inputSubscriptionId: twilio-messaging-input
   outputTopicId: twilio-messaging-output
@@ -842,8 +778,6 @@ pubsub:
   outputDeliveryStatusSubscriptionId: twilio-messaging-output-internal-delivery-status
   outputLinkClickSubscriptionId: twilio-messaging-output-internal-link-click
   outputInboundMessageSubscriptionId: twilio-messaging-output-internal-inbound-reply
-accountSid: ""
-isTestCredentials: false
 batchIngestion:
   watchDirectory: /rpifileoutputdir/twilio/batch/incoming
   processingDirectory: /rpifileoutputdir/twilio/batch/processing
@@ -855,9 +789,6 @@ batchCompletion:
   pollIntervalSeconds: 60
   completionThresholdHours: 12
   parallelMergeDegree: 4
-customMetrics:
-  enabled: false
-  prometheus_scrape: false
 terminationGracePeriodSeconds: 120
 logging:
   default: Information
@@ -865,7 +796,6 @@ logging:
 resources:
   enabled: true
 {{- end -}}
-
 
 {{/* ============================================================
      4. SMART ACTIVATION SERVICES (Java)
@@ -1199,40 +1129,6 @@ volumeClaimTemplates:
 {{/* ============================================================
      5. UTILITY JOBS
      ============================================================ */}}
-
-{{/* ------ Post-Install Job ------ */}}
-{{- define "rpi.defaults.postInstall" -}}
-enabled: false
-existingSecret: ""
-activationKey: ""
-systemName: ""
-adminUsername: coreuser
-adminPassword: ""
-adminEmail: ""
-deploymentapiHost: rpi-deploymentapi
-deploymentapiPort: "80"
-waitTimeout: "360"
-maxReadyWaitSeconds: "600"
-pollIntervalSeconds: "15"
-backoffLimit: 3
-tenant:
-  enabled: false
-  name: ""
-  existingSecret: ""
-  dataWarehouse:
-    provider: SQLServer
-    server: ""
-    database: ""
-    username: ""
-    password: ""
-resources:
-  requests:
-    cpu: 50m
-    memory: 64Mi
-  limits:
-    cpu: 200m
-    memory: 128Mi
-{{- end -}}
 
 {{/* ------ Database Upgrade Job ------ */}}
 {{- define "rpi.defaults.databaseUpgrade" -}}

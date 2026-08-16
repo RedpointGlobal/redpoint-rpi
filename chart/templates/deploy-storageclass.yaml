@@ -5,7 +5,7 @@ metadata:
   name: {{ .Values.storage.storageClass.name }}
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" .Values.storage.storageClass.name "component" "storage") | nindent 4 }}
-provisioner: {{ .Values.storage.storageClass.provisioner }}
+provisioner: {{ required "storage.storageClass.provisioner is required when storage.storageClass.enabled=true (the CSI provisioner, e.g. efs.csi.aws.com)." .Values.storage.storageClass.provisioner }}
 reclaimPolicy: {{ .Values.storage.storageClass.reclaimPolicy | default "Delete" }}
 volumeBindingMode: {{ .Values.storage.storageClass.volumeBindingMode | default "Immediate" }}
 {{- if .Values.storage.storageClass.allowVolumeExpansion }}

@@ -377,11 +377,19 @@ spec:
           value: "Redis"
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
+        {{- if eq $cfg.internalCache.type "internal" }}
         - name: InternalCache__RedisSettings__IPAddress
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.internalSecretName" . | quote }}
               key: QueueService_RedisCache_ConnectionString
+        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: InternalCache__RedisSettings__IPAddress
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: QueueReader_RedisCache_ConnectionString
+        {{- end }}
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
         - name: InternalQueues__Enabled
@@ -395,7 +403,7 @@ spec:
         - name: InternalQueues__VirtualHost
           value: {{ $cfg.internalQueues.rabbitmqSettings.virtualhost | quote }}
         - name: InternalQueues__Username
-          value: {{ $cfg.internalQueues.rabbitmqSettings.username | quote }}
+          value: {{ include "rpi.queuereader.internalQueueUsername" . | quote }}
         - name: InternalQueues__IsDurable
           value: "true"
         - name: InternalQueues__Port
@@ -406,11 +414,19 @@ spec:
 #          value: "RedPoint.Resonance.RabbitMQAccess.RabbitMQFactory"
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
+        {{- if eq $cfg.internalQueues.type "internal" }}
         - name: InternalQueues__Password
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.internalSecretName" . | quote }}
               key: QueueService_RabbitMQ_Password
+        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: InternalQueues__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: QueueReader_RabbitMQ_Password
+        {{- end }}
         {{- end }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}

@@ -4041,17 +4041,6 @@ ${QUEUE_EXTRA}
 YAML
 fi
 
-# Pre-flight
-cat >> "$OUTPUT_FILE" << YAML
-
-# ----------------------------------------------------------
-#  Pre-flight Validation
-# ----------------------------------------------------------
-preflight:
-  enabled: true
-  mode: test
-YAML
-
 # ============================================================
 # Data Warehouse — write block collected during step 3b
 # ============================================================

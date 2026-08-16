@@ -1,11 +1,4 @@
 {{/*
-Expand the name of the chart.
-*/}}
-{{- define "redpoint-rpi.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
 Create a default fully qualified app name.
 */}}
 {{- define "redpoint-rpi.fullname" -}}
@@ -19,39 +12,6 @@ Create a default fully qualified app name.
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
-{{- end }}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "redpoint-rpi.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Common labels
-*/}}
-{{- define "redpoint-rpi.labels" -}}
-helm.sh/chart: {{ include "redpoint-rpi.chart" . }}
-{{ include "redpoint-rpi.selectorLabels" . }}
-app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: rpi
-{{- end }}
-
-{{/*
-Selector labels.
-
-Contract:
-  required:
-    .root  -- chart root context (for Release.Name)
-    .name  -- service identifier emitted as app.kubernetes.io/name
-*/}}
-{{- define "redpoint-rpi.selectorLabels" -}}
-{{- $root := required "redpoint-rpi.selectorLabels: .root is required" .root -}}
-{{- $name := required "redpoint-rpi.selectorLabels: .name is required" .name -}}
-app.kubernetes.io/name: {{ $name }}
-app.kubernetes.io/instance: {{ $root.Release.Name }}
 {{- end }}
 
 {{/*
@@ -185,16 +145,6 @@ topologySpreadConstraints:
 {{- end }}
 
 {{/*
-PreStop lifecycle hook for graceful shutdown
-*/}}
-{{- define "redpoint-rpi.preStopHook" -}}
-lifecycle:
-  preStop:
-    exec:
-      command: ["/bin/sh", "-c", "sleep 10"]
-{{- end }}
-
-{{/*
 Container probes (liveness, readiness, startup) from merged config.
 Usage: {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" true) | nindent 8 }}
 
@@ -292,7 +242,6 @@ tolerations:
 {{- define "redpoint.DatawarehouseProviders" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- $bigquery := $dw.bigquery | default dict -}}
-
 {{- if ($bigquery.enabled | default false) -}}
 true
 {{- else -}}
@@ -544,12 +493,6 @@ nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 {{- toYaml (mustMergeOverwrite $d $u) -}}
 {{- end -}}
 
-{{- define "rpi.merged.postInstall" -}}
-{{- $d := fromYaml (include "rpi.defaults.postInstall" .) -}}
-{{- $u := .Values.postInstall | default dict -}}
-{{- toYaml (mustMergeOverwrite $d $u) -}}
-{{- end -}}
-
 {{- define "rpi.merged.databaseUpgrade" -}}
 {{- $d := fromYaml (include "rpi.defaults.databaseUpgrade" .) -}}
 {{- $u := .Values.databaseUpgrade | default dict -}}
@@ -597,8 +540,7 @@ Per-service opt-out: set serviceMesh: false on the service to skip mesh annotati
 Usage: {{- include "rpi.serviceMesh.podAnnotations" (dict "root" . "svcServiceMesh" ($cfg.serviceMesh | default true)) | nindent 8 }}
 */}}
 {{- define "rpi.serviceMesh.podAnnotations" -}}
-{{- $root := . -}}
-{{- if hasKey . "root" }}{{- $root = .root -}}{{- end -}}
+{{- $root := .root -}}
 {{- $svcMesh := true -}}
 {{- if hasKey . "svcServiceMesh" }}
 {{- if not (kindIs "invalid" .svcServiceMesh) }}{{- $svcMesh = .svcServiceMesh -}}{{- end -}}
@@ -640,8 +582,7 @@ Usage (shared mode or backward compat): {{- include "rpi.cloudidentity.podLabels
 Usage (per-service):  {{- include "rpi.cloudidentity.podLabels" (dict "root" . "svcCloudIdentity" $cfg.cloudIdentity) | nindent 8 }}
 */}}
 {{- define "rpi.cloudidentity.podLabels" -}}
-{{- $root := . -}}
-{{- if hasKey . "root" }}{{- $root = .root -}}{{- end -}}
+{{- $root := .root -}}
 {{- if $root.Values.cloudIdentity.enabled -}}
 {{- if eq $root.Values.global.deployment.platform "azure" }}
 azure.workload.identity/use: "true"
@@ -790,12 +731,10 @@ Usage: {{ include "rpi.secrets.secretName" . }}
 {{- $provider := .Values.secretsManagement.provider | default "kubernetes" -}}
 {{- if eq $provider "csi" -}}
 {{ .Values.secretsManagement.csi.secretName | default "redpoint-rpi-secrets" }}
-{{- else if eq $provider "kubernetes" -}}
-{{ .Values.secretsManagement.kubernetes.secretName | default "redpoint-rpi-secrets" }}
 {{- else -}}
-{{/* sdk or unknown: secretKeyRef bindings are gated off in SDK mode
-     so this branch is rarely consumed; fall back to the kubernetes
-     name to keep manifests renderable. */}}
+{{- /* kubernetes, plus sdk or unknown: secretKeyRef bindings are gated off
+       in SDK mode so that branch is rarely consumed; it falls back to the
+       kubernetes name to keep manifests renderable. */ -}}
 {{ .Values.secretsManagement.kubernetes.secretName | default "redpoint-rpi-secrets" }}
 {{- end -}}
 {{- end -}}
@@ -926,26 +865,6 @@ Usage: {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
 {{- end -}}
 
 {{/*
-Platform-specific database connection env var name.
-Usage: {{- include "rpi.platform.dbProviderEnvvar" . | nindent 10 }}
-*/}}
-{{- define "rpi.platform.dbProviderEnvvar" -}}
-{{- if eq .Values.global.deployment.platform "azure" }}
-- name: RPI__CloudEnvironment
-  value: "Azure"
-{{- else if eq .Values.global.deployment.platform "amazon" }}
-- name: RPI__CloudEnvironment
-  value: "Amazon"
-{{- else if eq .Values.global.deployment.platform "google" }}
-- name: RPI__CloudEnvironment
-  value: "Google"
-{{- else }}
-- name: RPI__CloudEnvironment
-  value: "SelfHosted"
-{{- end }}
-{{- end -}}
-
-{{/*
 Resolve the container image for a service.
 Priority:
   1. overrides.<name>: full URI used verbatim (no tag appended)
@@ -1044,6 +963,8 @@ Usage: {{- include "rpi.customCACerts.volume" . | nindent 8 }}
 - name: custom-ca-certs
   secret:
     secretName: {{ .Values.customCACerts.name }}
+{{- else }}
+{{- fail "customCACerts.enabled=true requires customCACerts.name (the Secret containing the CA bundle) or customCACerts.secretProviderClassName." }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -1273,28 +1194,6 @@ Usage: {{- include "rpi.observability.intelligenceEnvvars" . | nindent 8 }}
 {{- end -}}
 
 {{/*
-Budget + schedule + database + storage env vars. Always emitted when
-observability is enabled.
-
-The observability service rides the chart's existing connection-string
-convention -- same env var name, same secret key, same secret name --
-as the rest of the RPI services (callbackapi, executionservice, etc.):
-
-  env var:  CONNECTIONSTRINGS__LOGGINGDATABASE
-  secret key: ConnectionString_Logging_Database
-  secret name: rpi.secrets.secretName
-
-In kubernetes / csi mode the chart binds that env var via secretKeyRef.
-In sdk mode the observability service fetches the same logical value
-from the cloud vault under the .NET-style entry name
-`ConnectionStrings--LoggingDatabase` (matches what the rest of RPI's
-SDK provider expects).
-
-Usage: {{- include "rpi.observability.runtimeEnvvars" . | nindent 8 }}
-*/}}
-
-
-{{/*
 Authentication env vars for the observability container. Two modes:
 Anonymous (observability.authentication.enabled=false, the default -
 only OBSERVABILITY__AUTH__ENABLED=false is emitted) and RPI
@@ -1402,7 +1301,26 @@ Usage: {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
 {{- end }}
 {{- end -}}
 
+{{/*
+Budget + schedule + database + storage env vars. Always emitted when
+observability is enabled.
 
+The observability service rides the chart's existing connection-string
+convention -- same env var name, same secret key, same secret name --
+as the rest of the RPI services (callbackapi, executionservice, etc.):
+
+  env var:  CONNECTIONSTRINGS__LOGGINGDATABASE
+  secret key: ConnectionString_Logging_Database
+  secret name: rpi.secrets.secretName
+
+In kubernetes / csi mode the chart binds that env var via secretKeyRef.
+In sdk mode the observability service fetches the same logical value
+from the cloud vault under the .NET-style entry name
+`ConnectionStrings--LoggingDatabase` (matches what the rest of RPI's
+SDK provider expects).
+
+Usage: {{- include "rpi.observability.runtimeEnvvars" . | nindent 8 }}
+*/}}
 {{- define "rpi.observability.runtimeEnvvars" -}}
 {{- $cfg := .Values.observability | default dict -}}
 {{- $budget := $cfg.budget | default dict -}}
@@ -1795,6 +1713,28 @@ ADC authentication are alternative ways to reach the same instance.
 - name: RPI__OperationalDatabaseType
   value: {{ $wi | ternary "GoogleCloudSQLPostgreSQL" "PostgreSQL" | quote }}
 {{- end }}
+{{- end -}}
+
+{{/*
+Effective RabbitMQ username for the Realtime queue provider. The
+operator-set realtimeapi.queueProvider.rabbitmq.rabbitmqSettings.username
+wins; otherwise the release namespace applies (matching the generated
+internal-services credential convention).
+*/}}
+{{- define "rpi.realtime.rabbitmqUsername" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | default .Release.Namespace -}}
+{{- end -}}
+
+{{/*
+Effective internal-queue (RabbitMQ) username for the queue reader. The
+operator-set queuereader.internalQueues.rabbitmqSettings.username wins;
+otherwise the release namespace applies (matching the generated
+internal-services credential convention).
+*/}}
+{{- define "rpi.queuereader.internalQueueUsername" -}}
+{{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
+{{- $qrCfg.internalQueues.rabbitmqSettings.username | default .Release.Namespace -}}
 {{- end -}}
 
 {{/*

@@ -419,7 +419,7 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "Username"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+          value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "Password"
         {{- end }}
@@ -989,7 +989,7 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "Username"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+          value: {{ include "rpi.realtime.rabbitmqUsername" $ | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "Password"
         {{- end }}

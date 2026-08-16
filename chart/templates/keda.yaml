@@ -1,6 +1,12 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- if $cfg.autoscaling.enabled }}
 {{- if eq $cfg.autoscaling.type "keda" }}
+{{- if not $cfg.autoscaling.kedaScaledObject.serverAddress }}
+{{- fail "executionservice.autoscaling.kedaScaledObject.serverAddress is required when executionservice.autoscaling.type=keda (the Prometheus server URL)." }}
+{{- end }}
+{{- if not $cfg.autoscaling.kedaScaledObject.query }}
+{{- fail "executionservice.autoscaling.kedaScaledObject.query is required when executionservice.autoscaling.type=keda (the PromQL scaling query)." }}
+{{- end }}
 {{- if $cfg.autoscaling.kedaScaledObject.useTriggerAuthentication }}
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
