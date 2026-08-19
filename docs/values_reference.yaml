@@ -2359,7 +2359,7 @@ twiliomessaging:
   accountSid: ''
   # Enable the Twilio Messaging service
   enabled: false
-  # Event Hubs transport settings (messaging.provider=EventHub). Auth via Azure Workload
+  # Event Hubs transport settings (messaging.provider=azureeventhubs). Auth via Azure Workload
   # Identity.
   eventHubs:
     checkpointing:
@@ -2388,8 +2388,9 @@ twiliomessaging:
   isTestCredentials: false
   # Messaging transport selector
   messaging:
-    # Active messaging transport
-    provider: EventHub
+    # Active messaging transport (chart-standard vocabulary; mapped to each application's own
+    # enum at render)
+    provider: azureeventhubs
   # PostgreSQL durable store (twilio_messaging database). Twilio does not support SQL Server.
   postgres:
     # PostgreSQL database name
@@ -2408,9 +2409,10 @@ twiliomessaging:
     port: null
     # PostgreSQL username (when reuseOperational=false)
     username: ''
-  # Pub/Sub transport settings (messaging.provider=PubSub). Auth via GCP Workload Identity.
+  # Pub/Sub transport settings (messaging.provider=googlepubsub). Auth via GCP Workload
+  # Identity.
   pubsub:
-    # GCP project ID. Required when messaging.provider=PubSub.
+    # GCP project ID. Required when messaging.provider=googlepubsub.
     projectId: ''
     inputTopicId: ''
     inputSubscriptionId: ''
@@ -2441,20 +2443,50 @@ twiliomessaging:
     isServerless: false
   # Number of Twilio Messaging pod replicas
   replicas: 1
-  # SQS/SNS transport settings (messaging.provider=SQS). Queue URLs and topic ARNs are
+  # SQS/SNS transport settings (messaging.provider=amazonsqs). Queue URLs and topic ARNs are
   # operator-supplied.
   sqs:
-    # Input queue URL. Required when messaging.provider=SQS.
+    # Input queue URL. Required when messaging.provider=amazonsqs.
     inputQueueUrl: ''
-    # Delivery-status queue URL. Required when messaging.provider=SQS.
+    # Delivery-status queue URL. Required when messaging.provider=amazonsqs.
     outputDeliveryStatusQueueUrl: ''
-    # Inbound-message queue URL. Required when messaging.provider=SQS.
+    # Inbound-message queue URL. Required when messaging.provider=amazonsqs.
     outputInboundMessageQueueUrl: ''
-    # Internal output topic ARN. Required when messaging.provider=SQS.
+    # Internal output topic ARN. Required when messaging.provider=amazonsqs.
     outputInternalTopicArn: ''
-    # Link-click queue URL. Required when messaging.provider=SQS.
+    # Link-click queue URL. Required when messaging.provider=amazonsqs.
     outputLinkClickQueueUrl: ''
-    # Output topic ARN. Required when messaging.provider=SQS.
+    # Output topic ARN. Required when messaging.provider=amazonsqs.
     outputTopicArn: ''
     # AWS region.
     region: us-east-1
+  # RPI-side Twilio plugin resources, emitted to the Execution Service / Interaction API as
+  # Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers derive
+  # from the eventHubs/sqs/pubsub blocks; these are the resources RPI owns.
+  twilioPlugin:
+    # RPI-owned queues, each subscribed to the matching service SNS topic with
+    # RawMessageDelivery=true. All four are required when messaging.provider=amazonsqs.
+    sqs:
+      outputDeliveryStatusQueueUrl: ''
+      outputInboundMessageQueueUrl: ''
+      outputLinkClickQueueUrl: ''
+      outputSendResultQueueUrl: ''
+    # RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same
+    # storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must
+    # exist in the namespace.
+    eventHubs:
+      deliveryStatusConsumerGroup: ''
+      sendResultConsumerGroup: ''
+      linkClickConsumerGroup: ''
+      # Must match the provisioned group name.
+      inboundMessageConsumerGroup: ''
+      checkpointing:
+        # RPI's own checkpoint container. Never shared with the messaging service.
+        blobContainerName: ''
+    # RPI-owned subscription ids on the output topic, composed with pubsub.projectId into full
+    # resource names.
+    pubsub:
+      outputDeliveryStatusSubscriptionId: ''
+      outputSendResultSubscriptionId: ''
+      outputLinkClickSubscriptionId: ''
+      outputInboundMessageSubscriptionId: ''

@@ -8,10 +8,8 @@
 {{- $cacheName := "rpi-twiliomessaging-cache" -}}
 {{- $sdk := eq .Values.secretsManagement.provider "sdk" -}}
 {{- $proxy := eq (include "rpi.cloudSqlProxy.enabled" .) "true" -}}
-{{/* Managed-service auth (PostgreSQL + external cloud Redis) is derived from the deployment's
-     security realm, never a manual knob. kubernetes/csi -> Basic: a password / access key from
-     the shared Secret. sdk -> the cloud's managed identity (Azure / AWS / GCP by platform),
-     wired through the pod's cloudIdentity workload-identity binding - no secret. */}}
+{{/* Managed-service auth is derived, never a manual knob: kubernetes/csi use the
+     shared Secret, sdk uses the cloud's managed identity by platform. */}}
 {{- $cloudAuthMode := "Basic" -}}
 {{- if $sdk -}}
   {{- if eq .Values.global.deployment.platform "azure" -}}{{- $cloudAuthMode = "Azure" -}}
@@ -49,15 +47,23 @@
 {{- if not $cfg.accountSid }}
 {{- fail "twiliomessaging.accountSid is required when twiliomessaging.enabled=true (the Twilio Account SID; the auth token remains the TwilioMessaging_AuthToken Secret key)." }}
 {{- end }}
-{{- if eq $cfg.messaging.provider "SQS" }}
+{{- if not (has $cfg.messaging.provider (list "azureeventhubs" "amazonsqs" "googlepubsub")) }}
+{{- fail (printf "twiliomessaging.messaging.provider must be one of azureeventhubs, amazonsqs, googlepubsub (got %q)." $cfg.messaging.provider) }}
+{{- end }}
+{{- if eq $cfg.messaging.provider "amazonsqs" }}
 {{- range $k := list "inputQueueUrl" "outputTopicArn" "outputInternalTopicArn" "outputDeliveryStatusQueueUrl" "outputLinkClickQueueUrl" "outputInboundMessageQueueUrl" }}
 {{- if not (get $cfg.sqs $k) }}
-{{- fail (printf "twiliomessaging.sqs.%s is required when twiliomessaging.messaging.provider=SQS." $k) }}
+{{- fail (printf "twiliomessaging.sqs.%s is required when twiliomessaging.messaging.provider=amazonsqs." $k) }}
+{{- end }}
+{{- end }}
+{{- range $k := list "outputDeliveryStatusQueueUrl" "outputSendResultQueueUrl" "outputLinkClickQueueUrl" "outputInboundMessageQueueUrl" }}
+{{- if not (get $cfg.twilioPlugin.sqs $k) }}
+{{- fail (printf "twiliomessaging.twilioPlugin.sqs.%s is required when twiliomessaging.messaging.provider=amazonsqs (the RPI-owned queue subscribed to the matching SNS topic)." $k) }}
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if and (eq $cfg.messaging.provider "PubSub") (not $cfg.pubsub.projectId) }}
-{{- fail "twiliomessaging.pubsub.projectId is required when twiliomessaging.messaging.provider=PubSub." }}
+{{- if and (eq $cfg.messaging.provider "googlepubsub") (not $cfg.pubsub.projectId) }}
+{{- fail "twiliomessaging.pubsub.projectId is required when twiliomessaging.messaging.provider=googlepubsub." }}
 {{- end }}
 {{- end }}
 
@@ -183,9 +189,17 @@ spec:
         - name: Logging__LogLevel__Microsoft_AspNetCore
           value: {{ $cfg.logging.aspNetCore | quote }}
 
-        # Messaging transport selector (EventHub | SQS | PubSub)
+        # Messaging transport selector
+        {{- if eq $cfg.messaging.provider "azureeventhubs" }}
         - name: MessagingProvider
-          value: {{ $cfg.messaging.provider | quote }}
+          value: "EventHub"
+        {{- else if eq $cfg.messaging.provider "amazonsqs" }}
+        - name: MessagingProvider
+          value: "SQS"
+        {{- else if eq $cfg.messaging.provider "googlepubsub" }}
+        - name: MessagingProvider
+          value: "PubSub"
+        {{- end }}
 
         # Redis (distributed locks / dedup)
         - name: Redis__Hostname
@@ -279,7 +293,7 @@ spec:
           value: {{ $cfg.rds.region | quote }}
         {{- end }}
 
-        {{- if eq $cfg.messaging.provider "EventHub" }}
+        {{- if eq $cfg.messaging.provider "azureeventhubs" }}
         # Event Hubs + checkpoint blob auth via Azure Workload Identity (DefaultAzureCredential),
         # wired by cloudIdentity - independent of secretsManagement.provider.
         - name: EventHubs__FullyQualifiedNamespace
@@ -304,7 +318,7 @@ spec:
           value: {{ $cfg.eventHubs.checkpointing.blobContainerName | quote }}
         {{- end }}
 
-        {{- if eq $cfg.messaging.provider "SQS" }}
+        {{- if eq $cfg.messaging.provider "amazonsqs" }}
         # SQS / SNS (auth via AWS IRSA / Pod Identity)
         - name: Sqs__Region
           value: {{ $cfg.sqs.region | quote }}
@@ -322,7 +336,7 @@ spec:
           value: {{ $cfg.sqs.outputInboundMessageQueueUrl | quote }}
         {{- end }}
 
-        {{- if eq $cfg.messaging.provider "PubSub" }}
+        {{- if eq $cfg.messaging.provider "googlepubsub" }}
         # GCP Pub/Sub (auth via GCP Workload Identity)
         - name: PubSub__ProjectId
           value: {{ $cfg.pubsub.projectId | quote }}

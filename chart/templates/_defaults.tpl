@@ -778,6 +778,19 @@ pubsub:
   outputDeliveryStatusSubscriptionId: twilio-messaging-output-internal-delivery-status
   outputLinkClickSubscriptionId: twilio-messaging-output-internal-link-click
   outputInboundMessageSubscriptionId: twilio-messaging-output-internal-inbound-reply
+twilioPlugin:
+  eventHubs:
+    deliveryStatusConsumerGroup: twilio-messaging-output-delivery-status
+    sendResultConsumerGroup: twilio-messaging-output-send-result
+    linkClickConsumerGroup: twilio-messaging-output-link-click
+    inboundMessageConsumerGroup: twilio-messaging-output-inbound-reply
+    checkpointing:
+      blobContainerName: rpi-twilio-checkpoints
+  pubsub:
+    outputDeliveryStatusSubscriptionId: twilio-messaging-output-delivery-status
+    outputSendResultSubscriptionId: twilio-messaging-output-send-result
+    outputLinkClickSubscriptionId: twilio-messaging-output-link-click
+    outputInboundMessageSubscriptionId: twilio-messaging-output-inbound-reply
 batchIngestion:
   watchDirectory: /rpifileoutputdir/twilio/batch/incoming
   processingDirectory: /rpifileoutputdir/twilio/batch/processing

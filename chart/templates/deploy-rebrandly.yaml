@@ -168,8 +168,6 @@ spec:
           {{- else }}
           value: {{ $cfg.redisSettings.hostname | quote }}
           {{- end }}
-#        - name: Redis__Username
-#          value: {{ $cfg.redisSettings.username | quote }}
         {{- if not $cfg.redisSettings.useAzureCredentials }}
         {{- if eq $cfg.redisSettings.type "internal" }}
         - name: Redis__Password

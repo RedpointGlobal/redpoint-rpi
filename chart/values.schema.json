@@ -1698,11 +1698,11 @@
           "properties": {
             "provider": {
               "type": "string",
-              "description": "Active messaging transport",
+              "description": "Active messaging transport (chart-standard vocabulary; mapped to each application's own enum at render)",
               "enum": [
-                "EventHub",
-                "SQS",
-                "PubSub"
+                "azureeventhubs",
+                "amazonsqs",
+                "googlepubsub"
               ]
             }
           }
@@ -1710,23 +1710,23 @@
         "sqs": {
           "type": "object",
           "additionalProperties": false,
-          "description": "SQS/SNS transport settings (messaging.provider=SQS). Queue URLs and topic ARNs are operator-supplied.",
+          "description": "SQS/SNS transport settings (messaging.provider=amazonsqs). Queue URLs and topic ARNs are operator-supplied.",
           "properties": {
             "region": { "type": "string", "description": "AWS region." },
-            "inputQueueUrl": { "type": "string", "description": "Input queue URL. Required when messaging.provider=SQS." },
-            "outputTopicArn": { "type": "string", "description": "Output topic ARN. Required when messaging.provider=SQS." },
-            "outputInternalTopicArn": { "type": "string", "description": "Internal output topic ARN. Required when messaging.provider=SQS." },
-            "outputDeliveryStatusQueueUrl": { "type": "string", "description": "Delivery-status queue URL. Required when messaging.provider=SQS." },
-            "outputLinkClickQueueUrl": { "type": "string", "description": "Link-click queue URL. Required when messaging.provider=SQS." },
-            "outputInboundMessageQueueUrl": { "type": "string", "description": "Inbound-message queue URL. Required when messaging.provider=SQS." }
+            "inputQueueUrl": { "type": "string", "description": "Input queue URL. Required when messaging.provider=amazonsqs." },
+            "outputTopicArn": { "type": "string", "description": "Output topic ARN. Required when messaging.provider=amazonsqs." },
+            "outputInternalTopicArn": { "type": "string", "description": "Internal output topic ARN. Required when messaging.provider=amazonsqs." },
+            "outputDeliveryStatusQueueUrl": { "type": "string", "description": "Delivery-status queue URL. Required when messaging.provider=amazonsqs." },
+            "outputLinkClickQueueUrl": { "type": "string", "description": "Link-click queue URL. Required when messaging.provider=amazonsqs." },
+            "outputInboundMessageQueueUrl": { "type": "string", "description": "Inbound-message queue URL. Required when messaging.provider=amazonsqs." }
           }
         },
         "pubsub": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Pub/Sub transport settings (messaging.provider=PubSub). Auth via GCP Workload Identity.",
+          "description": "Pub/Sub transport settings (messaging.provider=googlepubsub). Auth via GCP Workload Identity.",
           "properties": {
-            "projectId": { "type": "string", "description": "GCP project ID. Required when messaging.provider=PubSub." },
+            "projectId": { "type": "string", "description": "GCP project ID. Required when messaging.provider=googlepubsub." },
             "inputTopicId": { "type": "string" },
             "inputSubscriptionId": { "type": "string" },
             "outputTopicId": { "type": "string" },
@@ -1739,7 +1739,7 @@
         "eventHubs": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Event Hubs transport settings (messaging.provider=EventHub). Auth via Azure Workload Identity.",
+          "description": "Event Hubs transport settings (messaging.provider=azureeventhubs). Auth via Azure Workload Identity.",
           "properties": {
             "fullyQualifiedNamespace": { "type": "string", "description": "Event Hubs namespace FQDN, e.g. <namespace>.servicebus.windows.net." },
             "inputHub": {
@@ -1773,6 +1773,53 @@
               "properties": {
                 "blobServiceUri": { "type": "string", "description": "Checkpoint storage blob service URI." },
                 "blobContainerName": { "type": "string" }
+              }
+            }
+          }
+        },
+        "twilioPlugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "RPI-side Twilio plugin resources, emitted to the Execution Service / Interaction API as Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers derive from the eventHubs/sqs/pubsub blocks; these are the resources RPI owns.",
+          "properties": {
+            "eventHubs": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must exist in the namespace.",
+              "properties": {
+                "deliveryStatusConsumerGroup": { "type": "string" },
+                "sendResultConsumerGroup": { "type": "string" },
+                "linkClickConsumerGroup": { "type": "string" },
+                "inboundMessageConsumerGroup": { "type": "string", "description": "Must match the provisioned group name." },
+                "checkpointing": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "blobContainerName": { "type": "string", "description": "RPI's own checkpoint container. Never shared with the messaging service." }
+                  }
+                }
+              }
+            },
+            "sqs": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "RPI-owned queues, each subscribed to the matching service SNS topic with RawMessageDelivery=true. All four are required when messaging.provider=amazonsqs.",
+              "properties": {
+                "outputDeliveryStatusQueueUrl": { "type": "string" },
+                "outputSendResultQueueUrl": { "type": "string" },
+                "outputLinkClickQueueUrl": { "type": "string" },
+                "outputInboundMessageQueueUrl": { "type": "string" }
+              }
+            },
+            "pubsub": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "RPI-owned subscription ids on the output topic, composed with pubsub.projectId into full resource names.",
+              "properties": {
+                "outputDeliveryStatusSubscriptionId": { "type": "string" },
+                "outputSendResultSubscriptionId": { "type": "string" },
+                "outputLinkClickSubscriptionId": { "type": "string" },
+                "outputInboundMessageSubscriptionId": { "type": "string" }
               }
             }
           }

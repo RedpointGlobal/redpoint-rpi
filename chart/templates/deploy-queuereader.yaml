@@ -408,10 +408,6 @@ spec:
           value: "true"
         - name: InternalQueues__Port
           value: "5672"
-#        - name: QueueService__RealtimeConfiguration__DistributedQueue__Assembly
-#          value: "RedPoint.Resonance.RabbitMQAccess"
-#        - name: QueueService__RealtimeConfiguration__DistributedQueue__Type
-#          value: "RedPoint.Resonance.RabbitMQAccess.RabbitMQFactory"
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
         {{- if eq $cfg.internalQueues.type "internal" }}

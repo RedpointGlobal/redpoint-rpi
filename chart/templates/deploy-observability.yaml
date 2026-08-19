@@ -64,10 +64,8 @@ subjects:
 
 {{- if (($cfg.nodeHealth | default dict).enabled | default false) }}
 ---
-# Cluster-scoped read-only access for the Node health panel. Nodes are
-# cluster-scoped resources, so a Role/RoleBinding cannot grant access.
-# Names are namespace-suffixed so multiple observability installs in
-# the same cluster don't collide on the cluster-scoped binding.
+# Node health needs a ClusterRole (nodes are cluster-scoped); names are
+# namespace-suffixed so multiple installs don't collide.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -223,11 +221,8 @@ spec:
         {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 8 }}
         {{- include "rpi.customCACerts.volumeMount" . | nindent 8 }}
       {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
-      # Bundled Telemetry Collector: a private OTLP -> Prometheus bridge
-      # whose only consumer is the observability application. Runs the
-      # otelcol binary shipped inside the same image; :4317 is exposed
-      # through the Service for the instrumented RPI services, :8889
-      # stays pod-private (the application scrapes localhost).
+      # Private OTLP -> Prometheus bridge for the observability application only:
+      # :4317 is exposed through the Service, :8889 stays pod-private.
       - name: telemetry-bridge
         image: {{ include "rpi.image" (dict "root" . "name" "rpi-observability") }}
         imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}

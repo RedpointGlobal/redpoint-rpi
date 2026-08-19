@@ -125,7 +125,7 @@ twiliomessaging:
 
 ## Messaging transport
 
-Select the transport with `messaging.provider` (`EventHub`, `SQS`, or `PubSub`). The chart emits only the selected transport's settings.
+Select the transport with `messaging.provider` (`azureeventhubs`, `amazonsqs`, or `googlepubsub` - the chart-standard transport vocabulary, also used by the Realtime API queue provider). The chart emits only the selected transport's settings and maps the value to each application's own configuration enum.
 
 **Azure Event Hubs.** The app authenticates to Event Hubs **and** the checkpoint blob store through `DefaultAzureCredential` = the pod's **Azure Workload Identity**, wired by `cloudIdentity`. This is independent of `secretsManagement.provider` (it works under `kubernetes`, `csi`, or `sdk`) - no connection string, no access key, no service principal:
 
@@ -137,7 +137,7 @@ cloudIdentity:
     tenantId: <azure-tenant-id>
 twiliomessaging:
   messaging:
-    provider: EventHub
+    provider: azureeventhubs
   eventHubs:
     fullyQualifiedNamespace: my-ehns.servicebus.windows.net
     checkpointing:
@@ -151,7 +151,7 @@ The chart puts `azure.workload.identity/use: "true"` on the pod and the `azure.w
 ```yaml
 twiliomessaging:
   messaging:
-    provider: SQS
+    provider: amazonsqs
   sqs:
     region: us-east-1
     inputQueueUrl: https://sqs.us-east-1.amazonaws.com/<acct>/twilio-messaging-input
@@ -167,12 +167,47 @@ twiliomessaging:
 ```yaml
 twiliomessaging:
   messaging:
-    provider: PubSub
+    provider: googlepubsub
   pubsub:
     projectId: my-gcp-project
 ```
 
 Topic and subscription names default to the standard `twilio-messaging-*` set (override under `pubsub.*` if needed).
+
+---
+
+## RPI integration (Execution Service / Interaction API)
+
+When `twiliomessaging.enabled=true`, the chart also configures the RPI Twilio plugin to talk
+to this service: the Execution Service receives the full `Plugins__Twilio__*` block and the
+Interaction API receives `Plugins__Twilio__TmsBaseUrl` (used by the channel-admin
+messaging-service picker, offline configuration, and the connectivity test). When the service
+is disabled, none of this renders - a non-Twilio deployment carries zero Twilio configuration.
+
+`TmsBaseUrl` is always the in-cluster address `http://rpi-twiliomessaging`; there is nothing
+to configure.
+
+Shared transport identifiers (Event Hubs namespace and hub names, SQS region and input queue,
+Pub/Sub project and input topic) are emitted from the same `twiliomessaging` values the
+service itself uses, so the two sides cannot drift. The resources RPI owns are configured
+under `twiliomessaging.twilioPlugin`:
+
+- **Event Hubs**: RPI consumes the shared output hub with one consumer group per event type
+  (delivery status, send result, link click, inbound message) and checkpoints into its own
+  blob container (`rpi-twilio-checkpoints` by default) in the `eventHubs.checkpointing`
+  storage account. Consumer groups are not auto-created; all four must be provisioned on the
+  output hub, and `inboundMessageConsumerGroup` must match the provisioned name. Never point
+  RPI at the service's checkpoint container.
+- **AWS**: four RPI-owned queues (`twilioPlugin.sqs.*`, all required with `amazonsqs`), each
+  subscribed to the matching service SNS topic with `RawMessageDelivery=true`.
+- **GCP**: four RPI-owned subscription ids on the output topic (`twilioPlugin.pubsub.*`),
+  composed with `pubsub.projectId` into full resource names.
+
+Broker credentials are never configured: the Execution Service authenticates with the pod's
+cloud identity on every provider (Azure Workload Identity, AWS IRSA, GCP Workload Identity).
+On Azure that identity needs the same data-plane RBAC as the service (Event Hubs data access
+on the namespace, Storage Blob Data Contributor on the checkpoint account) plus a federated
+identity credential for the `rpi-executionservice` ServiceAccount subject.
 
 ---
 
@@ -227,7 +262,7 @@ databases:
 twiliomessaging:
   enabled: true
   messaging:
-    provider: EventHub
+    provider: azureeventhubs
   postgres:
     reuseOperational: true       # kubernetes -> Basic auth, operational DB password reused
   eventHubs:

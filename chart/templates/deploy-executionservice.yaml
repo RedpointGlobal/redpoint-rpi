@@ -6,8 +6,8 @@
 {{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
 {{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $tmsCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
 {{- $name := "rpi-executionservice" -}}
-{{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
@@ -93,7 +93,7 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "worker") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
     {{- with .Values.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.customAnnotations }}
   annotations:
@@ -198,6 +198,67 @@ spec:
         - name: Plugins__Rebrandly__BaseUrl
           value: "http://rpi-rebrandly"
         {{- end }}
+        {{- if $tmsCfg.enabled }}
+        {{/* Twilio plugin configuration. */}}
+        - name: Plugins__Twilio__TmsBaseUrl
+          value: "http://rpi-twiliomessaging"
+        {{- if eq $tmsCfg.messaging.provider "azureeventhubs" }}
+        - name: Plugins__Twilio__MessagingProvider
+          value: "EventHub"
+        {{- else if eq $tmsCfg.messaging.provider "amazonsqs" }}
+        - name: Plugins__Twilio__MessagingProvider
+          value: "SnsSqs"
+        {{- else if eq $tmsCfg.messaging.provider "googlepubsub" }}
+        - name: Plugins__Twilio__MessagingProvider
+          value: "PubSub"
+        {{- end }}
+        {{- if eq $tmsCfg.messaging.provider "azureeventhubs" }}
+        - name: Plugins__Twilio__EventHubs__FullyQualifiedNamespace
+          value: {{ $tmsCfg.eventHubs.fullyQualifiedNamespace | quote }}
+        - name: Plugins__Twilio__EventHubs__InputHub__Name
+          value: {{ $tmsCfg.eventHubs.inputHub.name | quote }}
+        - name: Plugins__Twilio__EventHubs__OutputHub__Name
+          value: {{ $tmsCfg.eventHubs.outputHub.name | quote }}
+        - name: Plugins__Twilio__EventHubs__OutputHub__DeliveryStatusConsumerGroup
+          value: {{ $tmsCfg.twilioPlugin.eventHubs.deliveryStatusConsumerGroup | quote }}
+        - name: Plugins__Twilio__EventHubs__OutputHub__SendResultConsumerGroup
+          value: {{ $tmsCfg.twilioPlugin.eventHubs.sendResultConsumerGroup | quote }}
+        - name: Plugins__Twilio__EventHubs__OutputHub__LinkClickConsumerGroup
+          value: {{ $tmsCfg.twilioPlugin.eventHubs.linkClickConsumerGroup | quote }}
+        - name: Plugins__Twilio__EventHubs__OutputHub__InboundMessageConsumerGroup
+          value: {{ $tmsCfg.twilioPlugin.eventHubs.inboundMessageConsumerGroup | quote }}
+        - name: Plugins__Twilio__EventHubs__Checkpointing__BlobServiceUri
+          value: {{ $tmsCfg.eventHubs.checkpointing.blobServiceUri | quote }}
+        - name: Plugins__Twilio__EventHubs__Checkpointing__BlobContainerName
+          value: {{ $tmsCfg.twilioPlugin.eventHubs.checkpointing.blobContainerName | quote }}
+        {{- end }}
+        {{- if eq $tmsCfg.messaging.provider "amazonsqs" }}
+        - name: Plugins__Twilio__Sqs__Region
+          value: {{ $tmsCfg.sqs.region | quote }}
+        - name: Plugins__Twilio__Sqs__InputQueueUrl
+          value: {{ $tmsCfg.sqs.inputQueueUrl | quote }}
+        - name: Plugins__Twilio__Sqs__OutputDeliveryStatusQueueUrl
+          value: {{ $tmsCfg.twilioPlugin.sqs.outputDeliveryStatusQueueUrl | quote }}
+        - name: Plugins__Twilio__Sqs__OutputSendResultQueueUrl
+          value: {{ $tmsCfg.twilioPlugin.sqs.outputSendResultQueueUrl | quote }}
+        - name: Plugins__Twilio__Sqs__OutputLinkClickQueueUrl
+          value: {{ $tmsCfg.twilioPlugin.sqs.outputLinkClickQueueUrl | quote }}
+        - name: Plugins__Twilio__Sqs__OutputInboundMessageQueueUrl
+          value: {{ $tmsCfg.twilioPlugin.sqs.outputInboundMessageQueueUrl | quote }}
+        {{- end }}
+        {{- if eq $tmsCfg.messaging.provider "googlepubsub" }}
+        - name: Plugins__Twilio__PubSub__InputTopic
+          value: {{ printf "projects/%s/topics/%s" $tmsCfg.pubsub.projectId $tmsCfg.pubsub.inputTopicId | quote }}
+        - name: Plugins__Twilio__PubSub__OutputDeliveryStatusSubscription
+          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputDeliveryStatusSubscriptionId | quote }}
+        - name: Plugins__Twilio__PubSub__OutputSendResultSubscription
+          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputSendResultSubscriptionId | quote }}
+        - name: Plugins__Twilio__PubSub__OutputLinkClickSubscription
+          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputLinkClickSubscriptionId | quote }}
+        - name: Plugins__Twilio__PubSub__OutputInboundMessageSubscription
+          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputInboundMessageSubscriptionId | quote }}
+        {{- end }}
+        {{- end }}
         {{- range $cfg.extraEnvs }}
         {{- if .enabled }}
         - name: {{ .name }}
@@ -234,8 +295,6 @@ spec:
         - name: InternalCache__FailOnCacheConnectionError
           value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
         {{- end }}
-        {{- end }}
-        {{- if $cfg.internalCache.enabled }}
         {{- if eq $cfg.internalCache.provider "azureblob" }}
         - name: InternalCache__StatePersistence__FileSystem__OverrideDirectoryPath
           value: "true"
@@ -243,26 +302,15 @@ spec:
           value: {{ $cfg.internalCache.azureStorageSettings.accountName | quote }}
         - name: InternalCache__StatePersistence__AzureBlobStorage__ContainerName
           value: {{ $cfg.internalCache.azureStorageSettings.containerName | quote }}
-        {{- end }}
-        {{- end }}
-        {{- if $cfg.internalCache.enabled }}
-        {{- if eq $cfg.internalCache.provider "azureblob" }}
         {{- if $cfg.internalCache.azureStorageSettings.useCloudIdentity }}
         - name: InternalCache__StatePersistence__AzureBlobStorage__UseCloudIdentity
           value: {{ $cfg.internalCache.azureStorageSettings.useCloudIdentity | quote }}
-        {{- end }}
-        {{- end }}
-        {{- end }}
-        {{- if $cfg.internalCache.enabled }}
-        {{- if eq $cfg.internalCache.provider "azureblob" }}
-        {{- if not $cfg.internalCache.azureStorageSettings.useCloudIdentity }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: InternalCache__StatePersistence__AzureBlobStorage__ConnectionString
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: ExecutionService_AzureBlob_ConnectionString
-        {{- end }}
         {{- end }}
         {{- end }}
         {{- end }}
@@ -304,7 +352,7 @@ spec:
         {{- end }}
         {{- if $diag.dotNetTools.enabled }}
         - name: DOTNET_BUNDLE_EXTRACT_BASE_DIR
-          value: {{ $diag.dotNetTools.extractionBaseDir | quote }} 
+          value: {{ $diag.dotNetTools.extractionBaseDir | quote }}
         - name: RPI__Diagnostics__UseDotNetTools__Path
           value: {{  $diag.dotNetTools.path  | quote }}
         - name: RPI__Diagnostics__UseDotNetTools__UseCounters
@@ -411,15 +459,15 @@ spec:
         {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.redpointAI.enabled }}
         - name: RPI__NLP__ApiBase
-          value: {{ .Values.redpointAI.naturalLanguage.ApiBase | quote }} 
+          value: {{ .Values.redpointAI.naturalLanguage.ApiBase | quote }}
         - name: RPI__NLP__ApiVersion
           value: {{ .Values.redpointAI.naturalLanguage.ApiVersion | quote }}
         - name: RPI__NLP__ChatGptEngine
-          value: {{ .Values.redpointAI.naturalLanguage.ChatGptEngine | quote }} 
+          value: {{ .Values.redpointAI.naturalLanguage.ChatGptEngine | quote }}
         - name: RPI__NLP__ChatGptTemp
           value: {{ .Values.redpointAI.naturalLanguage.ChatGptTemp | quote }}
         - name: RPI__NLP__SearchEndpoint
-          value: {{ .Values.redpointAI.cognitiveSearch.SearchEndpoint | quote }} 
+          value: {{ .Values.redpointAI.cognitiveSearch.SearchEndpoint | quote }}
         - name: RPI__NLP__EmbeddingsModel
           value: {{ .Values.redpointAI.modelStorage.EmbeddingsModel | quote }}
         - name: RPI__NLP__Model__ModelDimensions
@@ -430,8 +478,6 @@ spec:
           value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
         - name: RPI__NLP__EnableTrace
           value: {{ .Values.redpointAI.logging.enableTrace | quote }}
-        {{- end }}
-        {{- if .Values.redpointAI.enabled }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiKey
           valueFrom:
@@ -461,6 +507,14 @@ spec:
         name: {{ $name }}
         {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 8 }}
         lifecycle:
+          {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+          {{- end }}
           preStop:
             exec:
               command:
@@ -487,15 +541,6 @@ spec:
           name: web-port
           protocol: TCP
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
-        {{- if (($dw.bigquery | default dict).enabled | default false) }}
-        lifecycle:
-          postStart:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
-        {{- end }}
         {{- if $cfg.resources.enabled }}
         resources:
           {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
@@ -540,11 +585,11 @@ spec:
           {{- include "rpi.snowflake.volumeMount" . | nindent 10 }}
           {{- end }}
           {{- end }}
-          {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}    
+          {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
           - name: fileoutputdirectory
             mountPath: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
           {{- end }}
-          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}  
+          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}
           - name: realtimeplugins
             mountPath: {{ .Values.storage.persistentVolumeClaims.Plugins.mountPath }}
           {{- end }}

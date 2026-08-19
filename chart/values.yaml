@@ -852,9 +852,9 @@ twiliomessaging:
   ingress:
     publicPaths:
       - /api/v1/webhook
-  # Messaging transport: EventHub | SQS | PubSub
+  # Messaging transport: azureeventhubs | amazonsqs | googlepubsub
   messaging:
-    provider: EventHub
+    provider: azureeventhubs
   # Redis (distributed locks / dedup).
   # Auth follows the same rule as PostgreSQL: kubernetes/csi authenticate with the access key /
   # password from the shared Secret (TwilioMessaging_Redis_Password); sdk authenticates with the
@@ -891,7 +891,7 @@ twiliomessaging:
   accountSid: ""
   # true only when the account SID/auth token are Twilio TEST credentials
   isTestCredentials: false
-  # Event Hubs (messaging.provider=EventHub). Auth to Event Hubs + the checkpoint blob is Azure
+  # Event Hubs (messaging.provider=azureeventhubs). Auth to Event Hubs + the checkpoint blob is Azure
   # Workload Identity, wired by cloudIdentity (cloudIdentity.enabled + cloudIdentity.azure.*) -
   # independent of secretsManagement.provider.
   # The hub names, consumer groups, and checkpoint container below MUST match the entities you
@@ -912,7 +912,7 @@ twiliomessaging:
     checkpointing:
       blobServiceUri: https://mystorage.blob.core.windows.net
       blobContainerName: sms-send-checkpoints
-  # SQS/SNS (messaging.provider=SQS; auth via AWS IRSA / Pod Identity)
+  # SQS/SNS (messaging.provider=amazonsqs; auth via AWS IRSA / Pod Identity)
   sqs:
     region: us-east-1
     inputQueueUrl: ""
@@ -921,9 +921,24 @@ twiliomessaging:
     outputDeliveryStatusQueueUrl: ""
     outputLinkClickQueueUrl: ""
     outputInboundMessageQueueUrl: ""
-  # Pub/Sub (messaging.provider=PubSub; auth via GCP Workload Identity)
+  # Pub/Sub (messaging.provider=googlepubsub; auth via GCP Workload Identity)
   pubsub:
     projectId: ""
+  # RPI-side integration, emitted to the Execution Service and Interaction API as
+  # Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers
+  # (namespace, hub names, region, input queue / topic) come from the blocks above; the
+  # values here are the resources RPI owns and must be provisioned separately: RPI's
+  # consumer groups on eventHubs.outputHub, RPI's own checkpoint container (never the
+  # service's), and RPI's output queues / subscriptions. Consumer-group, container, and
+  # subscription names have twilio-messaging-* defaults; override to match provisioning.
+  twilioPlugin:
+    # RPI-owned queues (messaging.provider=amazonsqs), each subscribed to the matching
+    # service SNS topic with RawMessageDelivery=true. All four are required.
+    sqs:
+      outputDeliveryStatusQueueUrl: ""
+      outputSendResultQueueUrl: ""
+      outputLinkClickQueueUrl: ""
+      outputInboundMessageQueueUrl: ""
 
 # ==========================
 # Diagnostics Mode

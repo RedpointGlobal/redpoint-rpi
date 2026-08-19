@@ -206,16 +206,6 @@ startupProbe:
 {{- end -}}
 
 {{/*
-Image pull secrets
-*/}}
-{{- define "redpoint-rpi.imagePullSecrets" -}}
-{{- if .Values.global.deployment.images.imagePullSecret.enabled }}
-imagePullSecrets:
-  - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
-{{- end }}
-{{- end }}
-
-{{/*
 Node selector
 */}}
 {{- define "redpoint-rpi.nodeSelector" -}}
@@ -883,15 +873,16 @@ Contract:
 {{- $name := required "rpi.image: .name is required" .name -}}
 {{- $overrides := $root.Values.global.deployment.images.overrides | default dict -}}
 {{- $nameOverrides := $root.Values.global.deployment.images.nameOverrides | default dict -}}
-{{- $defaultNames := dict "rpi-redis" "rediscache" "rpi-rabbitmq" "rabbitmq" -}}
 {{- if hasKey $overrides $name -}}
 {{ index $overrides $name }}
 {{- else if hasKey $nameOverrides $name -}}
 {{ $root.Values.global.deployment.images.registry }}/{{ index $nameOverrides $name }}:{{ $root.Values.global.deployment.images.tag }}
 {{- else -}}
 {{- $imageName := $name -}}
-{{- if hasKey $defaultNames $name -}}
-{{- $imageName = index $defaultNames $name -}}
+{{- if eq $name "rpi-redis" -}}
+{{- $imageName = "rediscache" -}}
+{{- else if eq $name "rpi-rabbitmq" -}}
+{{- $imageName = "rabbitmq" -}}
 {{- end -}}
 {{ $root.Values.global.deployment.images.registry }}/{{ $imageName }}:{{ $root.Values.global.deployment.images.tag }}
 {{- end -}}
@@ -1363,22 +1354,10 @@ Usage: {{- include "rpi.observability.runtimeEnvvars" . | nindent 8 }}
   value: {{ .enabled | toString | quote }}
 {{- end }}
 {{- end }}
-{{/* Custom Metrics (T4 telemetry). The observability service scrapes
-     Prometheus-style /metrics endpoints from configured RPI services.
-     Service list is JSON-encoded so operators can override DNS names
-     without code changes; defaults baked in values.yaml cover the
-     standard deployment shape. See reference/rpi-metrics-catalog.md
-     and principles/discovery-authority.md.
-
-     The services list is filtered by each entry's corresponding
-     top-level .enabled flag. Convention: strip the "rpi-" prefix
-     from dnsName to map to the values key (rpi-realtimeapi ->
-     .Values.realtimeapi.enabled). When the customer disables a
-     service via overrides (e.g. realtimeapi.enabled=false), the
-     entry is dropped from the emitted env var so the observability
-     service never tries to scrape it. Operator-added scrape targets that
-     don't correspond to a chart-managed service default to
-     enabled=true so they always pass through. */}}
+{{/* Scrape targets, filtered by each service's enabled flag. The values key is the
+     chart-owned dnsName minus the "rpi-" prefix (a chart-internal naming invariant,
+     not operator data); operator-added targets with no matching values key always
+     pass through. */}}
 {{- with $cfg.metrics }}
 - name: OBSERVABILITY__METRICS__ENABLED
   value: {{ .enabled | toString | quote }}
