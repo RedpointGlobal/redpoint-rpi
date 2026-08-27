@@ -44,6 +44,20 @@ rules:
   - apiGroups: ["metrics.k8s.io"]
     resources: ["pods"]
     verbs: ["get", "list"]
+  {{- if .Values.observability.loadTest.enabled }}
+  # Load Tests: Observability launches k6 as an ephemeral Job (System-
+  # Administrator-gated) and reads its state + pod log to harvest the result.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "delete"]
+  # Read the shared Secret to confirm (by key presence) the RPI load-test
+  # account is configured; values are injected into the Job via secretKeyRef,
+  # never read into the Observability process.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames: [{{ include "rpi.secrets.secretName" . | quote }}]
+  {{- end }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -181,6 +195,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        {{- if .Values.observability.loadTest.enabled }}
+        # Load Tests: the image the launcher runs k6 Jobs with (its own), and the
+        # shared Secret name to source the RPI load-test account from (by
+        # secretKeyRef on the Job; values never enter this process).
+        - name: OBSERVABILITY__IMAGE
+          value: {{ include "rpi.image" (dict "root" . "name" "rpi-observability") | quote }}
+        - name: OBSERVABILITY__SECRET_NAME
+          value: {{ include "rpi.secrets.secretName" . | quote }}
+        {{- end }}
         {{- include "rpi.observability.intelligenceEnvvars" . | nindent 8 }}
         {{- include "rpi.observability.runtimeEnvvars" . | nindent 8 }}
         {{- include "rpi.observability.authEnvvars" . | nindent 8 }}
