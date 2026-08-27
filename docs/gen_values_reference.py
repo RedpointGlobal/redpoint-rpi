@@ -60,7 +60,7 @@ TOP_ORDER = [
     "customMetrics", "diagnosticsMode",
     "validationPods", "databaseUpgrade", "interactionapi", "integrationapi",
     "executionservice", "nodemanager", "queuereader", "realtimeapi",
-    "callbackapi", "deploymentapi", "rebrandly", "observability", "redpointAI",
+    "callbackapi", "deploymentapi", "rebrandly", "redpointAI",
     "smartActivation", "authservice", "servicesapi", "socketio", "uiservice",
     "keycloak", "initservice", "messageq", "maintenanceservice", "cdpcache",
 ]

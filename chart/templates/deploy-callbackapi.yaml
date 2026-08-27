@@ -188,9 +188,6 @@ spec:
       {{- end }}
       containers:
       - env:
-        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
-        {{- include "rpi.otel.envvars.shared" (dict "root" . "svc" "rpi-callbackapi") | nindent 8 }}
-        {{- end }}
         {{- if .Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
@@ -740,9 +737,6 @@ spec:
       {{- end }}
       containers:
       - env:
-        {{- if eq (include "rpi.telemetry.mode.otel" $) "true" }}
-        {{- include "rpi.otel.envvars.shared" (dict "root" $ "svc" "rpi-callbackapi") | nindent 8 }}
-        {{- end }}
         {{- if $.Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ $.Values.global.deployment.podTimezone | quote }}

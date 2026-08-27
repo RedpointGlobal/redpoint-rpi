@@ -150,22 +150,6 @@ spec:
     {{- end }}
     {{- end }}
     {{- end }}
-    {{- if eq (include "rpi.observability.enabled" .) "true" }}
-    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.observability "domain" $ingCfg.domain) }}
-      http:
-        paths:
-        # React SPA + JSON API + auth routes all served by the FastAPI
-        # process on port 8080. The static React export is mounted as
-        # a catch-all under FastAPI; /api/* and /auth/* take
-        # precedence over the catch-all in the FastAPI router.
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: rpi-observability-api
-              port:
-                number: {{ (.Values.observability.service | default dict).apiPort | default 8080 }}
-    {{- end }}
     {{- if and $tmCfg.enabled $tmCfg.ingress.publicPaths }}
     # Only the Twilio webhook paths are exposed publicly (signature-validated by the app).
     # Send / status / messaging-service routes stay cluster-internal via the ClusterIP Service.

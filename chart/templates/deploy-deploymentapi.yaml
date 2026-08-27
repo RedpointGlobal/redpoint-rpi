@@ -146,9 +146,6 @@ spec:
         {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 8 }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
         env:
-        {{- if eq (include "rpi.telemetry.mode.otel" .) "true" }}
-        {{- include "rpi.otel.envvars.shared" (dict "root" . "svc" "rpi-deploymentapi") | nindent 8 }}
-        {{- end }}
         {{- if .Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}

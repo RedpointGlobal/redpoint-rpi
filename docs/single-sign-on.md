@@ -103,42 +103,6 @@ helm upgrade redpoint-rpi ./chart -f overrides.yaml -n redpoint-rpi
 
 </details>
 
-<details>
-<summary><strong style="font-size:1.25em;">Observability</strong></summary>
-
-Observability supports two authentication modes:
-
-- **Anonymous** (default): no login, no authentication middleware. Suitable for development, demos, labs, and deployments that do not require authentication.
-- **RPI Authentication**: Observability participates in the authentication model your RPI deployment already uses. If RPI is configured for Microsoft Entra ID, Observability signs users in with Entra ID. If RPI uses Okta or Keycloak, Observability uses that provider. There is nothing to configure twice: no tenant IDs, authority URLs, or provider settings are re-entered for Observability. If RPI has no identity provider configured, Observability runs anonymous.
-
-### Enable RPI Authentication
-
-```yaml
-observability:
-  authentication:
-    enabled: true
-```
-
-Then complete one identity-provider-side step: add Observability's redirect URI to the **existing** RPI client registration (all supported providers accept multiple redirect URIs on one registration; do not create a second registration):
-
-```
-https://<observability host>/auth/callback
-```
-
-| Provider | Where to add it |
-|-------|-----------------|
-| **Microsoft Entra ID** | On the `interaction-client` app registration > **Authentication** > **Mobile and desktop applications** platform. Do not add it under the Web platform (requires a client secret) or the Single-page application platform (cannot be redeemed by Observability's backend). |
-| **Okta** | On the RPI app integration > **Sign-in redirect URIs**. |
-| **Keycloak** | On the RPI client > **Valid redirect URIs**. |
-
-There is no login page. An unauthenticated visit to Observability redirects to your identity provider and returns signed in. Signed-in users are matched to RPI user accounts; authorization (which dashboards and diagnostics a user may access) is resolved through RPI's user groups and the `observability.authentication.capabilityMap` overlay.
-
-### Confidential client registrations
-
-RPI's provider registrations are public clients, so no client secret is needed. Some organizations register confidential OIDC clients. In those environments, Observability supports an optional Kubernetes Secret key containing the existing client secret. This reuses your existing application registration rather than creating a second one. Add the key `OIDC_Client_Secret` to the chart's standard RPI Secret (default `redpoint-rpi-secrets`) with the registration's existing client secret as the value.
-
-</details>
-
 
 ---
 <sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
