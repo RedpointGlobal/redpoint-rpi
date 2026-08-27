@@ -2746,11 +2746,6 @@
       ],
       "properties": {
         "enabled": { "type": "boolean" },
-        "loadTest": {
-          "type": "object",
-          "description": "Optional UI-launched k6 load testing (off by default). RPI load-test account credentials are read from the shared Secret via secretKeyRef; none are set here.",
-          "properties": { "enabled": { "type": "boolean" } }
-        },
         "clientId": {
           "type": "string",
           "description": "RPI ClientID GUID from Pulse dbo.rpi_Clients. REQUIRED when observability.enabled=true; rendering fails without it. No fallback or auto-detection."

@@ -1311,17 +1311,6 @@ observability:
   serviceAccount:
     enabled: true                    # creates rpi-observability SA in per-service mode
 
-  # ---- Load testing (optional; off by default) --------------------------
-  # When enabled, System Administrators can launch trace-calibrated k6 load
-  # tests from the Observability UI against approved QA targets, run as an
-  # ephemeral Kubernetes Job. Enabling requires a dedicated RPI load-test
-  # account whose credentials are read from the shared Secret via secretKeyRef
-  # (Observability_LoadTest_Username / _Password / _ClientSecret) - injected
-  # only into the Job pod, never into the Observability process, never set here.
-  # Off = the chart emits no load-test configuration, RBAC, or env whatsoever.
-  loadTest:
-    enabled: false
-
   # ---- RPI ClientID (REQUIRED) ------------------------------------------
   # The RPI tenant identifier (a GUID) that this observability instance serves,
   # used to resolve the tenant's databases.
