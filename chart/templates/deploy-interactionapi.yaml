@@ -6,7 +6,6 @@
 {{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
 {{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
-{{- $tmsCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
 {{- $name := "rpi-interactionapi" -}}
 {{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
@@ -177,10 +176,6 @@ spec:
         {{- if .Values.rebrandly.enabled }}
         - name: Plugins__Rebrandly__BaseUrl
           value: "http://rpi-rebrandly"
-        {{- end }}
-        {{- if $tmsCfg.enabled }}
-        - name: Plugins__Twilio__TmsBaseUrl
-          value: "http://rpi-twiliomessaging"
         {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}

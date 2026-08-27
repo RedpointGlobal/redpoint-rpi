@@ -436,9 +436,6 @@ extraEnvs:
   - name: Plugins__SendGrid__EnableSandBoxMode
     enabled: false
     value: "true"
-  - name: Plugins__Twilio__DisableSendSMSCampaign
-    enabled: false
-    value: "true"
   - name: RPI_MPULSE_UPSERT_CONTACT_DEBUG
     enabled: false
     value: "1"
@@ -725,87 +722,6 @@ terminationGracePeriodSeconds: 120
 logging:
   default: Error
   aspNetCore: Error
-resources:
-  enabled: true
-{{- end -}}
-
-{{/* ------ Twilio Messaging ------ */}}
-{{- define "rpi.defaults.twiliomessaging" -}}
-podAnnotations: {}
-podLabels: {}
-type: deployment
-rollout:
-  autoPromotionEnabled: true
-  revisionHistoryLimit: 3
-enableProbes: true
-serviceAccount:
-  enabled: true
-service:
-  port: 80
-redisSettings:
-  hostname: ""
-  port: 6379
-  user: ""
-  useTls: true
-  region: ""
-  cacheName: ""
-  isServerless: false
-  resources:
-    requests:
-      cpu: 50m
-      memory: 256Mi
-    limits:
-      memory: 3Gi
-      cpu: 3000m
-  volumeClaimTemplates:
-    enabled: false
-    size: 50Gi
-    storageClassName: default
-    accessModes: ReadWriteOnce
-postgres:
-  host: ""
-  port: 5432
-  username: ""
-  maxPoolSize: 20
-  minPoolSize: 2
-rds:
-  region: us-east-1
-pubsub:
-  inputTopicId: twilio-messaging-input
-  inputSubscriptionId: twilio-messaging-input
-  outputTopicId: twilio-messaging-output
-  outputInternalTopicId: twilio-messaging-output-internal
-  outputDeliveryStatusSubscriptionId: twilio-messaging-output-internal-delivery-status
-  outputLinkClickSubscriptionId: twilio-messaging-output-internal-link-click
-  outputInboundMessageSubscriptionId: twilio-messaging-output-internal-inbound-reply
-twilioPlugin:
-  eventHubs:
-    deliveryStatusConsumerGroup: twilio-messaging-output-delivery-status
-    sendResultConsumerGroup: twilio-messaging-output-send-result
-    linkClickConsumerGroup: twilio-messaging-output-link-click
-    inboundMessageConsumerGroup: twilio-messaging-output-inbound-reply
-    checkpointing:
-      blobContainerName: rpi-twilio-checkpoints
-  pubsub:
-    outputDeliveryStatusSubscriptionId: twilio-messaging-output-delivery-status
-    outputSendResultSubscriptionId: twilio-messaging-output-send-result
-    outputLinkClickSubscriptionId: twilio-messaging-output-link-click
-    outputInboundMessageSubscriptionId: twilio-messaging-output-inbound-reply
-batchIngestion:
-  watchDirectory: /rpifileoutputdir/twilio/batch/incoming
-  processingDirectory: /rpifileoutputdir/twilio/batch/processing
-  completeDirectory: /rpifileoutputdir/twilio/batch/complete
-  failedBatchDirectory: /rpifileoutputdir/twilio/batch/failed
-  pollIntervalSeconds: 5
-  lockTtlMinutes: 10
-batchCompletion:
-  pollIntervalSeconds: 60
-  completionThresholdHours: 12
-  parallelMergeDegree: 4
-terminationGracePeriodSeconds: 120
-logging:
-  default: Information
-  aspNetCore: Warning
 resources:
   enabled: true
 {{- end -}}

@@ -6,7 +6,6 @@
 {{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
 {{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
-{{- $tmsCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
 {{- $name := "rpi-executionservice" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 
@@ -194,67 +193,6 @@ spec:
         {{- if .Values.rebrandly.enabled }}
         - name: Plugins__Rebrandly__BaseUrl
           value: "http://rpi-rebrandly"
-        {{- end }}
-        {{- if $tmsCfg.enabled }}
-        {{/* Twilio plugin configuration. */}}
-        - name: Plugins__Twilio__TmsBaseUrl
-          value: "http://rpi-twiliomessaging"
-        {{- if eq $tmsCfg.messaging.provider "azureeventhubs" }}
-        - name: Plugins__Twilio__MessagingProvider
-          value: "EventHub"
-        {{- else if eq $tmsCfg.messaging.provider "amazonsqs" }}
-        - name: Plugins__Twilio__MessagingProvider
-          value: "SnsSqs"
-        {{- else if eq $tmsCfg.messaging.provider "googlepubsub" }}
-        - name: Plugins__Twilio__MessagingProvider
-          value: "PubSub"
-        {{- end }}
-        {{- if eq $tmsCfg.messaging.provider "azureeventhubs" }}
-        - name: Plugins__Twilio__EventHubs__FullyQualifiedNamespace
-          value: {{ $tmsCfg.eventHubs.fullyQualifiedNamespace | quote }}
-        - name: Plugins__Twilio__EventHubs__InputHub__Name
-          value: {{ $tmsCfg.eventHubs.inputHub.name | quote }}
-        - name: Plugins__Twilio__EventHubs__OutputHub__Name
-          value: {{ $tmsCfg.eventHubs.outputHub.name | quote }}
-        - name: Plugins__Twilio__EventHubs__OutputHub__DeliveryStatusConsumerGroup
-          value: {{ $tmsCfg.twilioPlugin.eventHubs.deliveryStatusConsumerGroup | quote }}
-        - name: Plugins__Twilio__EventHubs__OutputHub__SendResultConsumerGroup
-          value: {{ $tmsCfg.twilioPlugin.eventHubs.sendResultConsumerGroup | quote }}
-        - name: Plugins__Twilio__EventHubs__OutputHub__LinkClickConsumerGroup
-          value: {{ $tmsCfg.twilioPlugin.eventHubs.linkClickConsumerGroup | quote }}
-        - name: Plugins__Twilio__EventHubs__OutputHub__InboundMessageConsumerGroup
-          value: {{ $tmsCfg.twilioPlugin.eventHubs.inboundMessageConsumerGroup | quote }}
-        - name: Plugins__Twilio__EventHubs__Checkpointing__BlobServiceUri
-          value: {{ $tmsCfg.eventHubs.checkpointing.blobServiceUri | quote }}
-        - name: Plugins__Twilio__EventHubs__Checkpointing__BlobContainerName
-          value: {{ $tmsCfg.twilioPlugin.eventHubs.checkpointing.blobContainerName | quote }}
-        {{- end }}
-        {{- if eq $tmsCfg.messaging.provider "amazonsqs" }}
-        - name: Plugins__Twilio__Sqs__Region
-          value: {{ $tmsCfg.sqs.region | quote }}
-        - name: Plugins__Twilio__Sqs__InputQueueUrl
-          value: {{ $tmsCfg.sqs.inputQueueUrl | quote }}
-        - name: Plugins__Twilio__Sqs__OutputDeliveryStatusQueueUrl
-          value: {{ $tmsCfg.twilioPlugin.sqs.outputDeliveryStatusQueueUrl | quote }}
-        - name: Plugins__Twilio__Sqs__OutputSendResultQueueUrl
-          value: {{ $tmsCfg.twilioPlugin.sqs.outputSendResultQueueUrl | quote }}
-        - name: Plugins__Twilio__Sqs__OutputLinkClickQueueUrl
-          value: {{ $tmsCfg.twilioPlugin.sqs.outputLinkClickQueueUrl | quote }}
-        - name: Plugins__Twilio__Sqs__OutputInboundMessageQueueUrl
-          value: {{ $tmsCfg.twilioPlugin.sqs.outputInboundMessageQueueUrl | quote }}
-        {{- end }}
-        {{- if eq $tmsCfg.messaging.provider "googlepubsub" }}
-        - name: Plugins__Twilio__PubSub__InputTopic
-          value: {{ printf "projects/%s/topics/%s" $tmsCfg.pubsub.projectId $tmsCfg.pubsub.inputTopicId | quote }}
-        - name: Plugins__Twilio__PubSub__OutputDeliveryStatusSubscription
-          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputDeliveryStatusSubscriptionId | quote }}
-        - name: Plugins__Twilio__PubSub__OutputSendResultSubscription
-          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputSendResultSubscriptionId | quote }}
-        - name: Plugins__Twilio__PubSub__OutputLinkClickSubscription
-          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputLinkClickSubscriptionId | quote }}
-        - name: Plugins__Twilio__PubSub__OutputInboundMessageSubscription
-          value: {{ printf "projects/%s/subscriptions/%s" $tmsCfg.pubsub.projectId $tmsCfg.twilioPlugin.pubsub.outputInboundMessageSubscriptionId | quote }}
-        {{- end }}
         {{- end }}
         {{- range $cfg.extraEnvs }}
         {{- if .enabled }}

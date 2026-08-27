@@ -1742,11 +1742,6 @@ add_extra_envs() {
   envs="${envs}\n    - name: Plugins__SendGrid__EnableSandBoxMode\n      enabled: ${yn}\n      value: \"true\""
   [ "$yn" = "true" ] && any_enabled=true
 
-  # Twilio disable SMS
-  prompt_yesno yn "Disable Twilio SMS campaigns?" "n"
-  envs="${envs}\n    - name: Plugins__Twilio__DisableSendSMSCampaign\n      enabled: ${yn}\n      value: \"true\""
-  [ "$yn" = "true" ] && any_enabled=true
-
   # Locale
   prompt_yesno yn "Set UTF-8 locale (LC_ALL, LANG, LANGUAGE)?" "n"
   envs="${envs}\n    - name: LC_ALL\n      enabled: ${yn}\n      value: \"en_US.UTF-8\""
@@ -2709,53 +2704,6 @@ SECRETS_EXEC_AZBLOB
   Rebrandly_RedisPassword: "${rb_redis_pass}"
 SECRETS_REBRANDLY
     echo "  ${GREEN}✔ Rebrandly secrets added${RESET}"
-    echo ""
-  fi
-
-  # --- Twilio Messaging secrets ---
-  local tm_enabled_k8s
-  tm_enabled_k8s=$(read_val "$overrides" "twiliomessaging.enabled")
-  tm_enabled_k8s="${tm_enabled_k8s:-false}"
-  if [ "$tm_enabled_k8s" = "true" ] || [ "$tm_enabled_k8s" = "True" ]; then
-    echo "  ${BOLD}Twilio Messaging${RESET}"
-    local tm_auth_token
-    read -rsp "    Twilio auth token: " tm_auth_token
-    echo ""
-    cat >> "$output" << SECRETS_TWILIO
-  # -- Twilio Messaging --
-  TwilioMessaging_AuthToken: "${tm_auth_token}"
-SECRETS_TWILIO
-
-    # PostgreSQL password only when Twilio uses its own DB (reuseOperational=false).
-    # This is the kubernetes secret path, so auth is Basic (password-based); reuse-operational
-    # uses the operational DB password already collected above.
-    local tm_pg_reuse
-    tm_pg_reuse=$(read_val "$overrides" "twiliomessaging.postgres.reuseOperational")
-    tm_pg_reuse="${tm_pg_reuse:-true}"
-    if [ "$tm_pg_reuse" = "false" ] || [ "$tm_pg_reuse" = "False" ]; then
-      local tm_pg_pass
-      read -rsp "    PostgreSQL password (twilio_messaging): " tm_pg_pass
-      echo ""
-      cat >> "$output" << SECRETS_TWILIO_PG
-  TwilioMessaging_Postgres_Password: "${tm_pg_pass}"
-SECRETS_TWILIO_PG
-    fi
-
-    # External Redis access key only for a BYO Redis (this is the kubernetes secret path, so
-    # auth is the access key/password; sdk uses managed identity - no key). The internal
-    # chart-managed Redis password is generated into rpi-internal-services.
-    local tm_redis_type
-    tm_redis_type=$(read_val "$overrides" "twiliomessaging.redisSettings.type")
-    tm_redis_type="${tm_redis_type:-internal}"
-    if [ "$tm_redis_type" = "external" ]; then
-      local tm_redis_pass
-      read -rsp "    External Redis access key / password: " tm_redis_pass
-      echo ""
-      cat >> "$output" << SECRETS_TWILIO_REDIS
-  TwilioMessaging_Redis_Password: "${tm_redis_pass}"
-SECRETS_TWILIO_REDIS
-    fi
-    echo "  ${GREEN}✔ Twilio Messaging secrets added${RESET}"
     echo ""
   fi
 
