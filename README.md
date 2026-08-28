@@ -9,10 +9,10 @@ This chart deploys RPI on Kubernetes using Helm.
 
 ## Choose Your Path
 
-| | New Installation | Upgrading from v7.6 | AI-Assisted |
+| | New Installation | Upgrading from v7.7 | AI-Assisted |
 |:---|:---|:---|:---|
 | **Guide** | [Greenfield Installation](docs/greenfield.md) | [Upgrade Guide](docs/migration.md) | [Helm Assistant](docs/readme-mcp.md) |
-| **When to use** | New cluster, databases, cache, and queue providers | Existing v7.6 deployment with existing infrastructure | Any scenario. Validates configs, generates overrides, diagnoses issues, and answers questions in plain English |
+| **When to use** | New cluster, databases, cache, and queue providers | Existing v7.7 deployment with existing infrastructure | Any scenario. Validates configs, generates overrides, diagnoses issues, and answers questions in plain English |
 | **Databases** | Created from scratch | Existing databases are reused | Generates the correct database configuration for your platform |
 
 ---
