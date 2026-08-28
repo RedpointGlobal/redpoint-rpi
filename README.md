@@ -21,11 +21,11 @@ This chart deploys RPI on Kubernetes using Helm.
 
 | Guide | Description |
 |:------|:------------|
-| [Secrets Management](docs/secrets-management.md) | Kubernetes, CSI, and SDK providers - vault keys, CSI setup, image pull secrets |
+| [Secrets&nbsp;Management](docs/secrets-management.md) | Kubernetes, CSI, and SDK providers - vault keys, CSI setup, image pull secrets |
 | [Single Sign-On](docs/single-sign-on.md) | Microsoft Entra ID, Okta, Keycloak |
 | [Ingress](docs/ingress.md) | Chart-managed nginx, BYO controller, AWS ALB, Azure AGC |
 | [Storage](docs/storage.md) | Static and dynamic provisioning - EFS, Azure Files, Filestore |
-| [Google Cloud SQL (IAM)](docs/google-cloud-sql-iam.md) | PostgreSQL with passwordless IAM auth via the Cloud SQL Auth Proxy - keyless Workload Identity, required cloudsqlsuperuser grant |
+| [Google&nbsp;Cloud&nbsp;SQL&nbsp;(IAM)](docs/google-cloud-sql-iam.md) | PostgreSQL with passwordless IAM |
 | [RPI Helm CLI](docs/readme-cli.md) | Pre-flight checks, secrets generation, deployment, troubleshooting |
 | [Custom Plugins](docs/plugins.md) | Realtime API plugins: decision, event, form, visitor profile, geolocation |
 | [Redpoint AI](docs/redpoint-ai.md) | Natural-language basic selection rules - Azure OpenAI, AI Search, Blob Storage |
