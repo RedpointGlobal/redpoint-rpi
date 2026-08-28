@@ -2481,7 +2481,7 @@ cli_secrets() {
     echo "  Ensure your vault contains the required secrets before deploying."
     echo ""
     echo "  ${BOLD}References:${RESET}"
-    echo "    Secrets guide:    https://github.com/RedPointGlobal/redpoint-rpi/blob/release/v7.7/docs/secrets-management.md"
+    echo "    Secrets guide:    https://github.com/RedPointGlobal/redpoint-rpi/blob/main/docs/secrets-management.md"
     echo "    Vault setup:      https://rpi-helm-assistant.redpointcdp.com (Automate tab)"
     echo ""
 

@@ -21,7 +21,7 @@ This chart deploys RPI on Kubernetes using Helm.
 
 | Guide | Description |
 |:------|:------------|
-| [Secrets&nbsp;Management](docs/secrets-management.md) | Kubernetes, CSI, and SDK providers - vault keys, CSI setup, image pull secrets |
+| [Secrets&nbsp;Management](docs/secrets-management.md) | Kubernetes, CSI, and SDK providers |
 | [Single Sign-On](docs/single-sign-on.md) | Microsoft Entra ID, Okta, Keycloak |
 | [Ingress](docs/ingress.md) | Chart-managed nginx, BYO controller, AWS ALB, Azure AGC |
 | [Storage](docs/storage.md) | Static and dynamic provisioning - EFS, Azure Files, Filestore |
@@ -38,4 +38,4 @@ This chart deploys RPI on Kubernetes using Helm.
 - [www.redpointglobal.com](https://www.redpointglobal.com)
 
 ---
-<sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>

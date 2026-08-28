@@ -424,4 +424,4 @@ cert-manager watches the Ingress, provisions the certificate, and stores it in t
 - [cert-manager docs](https://cert-manager.io/docs/) - Automated certificate management
 
 ---
-<sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>

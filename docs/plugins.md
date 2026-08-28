@@ -258,4 +258,4 @@ git clone https://github.com/RedPointGlobal/RPI-Realtime-Plugin-Example.git
 Build with .NET 9, reference the `RedPoint.Web.Shared` NuGet package, and deploy the DLL to your plugins volume.
 
 ---
-<sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
