@@ -1517,15 +1517,12 @@
               }
             },
             "failOnCacheConnectionError": {
-              "type": "boolean",
               "description": "Fail startup if the cache connection cannot be established."
             },
             "maxNumberRetries": {
-              "type": "integer",
               "description": "Maximum cache connection retry attempts."
             },
             "maxRetryDelay": {
-              "type": "string",
               "description": "Delay (hh:mm:ss) between cache connection retries."
             },
             "redisSettings": {
@@ -1658,15 +1655,12 @@
           "additionalProperties": true,
           "properties": {
             "maxThreadsPerExecutionService": {
-              "type": "integer",
               "description": "Maximum concurrent worker threads per Execution Service replica."
             },
             "taskTimeout": {
-              "type": "integer",
               "description": "Task execution timeout in seconds."
             },
             "auditTaskEvents": {
-              "type": "boolean",
               "description": "Write task lifecycle events to the audit log."
             },
             "persistTaskExecutionDetails": {
@@ -1674,27 +1668,21 @@
               "description": "Persist per-task execution detail records."
             },
             "executionShutdownWaitForActivity": {
-              "type": "string",
               "description": "Grace period (hh:mm:ss) to wait for in-flight activity before shutdown."
             },
             "overrideCustomSQLReservedWords": {
-              "type": "boolean",
               "description": "Allow custom SQL reserved-word overrides."
             },
             "rpdmOApiPrefixUri": {
-              "type": "string",
               "description": "URI prefix for the RPDM Operational API."
             },
             "triggerCheckCriteriaInterval": {
-              "type": "integer",
               "description": "Interval (seconds) between trigger criteria checks."
             },
             "triggersMaxDaysInactive": {
-              "type": "integer",
               "description": "Days a trigger may remain inactive before it is skipped."
             },
             "defaultMaintenanceModeBufferTime": {
-              "type": "string",
               "description": "Default maintenance-mode buffer (hh:mm:ss)."
             },
             "workflowPrioritization": {
@@ -1703,15 +1691,12 @@
               "additionalProperties": true,
               "properties": {
                 "enabled": {
-                  "type": "boolean",
                   "description": "Enable workflow prioritization."
                 },
                 "maxConcurrentWorkflowActivities": {
-                  "type": "integer",
                   "description": "Maximum concurrent prioritized workflow activities."
                 },
                 "maximumQueueTime": {
-                  "type": "string",
                   "description": "Maximum time (hh:mm:ss) an activity may wait in the priority queue."
                 }
               }
@@ -1930,23 +1915,18 @@
           "additionalProperties": true,
           "properties": {
             "default": {
-              "type": "string",
               "description": "Default log level."
             },
             "database": {
-              "type": "string",
               "description": "Database log sink level."
             },
             "rpiTrace": {
-              "type": "string",
               "description": "Database RPITrace level."
             },
             "rpiError": {
-              "type": "string",
               "description": "Database RPIError level."
             },
             "Console": {
-              "type": "string",
               "description": "Console log level."
             },
             "microsoft": {
@@ -2309,23 +2289,18 @@
           "additionalProperties": true,
           "properties": {
             "default": {
-              "type": "string",
               "description": "Default log level."
             },
             "database": {
-              "type": "string",
               "description": "Database log sink level."
             },
             "rpiTrace": {
-              "type": "string",
               "description": "Database RPITrace level."
             },
             "rpiError": {
-              "type": "string",
               "description": "Database RPIError level."
             },
             "Console": {
-              "type": "string",
               "description": "Console log level."
             },
             "microsoft": {
