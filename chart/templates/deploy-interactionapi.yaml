@@ -187,8 +187,34 @@ spec:
           value: {{ $cfg.logging.rpiError | quote }}
         - name: Logging__Console__LogLevel__Default
           value: {{ $cfg.logging.Console | quote }}
+        - name: Logging__LogLevel__Microsoft
+          value: {{ $cfg.logging.microsoft | quote }}
+        - name: Logging__LogLevel__Microsoft.Hosting.Lifetime
+          value: {{ $cfg.logging.microsoftHostingLifetime | quote }}
+        - name: Logging__RPIRealtime__LogLevel__Default
+          value: {{ $cfg.logging.rpiRealtime.default | quote }}
+        - name: Logging__RPIRealtime__EndpointLogLevel
+          value: {{ $cfg.logging.rpiRealtime.endpoint | quote }}
+        - name: Logging__RPIRealtime__SharedLogLevel
+          value: {{ $cfg.logging.rpiRealtime.shared | quote }}
+        - name: Logging__RPIRealtime__PluginLogLevel
+          value: {{ $cfg.logging.rpiRealtime.plugin | quote }}
+        - name: Logging__RPIRealtime__OtherLogLevel
+          value: {{ $cfg.logging.rpiRealtime.other | quote }}
+        - name: Logging__RPIRealtime__ConsoleLogging
+          value: {{ $cfg.logging.rpiRealtime.consoleLogging | quote }}
+        - name: Logging__RPIRealtime__NLogTarget
+          value: {{ $cfg.logging.rpiRealtime.nlogTarget | quote }}
         - name: RPI__DateTimeSource
           value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
+        - name: RPI__OperationalDatabase__MaxRetryCount
+          value: {{ $cfg.operationalDatabase.maxRetryCount | quote }}
+        - name: RPI__OperationalDatabase__MaxRetryDelay
+          value: {{ $cfg.operationalDatabase.maxRetryDelay | quote }}
+        - name: RPI__ServiceHostName
+          value: {{ $cfg.serviceHost.name | quote }}
+        - name: RPI__ServiceHostPortNumber
+          value: {{ $cfg.serviceHost.portNumber | quote }}
         - name: RPIClient__HelpStartPageURL
           value: "https://docs.redpointglobal.com/rpi/"
         - name: RPIClient__ProductUpdateFeed__Enabled
@@ -211,8 +237,10 @@ spec:
           value: {{ $diag.copytoAzureBlob.blobServiceEndpoint | quote }}
         - name: RPI__Diagnostics__CopyToAzure__EnableCdn
           value: {{ $diag.copytoAzureBlob.enableCdn | quote }}
-        - name: RPI__Diagnostics__CopyToAzure__AzureUseDataLakeStorageGen2
+        - name: RPI__Diagnostics__CopyToAzure__UseDataLakeStorageGen2
           value: {{ $diag.copytoAzureBlob.UseDataLakeStorageGen2 | quote }}
+        - name: RPI__Diagnostics__CopyToAzure__UseAzureIdentityAuthentication
+          value: {{ $diag.copytoAzureBlob.useAzureIdentityAuthentication | quote }}
         {{- end }}
         {{- if $diag.copytoSftp.enabled }}
         - name: RPI__Diagnostics__CopyToSFTP__SecureFTPHost
@@ -224,10 +252,10 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CopyToSFTPSecureFTPPassword
-        - name: RPI__Diagnostics__CopyToSFTP__PortNumberNumber
+        - name: RPI__Diagnostics__CopyToSFTP__PortNumber
           value: {{ $diag.copytoSftp.sftpPort | quote }}
-        - name: RPI__Diagnostics__UseSFTP
-          value: "true"
+        - name: RPI__Diagnostics__CopyToSFTP__UseSFTP
+          value: {{ $diag.copytoSftp.useSftp | quote }}
         - name: RPI__Diagnostics__CopyToSFTP__IsEnabled
           value: "true"
         {{- end }}
@@ -253,10 +281,19 @@ spec:
           value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
         {{- end }}
         {{- end }}
+        {{- if and .Values.OpenIdProviders.enabled (eq .Values.OpenIdProviders.name "keycloak") }}
+        - name: RPI__UserManagement__UseNativeUserManagement
+          value: {{ $cfg.userManagement.useNativeUserManagement | quote }}
+        - name: RPI__UserManagement__UseExternalUserManagement
+          value: "true"
+        {{- else }}
+        - name: RPI__UserManagement__UseNativeUserManagement
+          value: {{ $cfg.userManagement.useNativeUserManagement | quote }}
+        - name: RPI__UserManagement__UseExternalUserManagement
+          value: {{ $cfg.userManagement.useExternalUserManagement | quote }}
+        {{- end }}
         {{- if .Values.OpenIdProviders.enabled }}
         {{- if eq .Values.OpenIdProviders.name "keycloak" }}
-        - name: RPI__UserManagement__UseExternalUserManagement
-          value: 'true'
         - name: RPI__UserManagement__Keycloak__Address
           value: "http://cdp-keycloak/auth/"
         - name: RPI__UserManagement__Keycloak__Realm
@@ -329,11 +366,17 @@ spec:
           value: {{ .Values.MicrosoftEntraID.interaction_client_id | quote }}
         - name: Authentication__Microsoft__TenantID
           value: {{ .Values.MicrosoftEntraID.tenant_id | quote }}
+        - name: Authentication__Microsoft__ForceLogin
+          value: {{ $cfg.microsoftForceLogin | quote }}
         {{- end }}
         - name: Authentication__EnableRPIAuthentication
           value: {{ $cfg.enableRPIAuthentication | quote }}
         - name: Authentication__RPIAuthentication__AuthorizationHost
           value: "https://{{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.client "domain" $ingCfg.domain) }}"
+        - name: Authentication__RPIAuthentication__AccessTokenLifetimeSeconds
+          value: {{ $cfg.accessTokenLifetimeSeconds | quote }}
+        - name: Authentication__RPIAuthentication__RefreshTokenLifetimeSeconds
+          value: {{ $cfg.refreshTokenLifetimeSeconds | quote }}
         {{- if $cfg.authMetaHttpEnabled }}
         - name: Authentication__RPIAuthentication__AuthMetaHttpHost
           value: "http://{{ $name }}"
@@ -369,10 +412,36 @@ spec:
           value: {{ $cfg.alwaysShowClientsAtLogin | quote }}
         - name: RPIClient__ApplicationSupportURL
           value: "https://support.redpointglobal.com"
+        {{- if $cfg.mapControl.enabled }}
+        - name: RPIClient__MapControl__Provider
+          value: {{ $cfg.mapControl.provider | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: RPIClient__MapControl__ApplicationId
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: MapControl_ApplicationId
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.weatherApi.enabled }}
+        - name: RPIClient__WeatherAPICredentials__Address
+          value: {{ $cfg.weatherApi.address | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: RPIClient__WeatherAPICredentials__APIKey
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Weather_ApiKey
+        {{- end }}
+        {{- end }}
         {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
         - name: RPI__FileOutput__Directory
-          value: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }} 
+          value: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
         {{- end }}
+        - name: RPI__FileOutput__AllowClientOverrides
+          value: {{ $cfg.fileOutput.allowClientOverrides | quote }}
+        - name: RPI__FileOutput__AllowAllServerLocations
+          value: {{ $cfg.fileOutput.allowAllServerLocations | quote }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CONNECTIONSTRINGS__LOGGINGDATABASE
           valueFrom:
@@ -426,6 +495,87 @@ spec:
           value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
         - name: RPI__NLP__EnableTrace
           value: {{ .Values.redpointAI.logging.enableTrace | quote }}
+        {{- end }}
+        {{- range $i, $v := $cfg.systemVariables }}
+        - name: SystemVariables__Variables__{{ $i }}__Name
+          value: {{ $v.name | quote }}
+        - name: SystemVariables__Variables__{{ $i }}__Value
+          value: {{ $v.value | quote }}
+        {{- end }}
+        {{- if $cfg.pubSub.enabled }}
+        - name: PubSub__Provider
+          value: {{ $cfg.pubSub.provider | quote }}
+        - name: PubSub__AzureSettings__Endpoint
+          value: {{ $cfg.pubSub.azureSettings.endpoint | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: PubSub__AzureSettings__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: PubSub_ConnectionString
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.mercury.enabled }}
+        - name: Mercury__Address
+          value: {{ $cfg.mercury.address | quote }}
+        - name: Mercury__Username
+          value: {{ $cfg.mercury.username | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Mercury__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Mercury_Password
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.configurationStore.enabled }}
+        - name: ConfigurationStore__LabelFilter
+          value: {{ $cfg.configurationStore.labelFilter | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: ConfigurationStore__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: ConfigurationStore_ConnectionString
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.logging.newRelic.enabled }}
+        - name: Logging__NewRelic__Enabled
+          value: "true"
+        - name: Logging__NewRelic__HttpsEndpoint
+          value: {{ $cfg.logging.newRelic.httpsEndpoint | quote }}
+        - name: Logging__NewRelic__LogLevel__Default
+          value: {{ $cfg.logging.newRelic.logLevelDefault | quote }}
+        - name: Logging__NewRelic__RPITrace
+          value: {{ $cfg.logging.newRelic.rpiTrace | quote }}
+        - name: Logging__NewRelic__RPIError
+          value: {{ $cfg.logging.newRelic.rpiError | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Logging__NewRelic__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: NewRelic_ApiKey
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.logging.loggly.enabled }}
+        - name: Logging__Loggly__Enabled
+          value: "true"
+        - name: Logging__Loggly__HttpsEndpoint
+          value: {{ $cfg.logging.loggly.httpsEndpoint | quote }}
+        - name: Logging__Loggly__LogLevel__Default
+          value: {{ $cfg.logging.loggly.logLevelDefault | quote }}
+        - name: Logging__Loggly__RPITrace
+          value: {{ $cfg.logging.loggly.rpiTrace | quote }}
+        - name: Logging__Loggly__RPIError
+          value: {{ $cfg.logging.loggly.rpiError | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Logging__Loggly__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Loggly_ApiKey
+        {{- end }}
         {{- end }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}

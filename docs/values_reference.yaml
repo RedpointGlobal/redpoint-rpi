@@ -692,6 +692,8 @@ databaseUpgrade:
 
 # Interaction API service configuration — main API for client/UI interactions
 interactionapi:
+  # Native-auth access token lifetime in seconds.
+  accessTokenLifetimeSeconds: 3600
   # Account lockout after repeated failed sign-in attempts (deployment-wide; the Integration
   # API shares the same user store). Keys are optional; unset keys use the application
   # defaults.
@@ -711,6 +713,13 @@ interactionapi:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
+  # Azure App Configuration store. Set enabled: true and populate Secret key
+  # ConfigurationStore_ConnectionString.
+  configurationStore:
+    # Enable the Azure App Configuration store.
+    enabled: false
+    # Configuration label filter.
+    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false
@@ -718,12 +727,91 @@ interactionapi:
   enableRPIAuthentication: true
   # Enable the Interaction API service
   enabled: true
+  # Interaction API file-output behavior.
+  fileOutput:
+    # Allow writing file output to any server location.
+    allowAllServerLocations: true
+    # Allow per-client file-output directory overrides.
+    allowClientOverrides: true
+  # Interaction API log levels and log-forwarding sinks.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.
+    loggly:
+      # Enable Loggly forwarding.
+      enabled: false
+      # Loggly log ingest endpoint.
+      httpsEndpoint: 'https://logs-01.loggly.com'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Microsoft namespace log level.
+    microsoft: Warning
+    # Microsoft.Hosting.Lifetime log level.
+    microsoftHostingLifetime: Warning
+    # New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.
+    newRelic:
+      # Enable New Relic forwarding.
+      enabled: false
+      # New Relic log ingest endpoint.
+      httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Database RPIError level.
     rpiError: Error
+    # RPI Realtime log levels.
+    rpiRealtime:
+      # Log RPI Realtime to console.
+      consoleLogging: true
+      # Default level.
+      default: Error
+      # Endpoint level.
+      endpoint: Error
+      # NLog target name.
+      nlogTarget: ''
+      # Other level.
+      other: Error
+      # Plugin level.
+      plugin: Error
+      # Shared level.
+      shared: Error
+    # Database RPITrace level.
     rpiTrace: Error
+  # RPI Client map control. Set enabled: true and populate Secret key
+  # MapControl_ApplicationId.
+  mapControl:
+    # Enable the map control.
+    enabled: false
+    # Map provider.
+    provider: Bing
+  # Mercury integration. Set enabled: true and populate Secret key Mercury_Password.
+  mercury:
+    # Mercury service address.
+    address: ''
+    # Enable the Mercury integration.
+    enabled: false
+    # Mercury username.
+    username: ''
+  # Force interactive login for Microsoft Entra ID authentication.
+  microsoftForceLogin: true
+  # Operational database resilience settings.
+  operationalDatabase:
+    # Maximum operational-database connection retry attempts.
+    maxRetryCount: 12
+    # Delay (hh:mm:ss) between operational-database retries.
+    maxRetryDelay: '00:01:00'
   # Native-auth password policy enforced when users are created or change their password
   # (deployment-wide; the Integration API shares the same user store)
   passwordPolicy:
@@ -747,6 +835,18 @@ interactionapi:
   productUpdateFeed:
     enabled: true
     url: 'https://www.redpointglobal.com/feed/productfeed'
+  # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
+  pubSub:
+    # Azure PubSub settings.
+    azureSettings:
+      # Azure Web PubSub endpoint URL.
+      endpoint: ''
+    # Enable Web PubSub.
+    enabled: false
+    # PubSub provider.
+    provider: Azure
+  # Native-auth refresh token lifetime in seconds.
+  refreshTokenLifetimeSeconds: 36000
   # Number of Interaction API pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
@@ -764,8 +864,28 @@ interactionapi:
     port: 80
   serviceAccount:
     enabled: true
+  # This Interaction API's externally reachable host and port.
+  serviceHost:
+    # Service host name.
+    name: rpi-interactionapi
+    # Service host port.
+    portNumber: 80
+  # Custom SystemVariables exposed to workflows. Each item: {name, value}.
+  systemVariables: []
   terminationGracePeriodSeconds: 120
   type: deployment
+  # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
+  userManagement:
+    # Use an external identity provider for user management.
+    useExternalUserManagement: true
+    # Use RPI native user management.
+    useNativeUserManagement: true
+  # RPI Client weather lookup. Set enabled: true and populate Secret key Weather_ApiKey.
+  weatherApi:
+    # Weather service address.
+    address: 'https://dataservice.accuweather.com'
+    # Enable weather lookups.
+    enabled: false
 
 # Integration API service configuration — handles external system integrations and Smart
 # Activation communication
@@ -931,7 +1051,7 @@ executionservice:
     # Fail startup if the cache connection cannot be established.
     failOnCacheConnectionError: true
     # Maximum cache connection retry attempts.
-    maxNumberRetries: '100'
+    maxNumberRetries: 100
     # Delay (hh:mm:ss) between cache connection retries.
     maxRetryDelay: '00:01:00'
     # Cache provider type
@@ -956,7 +1076,7 @@ executionservice:
     # Declare queues as durable.
     isDurable: true
     # RabbitMQ port.
-    port: '5672'
+    port: 5672
     # RabbitMQ username.
     username: redpointrpi
     # RabbitMQ virtual host.
@@ -1071,7 +1191,7 @@ executionservice:
   # Operational database resilience settings.
   operationalDatabase:
     # Maximum operational-database connection retry attempts.
-    maxRetryCount: '12'
+    maxRetryCount: 12
     # Delay (hh:mm:ss) between operational-database retries.
     maxRetryDelay: '00:01:00'
   podAnnotations: {}
@@ -1114,9 +1234,9 @@ executionservice:
   # This Execution Service's externally reachable host and port (used for callbacks).
   serviceHost:
     # Service host name (empty = derived at runtime).
-    name: ''
+    name: rpi-executionservice
     # Service host port.
-    portNumber: '443'
+    portNumber: 80
   # Custom SystemVariables exposed to workflows. Each item: {name, value}.
   systemVariables: []
   terminationGracePeriodSeconds: 120

@@ -452,7 +452,7 @@ jobExecution:
     jobRules: []
     clients: []
 internalCache:
-  maxNumberRetries: "100"
+  maxNumberRetries: 100
   maxRetryDelay: "00:01:00"
   failOnCacheConnectionError: true
   redisSettings:
@@ -465,14 +465,14 @@ seedService:
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
 operationalDatabase:
-  maxRetryCount: "12"
+  maxRetryCount: 12
   maxRetryDelay: "00:01:00"
 fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
 serviceHost:
-  name: ""
-  portNumber: "443"
+  name: rpi-executionservice
+  portNumber: 80
 userManagement:
   useNativeUserManagement: true
   useExternalUserManagement: false
@@ -482,7 +482,7 @@ internalQueues:
   hostName: localhost
   virtualHost: "/"
   username: redpointrpi
-  port: "5672"
+  port: 5672
   isDurable: true
 pubSub:
   enabled: false
@@ -554,12 +554,68 @@ terminationGracePeriodSeconds: 120
 productUpdateFeed:
   enabled: true
   url: https://www.redpointglobal.com/feed/productfeed
+accessTokenLifetimeSeconds: 3600
+refreshTokenLifetimeSeconds: 36000
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  name: rpi-interactionapi
+  portNumber: 80
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: true
+microsoftForceLogin: true
+mapControl:
+  enabled: false
+  provider: Bing
+weatherApi:
+  enabled: false
+  address: "https://dataservice.accuweather.com"
+systemVariables: []
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+mercury:
+  enabled: false
+  address: ""
+  username: ""
+configurationStore:
+  enabled: false
+  labelFilter: ""
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  rpiRealtime:
+    default: Error
+    endpoint: Error
+    shared: Error
+    plugin: Error
+    other: Error
+    consoleLogging: true
+    nlogTarget: ""
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
   type: hpa
   minReplicas: 2
