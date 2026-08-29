@@ -191,10 +191,15 @@
                   "type": "string",
                   "description": "Graceful shutdown window (e.g. '30s')"
                 },
-                "resources": { "type": "object", "additionalProperties": true },
+                "resources": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
                 "additionalArgs": {
                   "type": "array",
-                  "items": { "type": "string" }
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -220,26 +225,94 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": true,
-                    "required": ["name", "projectId"],
+                    "required": [
+                      "name",
+                      "projectId"
+                    ],
                     "allOf": [
                       {
-                        "if": { "properties": { "credentialsType": { "const": "serviceAccount" } }, "required": ["credentialsType"] },
-                        "then": { "required": ["serviceAccountEmail"], "properties": { "serviceAccountEmail": { "minLength": 1 } } }
+                        "if": {
+                          "properties": {
+                            "credentialsType": {
+                              "const": "serviceAccount"
+                            }
+                          },
+                          "required": [
+                            "credentialsType"
+                          ]
+                        },
+                        "then": {
+                          "required": [
+                            "serviceAccountEmail"
+                          ],
+                          "properties": {
+                            "serviceAccountEmail": {
+                              "minLength": 1
+                            }
+                          }
+                        }
                       }
                     ],
                     "properties": {
-                      "name":                { "type": "string", "minLength": 1, "description": "Connection name (used as the ODBC DSN name)." },
-                      "projectId":           { "type": "string", "minLength": 1, "description": "Google Cloud project ID (BigQuery catalog)." },
-                      "credentialsType":     { "type": "string", "enum": ["serviceAccount", "workloadIdentity"], "description": "serviceAccount: authenticate with a mounted service account key (provide serviceAccountEmail, configMapName, keyName). workloadIdentity: keyless, using the pod's Workload Identity service account." },
-                      "OAuthMechanism":      { "type": ["integer", "string"], "description": "BigQuery ODBC driver auth mode: 0 for a service account key; the driver's Application Default Credentials value (typically 3) for workloadIdentity." },
-                      "sqlDialect":          { "type": ["integer", "string"] },
-                      "serviceAccountEmail": { "type": "string", "description": "Service account email. Used only with credentialsType=serviceAccount." },
-                      "configMapName":       { "type": "string", "description": "ConfigMap holding the service account key. Used only with credentialsType=serviceAccount." },
-                      "keyName":             { "type": "string", "description": "Key filename inside the ConfigMap. Used only with credentialsType=serviceAccount." },
-                      "ConfigMapFilePath":   { "type": "string", "description": "Mount path for the key file. Used only with credentialsType=serviceAccount." },
-                      "allowLargeResults":   { "type": ["integer", "string"] },
-                      "largeResultsDataSetId": { "type": "string" },
-                      "largeResultsTempTableExpirationTime": { "type": "string" }
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Connection name (used as the ODBC DSN name)."
+                      },
+                      "projectId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Google Cloud project ID (BigQuery catalog)."
+                      },
+                      "credentialsType": {
+                        "type": "string",
+                        "enum": [
+                          "serviceAccount",
+                          "workloadIdentity"
+                        ],
+                        "description": "serviceAccount: authenticate with a mounted service account key (provide serviceAccountEmail, configMapName, keyName). workloadIdentity: keyless, using the pod's Workload Identity service account."
+                      },
+                      "OAuthMechanism": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "BigQuery ODBC driver auth mode: 0 for a service account key; the driver's Application Default Credentials value (typically 3) for workloadIdentity."
+                      },
+                      "sqlDialect": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ]
+                      },
+                      "serviceAccountEmail": {
+                        "type": "string",
+                        "description": "Service account email. Used only with credentialsType=serviceAccount."
+                      },
+                      "configMapName": {
+                        "type": "string",
+                        "description": "ConfigMap holding the service account key. Used only with credentialsType=serviceAccount."
+                      },
+                      "keyName": {
+                        "type": "string",
+                        "description": "Key filename inside the ConfigMap. Used only with credentialsType=serviceAccount."
+                      },
+                      "ConfigMapFilePath": {
+                        "type": "string",
+                        "description": "Mount path for the key file. Used only with credentialsType=serviceAccount."
+                      },
+                      "allowLargeResults": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ]
+                      },
+                      "largeResultsDataSetId": {
+                        "type": "string"
+                      },
+                      "largeResultsTempTableExpirationTime": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -305,7 +378,10 @@
           "properties": {
             "mode": {
               "type": "string",
-              "enum": ["shared", "per-service"],
+              "enum": [
+                "shared",
+                "per-service"
+              ],
               "description": "shared: one SA for all pods. per-service: each service gets its own SA."
             },
             "name": {
@@ -494,7 +570,10 @@
             "reclaimPolicy": {
               "type": "string",
               "description": "Reclaim policy",
-              "enum": ["Delete", "Retain"],
+              "enum": [
+                "Delete",
+                "Retain"
+              ],
               "default": "Delete"
             },
             "parameters": {
@@ -604,7 +683,10 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["clientId", "address"],
+            "required": [
+              "clientId",
+              "address"
+            ],
             "properties": {
               "clientId": {
                 "type": "string",
@@ -633,7 +715,10 @@
             "weatherUnits": {
               "type": "string",
               "description": "Units for weather enrichment",
-              "enum": ["imperial", "metric"]
+              "enum": [
+                "imperial",
+                "metric"
+              ]
             },
             "coordsCacheTimespanMinutes": {
               "type": "integer",
@@ -654,10 +739,18 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["key", "value"],
+                "required": [
+                  "key",
+                  "value"
+                ],
                 "properties": {
-                  "key": { "type": "string", "minLength": 1 },
-                  "value": { "type": "string" }
+                  "key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {
+                    "type": "string"
+                  }
                 }
               }
             },
@@ -689,10 +782,18 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["key", "value"],
+                    "required": [
+                      "key",
+                      "value"
+                    ],
                     "properties": {
-                      "key": { "type": "string", "minLength": 1 },
-                      "value": { "type": "string" }
+                      "key": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "value": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -712,12 +813,16 @@
             "masterKeyAliases": {
               "type": "array",
               "description": "Alternative names the master key may appear under (e.g. CK for CustomerKey)",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "alternativeKeys": {
               "type": "array",
               "description": "Additional keys that can also identify a visitor, linked to the master key via a querystring or a populated Realtime cache",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "mergeParameters": {
               "type": "boolean",
@@ -730,12 +835,16 @@
             "parameterMergeExclusions": {
               "type": "array",
               "description": "Querystring parameter names to exclude from the merge",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "calMergeExclusions": {
               "type": "array",
               "description": "Cached-attribute-list attribute names to exclude from the merge",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
@@ -804,23 +913,52 @@
           "additionalProperties": false,
           "description": "Per-DataMap overrides. An empty Cache inherits the effective cacheProvider.provider.",
           "properties": {
-            "visitorProfile": { "$ref": "#/definitions/realtimeDataMap" },
-            "visitorHistory": { "$ref": "#/definitions/realtimeDataMap" },
-            "nonVisitorData": { "$ref": "#/definitions/realtimeDataMap" },
-            "productRecommendation": { "$ref": "#/definitions/realtimeDataMap" },
-            "visitorBackup": { "$ref": "#/definitions/realtimeDataMap" },
-            "messageHistory": { "$ref": "#/definitions/realtimeDataMap" },
+            "visitorProfile": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "visitorHistory": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "nonVisitorData": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "productRecommendation": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "visitorBackup": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "messageHistory": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
             "visitorReadonlyParameters": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "Cache": { "type": "string", "description": "Cache assignment; empty inherits the effective cacheProvider.provider." },
-                "DaysToPersist": { "type": ["integer", "string"] },
-                "CompressData": { "type": ["boolean", "string"] },
-                "KeySuffix": { "type": "string" }
+                "Cache": {
+                  "type": "string",
+                  "description": "Cache assignment; empty inherits the effective cacheProvider.provider."
+                },
+                "DaysToPersist": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "CompressData": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ]
+                },
+                "KeySuffix": {
+                  "type": "string"
+                }
               }
             },
-            "offerHistory": { "$ref": "#/definitions/realtimeDataMap" }
+            "offerHistory": {
+              "$ref": "#/definitions/realtimeDataMap"
+            }
           }
         },
         "RealtimeServerCookieEnabled": {
@@ -871,7 +1009,10 @@
               "properties": {
                 "authMechanism": {
                   "type": "string",
-                  "enum": ["default", "iamRole"],
+                  "enum": [
+                    "default",
+                    "iamRole"
+                  ],
                   "description": "MongoDB authentication: default (connection string from the shared Secret) or iamRole (MONGODB-AWS via IRSA / Pod Identity)."
                 },
                 "roleArn": {
@@ -989,7 +1130,10 @@
               "additionalProperties": false,
               "properties": {
                 "visibilityTimeout": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "SQS message visibility timeout in seconds."
                 },
                 "credentialsType": {
@@ -1004,11 +1148,17 @@
               "additionalProperties": false,
               "properties": {
                 "sendVisibilityTimeout": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "Send-side message visibility timeout."
                 },
                 "receiveVisibilityTimeout": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "Receive-side message visibility timeout."
                 },
                 "storageAccountName": {
@@ -1038,11 +1188,17 @@
               "additionalProperties": false,
               "properties": {
                 "SendMessageBatchSize": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "Send batch size."
                 },
                 "ReceiveMessageBatchSize": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "Receive batch size."
                 },
                 "eventHubName": {
@@ -1087,12 +1243,39 @@
               "description": "Amazon MSK queue provider settings",
               "additionalProperties": false,
               "properties": {
-                "Acks": { "type": "string", "description": "Kafka producer acks mode." },
-                "CompressionType": { "type": "string", "description": "Kafka compression type." },
-                "MaxRetryAttempt": { "type": ["integer", "string"], "description": "Producer retry attempts." },
-                "BatchSize": { "type": ["integer", "string"], "description": "Producer batch size in bytes." },
-                "LingerTime": { "type": ["integer", "string"], "description": "Producer linger time." },
-                "UseAwsMsk": { "type": "string", "description": "Enable AWS MSK IAM authentication (True/False)." },
+                "Acks": {
+                  "type": "string",
+                  "description": "Kafka producer acks mode."
+                },
+                "CompressionType": {
+                  "type": "string",
+                  "description": "Kafka compression type."
+                },
+                "MaxRetryAttempt": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Producer retry attempts."
+                },
+                "BatchSize": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Producer batch size in bytes."
+                },
+                "LingerTime": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Producer linger time."
+                },
+                "UseAwsMsk": {
+                  "type": "string",
+                  "description": "Enable AWS MSK IAM authentication (True/False)."
+                },
                 "bootstrapServers": {
                   "type": "string",
                   "description": "MSK bootstrap servers"
@@ -1116,26 +1299,53 @@
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name", "factory"],
+                "required": [
+                  "name",
+                  "factory"
+                ],
                 "properties": {
-                  "name": { "type": "string", "minLength": 1 },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "factory": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["assembly", "type"],
+                    "required": [
+                      "assembly",
+                      "type"
+                    ],
                     "properties": {
-                      "assembly": { "type": "string", "minLength": 1 },
-                      "type": { "type": "string", "minLength": 1 }
+                      "assembly": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "type": {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     }
                   },
                   "type": {
                     "type": "object",
                     "additionalProperties": true,
-                    "required": ["name"],
+                    "required": [
+                      "name"
+                    ],
                     "properties": {
-                      "name": { "type": "string", "minLength": 1 },
-                      "apiContextFilters": { "type": "array", "items": { "type": "string" } },
-                      "apiContentFilterOperator": { "type": "string" }
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "apiContextFilters": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "apiContentFilterOperator": {
+                        "type": "string"
+                      }
                     }
                   },
                   "settings": {
@@ -1143,15 +1353,35 @@
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["key"],
+                      "required": [
+                        "key"
+                      ],
                       "oneOf": [
-                        { "required": ["value"] },
-                        { "required": ["values"] }
+                        {
+                          "required": [
+                            "value"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "values"
+                          ]
+                        }
                       ],
                       "properties": {
-                        "key": { "type": "string", "minLength": 1 },
-                        "value": { "type": "string" },
-                        "values": { "type": "array", "items": { "type": "string" } }
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "value": {
+                          "type": "string"
+                        },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
                       }
                     }
                   }
@@ -1285,6 +1515,44 @@
                   "description": "Use cloud identity for authentication"
                 }
               }
+            },
+            "failOnCacheConnectionError": {
+              "type": "boolean",
+              "description": "Fail startup if the cache connection cannot be established."
+            },
+            "maxNumberRetries": {
+              "type": "string",
+              "description": "Maximum cache connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between cache connection retries."
+            },
+            "redisSettings": {
+              "type": "object",
+              "description": "Redis endpoint settings (when a Redis cache provider is used).",
+              "additionalProperties": true,
+              "properties": {
+                "ipAddress": {
+                  "type": "string",
+                  "description": "Redis server address."
+                }
+              }
+            },
+            "stateFileSystem": {
+              "type": "object",
+              "description": "Filesystem state-persistence settings (when provider=filesystem).",
+              "additionalProperties": true,
+              "properties": {
+                "overrideDirectoryPath": {
+                  "type": "boolean",
+                  "description": "Override the default state directory path."
+                },
+                "directoryPathOverride": {
+                  "type": "string",
+                  "description": "State directory path to use when overrideDirectoryPath is true."
+                }
+              }
             }
           }
         },
@@ -1295,7 +1563,9 @@
         "autoscaling": {
           "description": "Autoscaling (hpa or keda).",
           "allOf": [
-            { "$ref": "#/definitions/autoscaling" },
+            {
+              "$ref": "#/definitions/autoscaling"
+            },
             {
               "properties": {
                 "kedaScaledObject": {
@@ -1303,21 +1573,66 @@
                   "additionalProperties": false,
                   "description": "KEDA Prometheus trigger settings (autoscaling.type=keda). serverAddress and query are operator-supplied.",
                   "properties": {
-                    "serverAddress": { "type": "string", "description": "Prometheus server URL. Required when autoscaling.type=keda." },
-                    "useTriggerAuthentication": { "type": ["boolean", "string"] },
-                    "authenticationRef": { "type": "string" },
-                    "metricName": { "type": "string" },
-                    "query": { "type": "string", "description": "PromQL query. Required when autoscaling.type=keda." },
-                    "threshold": { "type": ["integer", "string"] },
-                    "pollingInterval": { "type": ["integer", "string"] },
-                    "minReplicaCount": { "type": ["integer", "string"] },
-                    "maxReplicaCount": { "type": ["integer", "string"] },
+                    "serverAddress": {
+                      "type": "string",
+                      "description": "Prometheus server URL. Required when autoscaling.type=keda."
+                    },
+                    "useTriggerAuthentication": {
+                      "type": [
+                        "boolean",
+                        "string"
+                      ]
+                    },
+                    "authenticationRef": {
+                      "type": "string"
+                    },
+                    "metricName": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "PromQL query. Required when autoscaling.type=keda."
+                    },
+                    "threshold": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "pollingInterval": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "minReplicaCount": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "maxReplicaCount": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
                     "fallback": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
-                        "failureThreshold": { "type": ["integer", "string"] },
-                        "replicas": { "type": ["integer", "string"] }
+                        "failureThreshold": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "replicas": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        }
                       }
                     },
                     "behavior": {
@@ -1325,12 +1640,413 @@
                       "additionalProperties": true,
                       "description": "HPA scaling behavior (scaleUp/scaleDown stabilization and policies)."
                     },
-                    "terminationGracePeriodSeconds": { "type": ["integer", "string"] }
+                    "terminationGracePeriodSeconds": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    }
                   }
                 }
               }
             }
           ]
+        },
+        "jobExecution": {
+          "type": "object",
+          "description": "Execution Service job and workflow execution tuning.",
+          "additionalProperties": true,
+          "properties": {
+            "maxThreadsPerExecutionService": {
+              "type": "integer",
+              "description": "Maximum concurrent worker threads per Execution Service replica."
+            },
+            "taskTimeout": {
+              "type": "integer",
+              "description": "Task execution timeout in seconds."
+            },
+            "auditTaskEvents": {
+              "type": "boolean",
+              "description": "Write task lifecycle events to the audit log."
+            },
+            "persistTaskExecutionDetails": {
+              "type": "boolean",
+              "description": "Persist per-task execution detail records."
+            },
+            "executionShutdownWaitForActivity": {
+              "type": "string",
+              "description": "Grace period (hh:mm:ss) to wait for in-flight activity before shutdown."
+            },
+            "overrideCustomSQLReservedWords": {
+              "type": "boolean",
+              "description": "Allow custom SQL reserved-word overrides."
+            },
+            "rpdmOApiPrefixUri": {
+              "type": "string",
+              "description": "URI prefix for the RPDM Operational API."
+            },
+            "triggerCheckCriteriaInterval": {
+              "type": "integer",
+              "description": "Interval (seconds) between trigger criteria checks."
+            },
+            "triggersMaxDaysInactive": {
+              "type": "integer",
+              "description": "Days a trigger may remain inactive before it is skipped."
+            },
+            "defaultMaintenanceModeBufferTime": {
+              "type": "string",
+              "description": "Default maintenance-mode buffer (hh:mm:ss)."
+            },
+            "workflowPrioritization": {
+              "type": "object",
+              "description": "Workflow prioritization queue controls.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable workflow prioritization."
+                },
+                "maxConcurrentWorkflowActivities": {
+                  "type": "integer",
+                  "description": "Maximum concurrent prioritized workflow activities."
+                },
+                "maximumQueueTime": {
+                  "type": "string",
+                  "description": "Maximum time (hh:mm:ss) an activity may wait in the priority queue."
+                }
+              }
+            },
+            "executionFilterRules": {
+              "type": "object",
+              "description": "Restrict which jobs and clients this Execution Service processes (empty = process all).",
+              "additionalProperties": true,
+              "properties": {
+                "jobRules": {
+                  "type": "array",
+                  "description": "Per-job-type allowlist. Each item: {type, jobNames: [ ... ]}.",
+                  "items": {
+                    "type": "object",
+                    "description": "",
+                    "additionalProperties": true,
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "description": "Job type, e.g. Task, Client Job, Audience, Fulfillment, Rollback."
+                      },
+                      "jobNames": {
+                        "type": "array",
+                        "description": "Job names of this type to process.",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "clients": {
+                  "type": "array",
+                  "description": "Client IDs this Execution Service is limited to.",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationalDatabase": {
+          "type": "object",
+          "description": "Operational database resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxRetryCount": {
+              "type": "string",
+              "description": "Maximum operational-database connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between operational-database retries."
+            }
+          }
+        },
+        "fileOutput": {
+          "type": "object",
+          "description": "Execution Service file-output behavior.",
+          "additionalProperties": true,
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean",
+              "description": "Allow per-client file-output directory overrides."
+            },
+            "allowAllServerLocations": {
+              "type": "boolean",
+              "description": "Allow writing file output to any server location."
+            }
+          }
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Execution Service's externally reachable host and port (used for callbacks).",
+          "additionalProperties": true,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service host name (empty = derived at runtime)."
+            },
+            "portNumber": {
+              "type": "string",
+              "description": "Service host port."
+            }
+          }
+        },
+        "userManagement": {
+          "type": "object",
+          "description": "User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.",
+          "additionalProperties": true,
+          "properties": {
+            "useNativeUserManagement": {
+              "type": "boolean",
+              "description": "Use RPI native user management."
+            },
+            "useExternalUserManagement": {
+              "type": "boolean",
+              "description": "Use an external identity provider for user management."
+            }
+          }
+        },
+        "systemVariables": {
+          "type": "array",
+          "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
+          "items": {
+            "type": "object",
+            "description": "",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Variable value."
+              }
+            }
+          }
+        },
+        "internalQueues": {
+          "type": "object",
+          "description": "Internal RabbitMQ broker connection. Disabled by default; set enabled: true and populate Secret key QueueService_RabbitMQ_Password.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the internal RabbitMQ broker connection."
+            },
+            "hostName": {
+              "type": "string",
+              "description": "RabbitMQ host name."
+            },
+            "virtualHost": {
+              "type": "string",
+              "description": "RabbitMQ virtual host."
+            },
+            "username": {
+              "type": "string",
+              "description": "RabbitMQ username."
+            },
+            "port": {
+              "type": "string",
+              "description": "RabbitMQ port."
+            },
+            "isDurable": {
+              "type": "boolean",
+              "description": "Declare queues as durable."
+            }
+          }
+        },
+        "pubSub": {
+          "type": "object",
+          "description": "Azure Web PubSub. Disabled by default; set enabled: true and populate Secret key PubSub_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Web PubSub."
+            },
+            "provider": {
+              "type": "string",
+              "description": "PubSub provider."
+            },
+            "azureSettings": {
+              "type": "object",
+              "description": "Azure PubSub settings.",
+              "additionalProperties": true,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Azure Web PubSub endpoint URL."
+                }
+              }
+            }
+          }
+        },
+        "mercury": {
+          "type": "object",
+          "description": "Mercury integration. Disabled by default; set enabled: true and populate Secret key Mercury_Password.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Mercury integration."
+            },
+            "address": {
+              "type": "string",
+              "description": "Mercury service address."
+            },
+            "username": {
+              "type": "string",
+              "description": "Mercury username."
+            }
+          }
+        },
+        "configurationStore": {
+          "type": "object",
+          "description": "Azure App Configuration store. Disabled by default; set enabled: true and populate Secret key ConfigurationStore_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Azure App Configuration store."
+            },
+            "labelFilter": {
+              "type": "string",
+              "description": "Configuration label filter."
+            }
+          }
+        },
+        "logging": {
+          "type": "object",
+          "description": "Execution Service log levels and log-forwarding sinks.",
+          "additionalProperties": true,
+          "properties": {
+            "default": {
+              "type": "string",
+              "description": "Default log level."
+            },
+            "database": {
+              "type": "string",
+              "description": "Database log sink level."
+            },
+            "rpiTrace": {
+              "type": "string",
+              "description": "Database RPITrace level."
+            },
+            "rpiError": {
+              "type": "string",
+              "description": "Database RPIError level."
+            },
+            "Console": {
+              "type": "string",
+              "description": "Console log level."
+            },
+            "microsoft": {
+              "type": "string",
+              "description": "Microsoft namespace log level."
+            },
+            "microsoftHostingLifetime": {
+              "type": "string",
+              "description": "Microsoft.Hosting.Lifetime log level."
+            },
+            "rpiRealtime": {
+              "type": "object",
+              "description": "RPI Realtime log levels.",
+              "additionalProperties": true,
+              "properties": {
+                "default": {
+                  "type": "string",
+                  "description": "Default level."
+                },
+                "endpoint": {
+                  "type": "string",
+                  "description": "Endpoint level."
+                },
+                "shared": {
+                  "type": "string",
+                  "description": "Shared level."
+                },
+                "plugin": {
+                  "type": "string",
+                  "description": "Plugin level."
+                },
+                "other": {
+                  "type": "string",
+                  "description": "Other level."
+                },
+                "consoleLogging": {
+                  "type": "boolean",
+                  "description": "Log RPI Realtime to console."
+                },
+                "nlogTarget": {
+                  "type": "string",
+                  "description": "NLog target name."
+                }
+              }
+            },
+            "newRelic": {
+              "type": "object",
+              "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable New Relic forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "New Relic log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            },
+            "loggly": {
+              "type": "object",
+              "description": "Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable Loggly forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "Loggly log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1564,7 +2280,9 @@
             "tenantIds": {
               "type": "array",
               "description": "RPI client IDs (GUIDs) this queue reader processes.",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
@@ -1573,8 +2291,18 @@
           "description": "Internal cache used by the queue reader.",
           "additionalProperties": true,
           "properties": {
-            "provider": { "type": "string", "description": "Cache provider (e.g., redis)." },
-            "type": { "type": "string", "enum": ["internal", "external"], "description": "internal (chart-managed) or external (bring your own)." },
+            "provider": {
+              "type": "string",
+              "description": "Cache provider (e.g., redis)."
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "internal",
+                "external"
+              ],
+              "description": "internal (chart-managed) or external (bring your own)."
+            },
             "redisSettings": {
               "type": "object",
               "additionalProperties": true,
@@ -1587,14 +2315,30 @@
           "description": "Internal message queue used by the queue reader.",
           "additionalProperties": true,
           "properties": {
-            "provider": { "type": "string", "description": "Queue provider (e.g., rabbitmq)." },
-            "type": { "type": "string", "enum": ["internal", "external"], "description": "internal (chart-managed) or external (bring your own)." },
+            "provider": {
+              "type": "string",
+              "description": "Queue provider (e.g., rabbitmq)."
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "internal",
+                "external"
+              ],
+              "description": "internal (chart-managed) or external (bring your own)."
+            },
             "rabbitmqSettings": {
               "type": "object",
               "additionalProperties": true,
               "properties": {
-                "hostname": { "type": "string", "description": "RabbitMQ hostname (external/BYO)." },
-                "username": { "type": "string", "description": "RabbitMQ username. Defaults to the release namespace." }
+                "hostname": {
+                  "type": "string",
+                  "description": "RabbitMQ hostname (external/BYO)."
+                },
+                "username": {
+                  "type": "string",
+                  "description": "RabbitMQ username. Defaults to the release namespace."
+                }
               }
             }
           }
@@ -1711,6 +2455,10 @@
             "UseDataLakeStorageGen2": {
               "type": "boolean",
               "description": "Use Azure Data Lake Storage Gen2"
+            },
+            "useAzureIdentityAuthentication": {
+              "type": "boolean",
+              "description": "Use the pod's managed identity instead of the access key"
             }
           }
         },
@@ -1738,6 +2486,10 @@
             "sftpPort": {
               "type": "string",
               "description": "SFTP port"
+            },
+            "useSftp": {
+              "type": "boolean",
+              "description": "Transfer diagnostics over SFTP rather than plain FTP"
             }
           }
         }
@@ -2485,7 +3237,7 @@
         }
       }
     },
-"databaseUpgrade": {
+    "databaseUpgrade": {
       "type": "object",
       "description": "Automatic database upgrade job - calls the upgrade endpoint after an image tag change. The net-utils image resolves through the canonical rpi.image helper; override via global.deployment.images.overrides.net-utils or global.deployment.images.nameOverrides.net-utils.",
       "additionalProperties": true,
@@ -2602,7 +3354,10 @@
         "type": {
           "type": "string",
           "description": "Anti-affinity type: preferred (soft) or required (hard)",
-          "enum": ["preferred", "required"],
+          "enum": [
+            "preferred",
+            "required"
+          ],
           "default": "preferred"
         },
         "weight": {
@@ -2653,7 +3408,9 @@
         "provider": {
           "type": "string",
           "description": "Node provisioner",
-          "enum": ["karpenter"],
+          "enum": [
+            "karpenter"
+          ],
           "default": "karpenter"
         },
         "karpenter": {
@@ -2676,7 +3433,10 @@
         "source": {
           "type": "string",
           "description": "Source type for CA certificates",
-          "enum": ["configMap", "secret"],
+          "enum": [
+            "configMap",
+            "secret"
+          ],
           "default": "configMap"
         },
         "name": {
@@ -2841,9 +3601,22 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Cache": { "type": "string", "description": "Cache assignment; empty inherits the effective cacheProvider.provider." },
-        "DaysToPersist": { "type": ["integer", "string"] },
-        "CompressData": { "type": ["boolean", "string"] }
+        "Cache": {
+          "type": "string",
+          "description": "Cache assignment; empty inherits the effective cacheProvider.provider."
+        },
+        "DaysToPersist": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "CompressData": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        }
       }
     },
     "resources": {

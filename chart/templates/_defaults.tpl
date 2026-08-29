@@ -113,6 +113,10 @@ dotNetTools:
   useCounters: false
   path: /app/dotnet-tools
   extractionBaseDir: /tmp
+copytoSftp:
+  useSftp: true
+copytoAzureBlob:
+  useAzureIdentityAuthentication: false
 netutils:
   enabled: false
   securityContext:
@@ -363,6 +367,28 @@ logging:
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  rpiRealtime:
+    default: Error
+    endpoint: Error
+    shared: Error
+    plugin: Error
+    other: Error
+    consoleLogging: true
+    nlogTarget: ""
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
   type: hpa
   minReplicas: 2
@@ -421,14 +447,55 @@ jobExecution:
     maxConcurrentApiRequestsPerAccount: 5
     maxDegreeOfParallelism: 10
     numberOfDaysToBacktrack: 30
+  persistTaskExecutionDetails: false
+  executionFilterRules:
+    jobRules: []
+    clients: []
 internalCache:
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
   failOnCacheConnectionError: true
+  redisSettings:
+    ipAddress: localhost
+  stateFileSystem:
+    overrideDirectoryPath: true
+    directoryPathOverride: /rpifileoutputdirectory
 seedService:
   memoryCacheSize: "10"
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
+operationalDatabase:
+  maxRetryCount: "12"
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  name: ""
+  portNumber: "443"
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+systemVariables: []
+internalQueues:
+  enabled: false
+  hostName: localhost
+  virtualHost: "/"
+  username: redpointrpi
+  port: "5672"
+  isDurable: true
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+mercury:
+  enabled: false
+  address: ""
+  username: ""
+configurationStore:
+  enabled: false
+  labelFilter: ""
 extraEnvs:
   - name: Plugins__LuxSci__IsSandboxMode
     enabled: false

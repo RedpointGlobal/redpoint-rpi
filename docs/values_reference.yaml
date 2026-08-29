@@ -611,6 +611,8 @@ diagnosticsMode:
     enableCdn: false
     # Enable copying to Azure Blob
     enabled: false
+    # Use the pod's managed identity instead of the access key
+    useAzureIdentityAuthentication: false
   # Copy diagnostics to SFTP server
   copytoSftp:
     # Enable copying to SFTP
@@ -623,6 +625,8 @@ diagnosticsMode:
     sftpPort: '22'
     # SFTP username
     sftpUsername: <your-sftp-username>
+    # Transfer diagnostics over SFTP rather than plain FTP
+    useSftp: true
   # .NET diagnostic tools settings
   dotNetTools:
     # Enable .NET diagnostic tools
@@ -856,6 +860,13 @@ executionservice:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
+  # Azure App Configuration store. Disabled by default; set enabled: true and populate Secret
+  # key ConfigurationStore_ConnectionString.
+  configurationStore:
+    # Enable the Azure App Configuration store.
+    enabled: false
+    # Configuration label filter.
+    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false
@@ -897,6 +908,12 @@ executionservice:
   - enabled: false
     name: RPI_MPULSE_UPSERT_CONTACT_IMPORT_PATH_DEBUG
     value: /rpifileoutputdir/mpulse-debug-path
+  # Execution Service file-output behavior.
+  fileOutput:
+    # Allow writing file output to any server location.
+    allowAllServerLocations: true
+    # Allow per-client file-output directory overrides.
+    allowClientOverrides: true
   # Internal cache for execution state
   internalCache:
     # Azure Blob storage settings (when provider=azureblob)
@@ -911,42 +928,168 @@ executionservice:
       useCloudIdentity: false
     # Enable internal cache
     enabled: true
+    # Fail startup if the cache connection cannot be established.
     failOnCacheConnectionError: true
+    # Maximum cache connection retry attempts.
     maxNumberRetries: '100'
+    # Delay (hh:mm:ss) between cache connection retries.
     maxRetryDelay: '00:01:00'
     # Cache provider type
     provider: filesystem
+    # Redis endpoint settings (when a Redis cache provider is used).
+    redisSettings:
+      # Redis server address.
+      ipAddress: localhost
+    # Filesystem state-persistence settings (when provider=filesystem).
+    stateFileSystem:
+      # State directory path to use when overrideDirectoryPath is true.
+      directoryPathOverride: /rpifileoutputdirectory
+      # Override the default state directory path.
+      overrideDirectoryPath: true
+  # Internal RabbitMQ broker connection. Disabled by default; set enabled: true and populate
+  # Secret key QueueService_RabbitMQ_Password.
+  internalQueues:
+    # Enable the internal RabbitMQ broker connection.
+    enabled: false
+    # RabbitMQ host name.
+    hostName: localhost
+    # Declare queues as durable.
+    isDurable: true
+    # RabbitMQ port.
+    port: '5672'
+    # RabbitMQ username.
+    username: redpointrpi
+    # RabbitMQ virtual host.
+    virtualHost: /
+  # Execution Service job and workflow execution tuning.
   jobExecution:
+    # Write task lifecycle events to the audit log.
     auditTaskEvents: true
+    # Default maintenance-mode buffer (hh:mm:ss).
     defaultMaintenanceModeBufferTime: '00:05:00'
+    # Restrict which jobs and clients this Execution Service processes (empty = process all).
+    executionFilterRules:
+      # Client IDs this Execution Service is limited to.
+      clients: []
+      # Per-job-type allowlist. Each item: {type, jobNames: [ ... ]}.
+      jobRules: []
+    # Grace period (hh:mm:ss) to wait for in-flight activity before shutdown.
     executionShutdownWaitForActivity: '00:08:00'
     luxSci:
       maxConcurrentApiRequestsPerAccount: 5
       maxDegreeOfParallelism: 10
       numberOfDaysToBacktrack: 30
     maxSmartAssetInstancesForOfferReporting: '100000'
+    # Maximum concurrent worker threads per Execution Service replica.
     maxThreadsPerExecutionService: 100
+    # Allow custom SQL reserved-word overrides.
     overrideCustomSQLReservedWords: false
+    # Persist per-task execution detail records.
+    persistTaskExecutionDetails: false
+    # URI prefix for the RPDM Operational API.
     rpdmOApiPrefixUri: /v1/
     rpdmOApiRequestTimeout: '200'
+    # Task execution timeout in seconds.
     taskTimeout: 60
+    # Interval (seconds) between trigger criteria checks.
     triggerCheckCriteriaInterval: 60
+    # Days a trigger may remain inactive before it is skipped.
     triggersMaxDaysInactive: 180
+    # Workflow prioritization queue controls.
     workflowPrioritization:
+      # Enable workflow prioritization.
       enabled: true
+      # Maximum concurrent prioritized workflow activities.
       maxConcurrentWorkflowActivities: 100
+      # Maximum time (hh:mm:ss) an activity may wait in the priority queue.
       maximumQueueTime: '24:00:00'
+  # Execution Service log levels and log-forwarding sinks.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.
+    loggly:
+      # Enable Loggly forwarding.
+      enabled: false
+      # Loggly log ingest endpoint.
+      httpsEndpoint: 'https://logs-01.loggly.com'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Microsoft namespace log level.
+    microsoft: Warning
+    # Microsoft.Hosting.Lifetime log level.
+    microsoftHostingLifetime: Warning
+    # New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.
+    newRelic:
+      # Enable New Relic forwarding.
+      enabled: false
+      # New Relic log ingest endpoint.
+      httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Database RPIError level.
     rpiError: Error
+    # RPI Realtime log levels.
+    rpiRealtime:
+      # Log RPI Realtime to console.
+      consoleLogging: true
+      # Default level.
+      default: Error
+      # Endpoint level.
+      endpoint: Error
+      # NLog target name.
+      nlogTarget: ''
+      # Other level.
+      other: Error
+      # Plugin level.
+      plugin: Error
+      # Shared level.
+      shared: Error
+    # Database RPITrace level.
     rpiTrace: Error
+  # Mercury integration. Disabled by default; set enabled: true and populate Secret key
+  # Mercury_Password.
+  mercury:
+    # Mercury service address.
+    address: ''
+    # Enable the Mercury integration.
+    enabled: false
+    # Mercury username.
+    username: ''
+  # Operational database resilience settings.
+  operationalDatabase:
+    # Maximum operational-database connection retry attempts.
+    maxRetryCount: '12'
+    # Delay (hh:mm:ss) between operational-database retries.
+    maxRetryDelay: '00:01:00'
   podAnnotations: {}
   podDisruptionBudget:
     enabled: false
     minAvailable: 1
   podLabels: {}
+  # Azure Web PubSub. Disabled by default; set enabled: true and populate Secret key
+  # PubSub_ConnectionString.
+  pubSub:
+    # Azure PubSub settings.
+    azureSettings:
+      # Azure Web PubSub endpoint URL.
+      endpoint: ''
+    # Enable Web PubSub.
+    enabled: false
+    # PubSub provider.
+    provider: Azure
   # Number of Execution Service pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
@@ -968,8 +1111,22 @@ executionservice:
     port: 80
   serviceAccount:
     enabled: true
+  # This Execution Service's externally reachable host and port (used for callbacks).
+  serviceHost:
+    # Service host name (empty = derived at runtime).
+    name: ''
+    # Service host port.
+    portNumber: '443'
+  # Custom SystemVariables exposed to workflows. Each item: {name, value}.
+  systemVariables: []
   terminationGracePeriodSeconds: 120
   type: deployment
+  # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
+  userManagement:
+    # Use an external identity provider for user management.
+    useExternalUserManagement: false
+    # Use RPI native user management.
+    useNativeUserManagement: true
 
 # Node Manager service configuration — manages cluster node operations
 nodemanager:

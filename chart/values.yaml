@@ -710,6 +710,38 @@ executionservice:
       containerName: rpi
       connectionString: DefaultEndpointsProtocol=https;AccountName=<myAccoutName;AccountKey=<myAccountAccessKey;EndpointSuffix=core.windows.net
       useCloudIdentity: false
+  # Optional external integrations. Disabled by default; enable and populate
+  # the paired Secret key (see secrets-management.md) to activate.
+  # Internal RabbitMQ broker. Password: shared Secret key QueueService_RabbitMQ_Password
+  internalQueues:
+    enabled: false
+    hostName: localhost
+    virtualHost: "/"
+    username: redpointrpi
+    port: "5672"
+    isDurable: true
+  # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
+  pubSub:
+    enabled: false
+    provider: Azure
+    azureSettings:
+      endpoint: ""
+  # Mercury integration. Password: shared Secret key Mercury_Password
+  mercury:
+    enabled: false
+    address: ""
+    username: ""
+  # Azure App Configuration store. ConnectionString: shared Secret key ConfigurationStore_ConnectionString
+  configurationStore:
+    enabled: false
+    labelFilter: ""
+  logging:
+    # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
+    newRelic:
+      enabled: false
+    # Loggly log forwarding. ApiKey: shared Secret key Loggly_ApiKey
+    loggly:
+      enabled: false
   autoscaling:
     enabled: false
     # Supported: hpa, keda (KEDA is recommended for execution service)
@@ -844,12 +876,16 @@ diagnosticsMode:
     blobServiceEndpoint: https://yourstorage.blob.core.windows.net
     enableCdn: false
     UseDataLakeStorageGen2: false
+    # Use the pod's managed identity instead of the access key
+    useAzureIdentityAuthentication: false
   copytoSftp:
     enabled: false
     sftpHost: <your-sftp-host>
     sftpUsername: <your-sftp-username>
     sftpPassword: <your-sftp-password>
     sftpPort: "22"
+    # Transfer diagnostics over SFTP rather than plain FTP
+    useSftp: true
 
 # ==========================
 # Microsoft Entra ID Authentication
