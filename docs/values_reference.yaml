@@ -771,22 +771,6 @@ interactionapi:
       rpiTrace: Error
     # Database RPIError level.
     rpiError: Error
-    # RPI Realtime log levels.
-    rpiRealtime:
-      # Log RPI Realtime to console.
-      consoleLogging: true
-      # Default level.
-      default: Error
-      # Endpoint level.
-      endpoint: Error
-      # NLog target name.
-      nlogTarget: ''
-      # Other level.
-      other: Error
-      # Plugin level.
-      plugin: Error
-      # Shared level.
-      shared: Error
     # Database RPITrace level.
     rpiTrace: Error
   # RPI Client map control. Set enabled: true and populate Secret key
@@ -877,7 +861,7 @@ interactionapi:
   # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
   userManagement:
     # Use an external identity provider for user management.
-    useExternalUserManagement: true
+    useExternalUserManagement: false
     # Use RPI native user management.
     useNativeUserManagement: true
   # RPI Client weather lookup. Set enabled: true and populate Secret key Weather_ApiKey.
@@ -1161,22 +1145,6 @@ executionservice:
       rpiTrace: Error
     # Database RPIError level.
     rpiError: Error
-    # RPI Realtime log levels.
-    rpiRealtime:
-      # Log RPI Realtime to console.
-      consoleLogging: true
-      # Default level.
-      default: Error
-      # Endpoint level.
-      endpoint: Error
-      # NLog target name.
-      nlogTarget: ''
-      # Other level.
-      other: Error
-      # Plugin level.
-      plugin: Error
-      # Shared level.
-      shared: Error
     # Database RPITrace level.
     rpiTrace: Error
   # Mercury integration. Disabled by default; set enabled: true and populate Secret key

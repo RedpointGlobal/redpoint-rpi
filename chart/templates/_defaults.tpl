@@ -369,14 +369,6 @@ logging:
   Console: Error
   microsoft: Warning
   microsoftHostingLifetime: Warning
-  rpiRealtime:
-    default: Error
-    endpoint: Error
-    shared: Error
-    plugin: Error
-    other: Error
-    consoleLogging: true
-    nlogTarget: ""
   newRelic:
     enabled: false
     httpsEndpoint: "https://log-api.newrelic.com/log/v1"
@@ -567,7 +559,7 @@ serviceHost:
   portNumber: 80
 userManagement:
   useNativeUserManagement: true
-  useExternalUserManagement: true
+  useExternalUserManagement: false
 microsoftForceLogin: true
 mapControl:
   enabled: false
@@ -596,14 +588,6 @@ logging:
   Console: Error
   microsoft: Warning
   microsoftHostingLifetime: Warning
-  rpiRealtime:
-    default: Error
-    endpoint: Error
-    shared: Error
-    plugin: Error
-    other: Error
-    consoleLogging: true
-    nlogTarget: ""
   newRelic:
     enabled: false
     httpsEndpoint: "https://log-api.newrelic.com/log/v1"

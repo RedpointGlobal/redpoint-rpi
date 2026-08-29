@@ -191,20 +191,6 @@ spec:
           value: {{ $cfg.logging.microsoft | quote }}
         - name: Logging__LogLevel__Microsoft.Hosting.Lifetime
           value: {{ $cfg.logging.microsoftHostingLifetime | quote }}
-        - name: Logging__RPIRealtime__LogLevel__Default
-          value: {{ $cfg.logging.rpiRealtime.default | quote }}
-        - name: Logging__RPIRealtime__EndpointLogLevel
-          value: {{ $cfg.logging.rpiRealtime.endpoint | quote }}
-        - name: Logging__RPIRealtime__SharedLogLevel
-          value: {{ $cfg.logging.rpiRealtime.shared | quote }}
-        - name: Logging__RPIRealtime__PluginLogLevel
-          value: {{ $cfg.logging.rpiRealtime.plugin | quote }}
-        - name: Logging__RPIRealtime__OtherLogLevel
-          value: {{ $cfg.logging.rpiRealtime.other | quote }}
-        - name: Logging__RPIRealtime__ConsoleLogging
-          value: {{ $cfg.logging.rpiRealtime.consoleLogging | quote }}
-        - name: Logging__RPIRealtime__NLogTarget
-          value: {{ $cfg.logging.rpiRealtime.nlogTarget | quote }}
         - name: RPI__DateTimeSource
           value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
         - name: RPI__OperationalDatabase__MaxRetryCount

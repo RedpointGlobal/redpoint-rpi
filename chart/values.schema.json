@@ -1937,41 +1937,6 @@
               "type": "string",
               "description": "Microsoft.Hosting.Lifetime log level."
             },
-            "rpiRealtime": {
-              "type": "object",
-              "description": "RPI Realtime log levels.",
-              "additionalProperties": true,
-              "properties": {
-                "default": {
-                  "type": "string",
-                  "description": "Default level."
-                },
-                "endpoint": {
-                  "type": "string",
-                  "description": "Endpoint level."
-                },
-                "shared": {
-                  "type": "string",
-                  "description": "Shared level."
-                },
-                "plugin": {
-                  "type": "string",
-                  "description": "Plugin level."
-                },
-                "other": {
-                  "type": "string",
-                  "description": "Other level."
-                },
-                "consoleLogging": {
-                  "type": "boolean",
-                  "description": "Log RPI Realtime to console."
-                },
-                "nlogTarget": {
-                  "type": "string",
-                  "description": "NLog target name."
-                }
-              }
-            },
             "newRelic": {
               "type": "object",
               "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
@@ -2310,41 +2275,6 @@
             "microsoftHostingLifetime": {
               "type": "string",
               "description": "Microsoft.Hosting.Lifetime log level."
-            },
-            "rpiRealtime": {
-              "type": "object",
-              "description": "RPI Realtime log levels.",
-              "additionalProperties": true,
-              "properties": {
-                "default": {
-                  "type": "string",
-                  "description": "Default level."
-                },
-                "endpoint": {
-                  "type": "string",
-                  "description": "Endpoint level."
-                },
-                "shared": {
-                  "type": "string",
-                  "description": "Shared level."
-                },
-                "plugin": {
-                  "type": "string",
-                  "description": "Plugin level."
-                },
-                "other": {
-                  "type": "string",
-                  "description": "Other level."
-                },
-                "consoleLogging": {
-                  "type": "boolean",
-                  "description": "Log RPI Realtime to console."
-                },
-                "nlogTarget": {
-                  "type": "string",
-                  "description": "NLog target name."
-                }
-              }
             },
             "newRelic": {
               "type": "object",
