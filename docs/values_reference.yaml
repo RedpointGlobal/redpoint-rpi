@@ -1387,8 +1387,6 @@ queuereader:
     maxNumberRetries: 100
     # Delay (hh:mm:ss) between cache connection retries.
     maxRetryDelay: '00:01:00'
-    # Cache provider (e.g., redis).
-    provider: redis
     # Internal cache tuning. For type=external the connection string comes from the shared
     # Secret key QueueReader_RedisCache_ConnectionString, never from values.
     redisSettings:
@@ -1413,15 +1411,12 @@ queuereader:
       directoryPathOverride: /rpifileoutputdirectory
       # Override the default state directory path.
       overrideDirectoryPath: true
-    # internal (chart-managed) or external (bring your own).
-    type: internal
+    # State-tracking store provider (StateTrackingStoreProviders enum, e.g. FileSystem). The
+    # cache provider itself is set separately.
+    statePersistenceProvider: FileSystem
   # Internal message queue used by the queue reader.
   internalQueues:
-    # Queue provider (e.g., rabbitmq).
-    provider: rabbitmq
     rabbitmqSettings:
-      # RabbitMQ hostname (external/BYO).
-      hostname: rpi-queuereader-rabbitmq
       resources:
         enabled: true
         limits:
@@ -1429,14 +1424,14 @@ queuereader:
         requests:
           cpu: 100m
           memory: 256Mi
+      # RabbitMQ username. Defaults to the release namespace.
+      username: ''
       virtualhost: /
       volumeClaimTemplates:
         enabled: true
         storage: 100Gi
-      # RabbitMQ username. Defaults to the release namespace.
-      username: ''
-    # internal (chart-managed) or external (bring your own).
-    type: internal
+      # RabbitMQ hostname (external/BYO).
+      hostname: ''
   isCacheProcessingEnabled: true
   isCallbackServiceProcessingEnabled: true
   isEventProcessingEnabled: true

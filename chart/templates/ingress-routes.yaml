@@ -117,8 +117,6 @@ spec:
           pathType: Prefix
     {{- end }}
     {{- end }}
-    {{- if eq $qrCfg.internalCache.provider "redis" }}
-    {{- if eq $qrCfg.internalCache.type "internal" }}
     {{- if $qrCfg.realtimeConfiguration.isDistributed }}
     - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rabbitmqconsole "domain" $ingCfg.domain) }}
       http:
@@ -130,8 +128,6 @@ spec:
                 number: 15672
           path: /
           pathType: Prefix
-    {{- end }}
-    {{- end }}
     {{- end }}
     {{- if $cbCfg.multitenancy.enabled }}
     {{- if $cbCfg.enabled }}

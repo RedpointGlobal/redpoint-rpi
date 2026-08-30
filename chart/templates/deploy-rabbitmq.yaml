@@ -5,7 +5,7 @@
 {{- $QueueReaderMQ := "rpi-queuereader-rabbitmq" -}}
 {{- $RealtimeapiMQ := "rpi-realtimeapi-rabbitmq" -}}
 
-{{- if $qrCfg.podDisruptionBudget.enabled }}
+{{- if and $qrCfg.realtimeConfiguration.isDistributed $qrCfg.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -23,8 +23,6 @@ spec:
 ---
 {{- if $qrCfg.enabled }}
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
-{{- if eq $qrCfg.internalQueues.provider "rabbitmq" }}
-{{- if eq $qrCfg.internalQueues.type "internal" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -222,8 +220,6 @@ spec:
           requests:
             storage: {{ $qrCfg.internalQueues.rabbitmqSettings.volumeClaimTemplates.storage | quote }}
   {{- end }}
-{{- end }}
-{{- end }}
 {{- end }}
 {{- end }}
 

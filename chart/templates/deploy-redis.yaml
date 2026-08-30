@@ -5,8 +5,6 @@
 {{- $QueueReadercacheName := "rpi-queuereader-cache" -}}
 
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
-{{- if eq $qrCfg.internalCache.provider "redis" }}
-{{- if eq $qrCfg.internalCache.type "internal" }}
 {{- if $qrCfg.internalCache.redisSettings.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -22,13 +20,9 @@ spec:
       app.kubernetes.io/name: {{ $QueueReadercacheName }}
 {{- end }}
 {{- end }}
-{{- end }}
-{{- end }}
 
 ---
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
-{{- if eq $qrCfg.internalCache.provider "redis" }}
-{{- if eq $qrCfg.internalCache.type "internal" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -238,6 +232,4 @@ spec:
           requests:
             storage: {{ $qrCfg.internalCache.redisSettings.volumeClaimTemplates.storage | quote }}
   {{- end }}
-{{- end }}
-{{- end }}
 {{- end }}

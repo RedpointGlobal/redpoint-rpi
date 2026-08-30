@@ -2724,18 +2724,6 @@
           "description": "Internal cache used by the queue reader.",
           "additionalProperties": true,
           "properties": {
-            "provider": {
-              "type": "string",
-              "description": "Cache provider (e.g., redis)."
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "internal",
-                "external"
-              ],
-              "description": "internal (chart-managed) or external (bring your own)."
-            },
             "redisSettings": {
               "type": "object",
               "additionalProperties": true,
@@ -2767,6 +2755,10 @@
                   "description": "State directory path to use when overrideDirectoryPath is true."
                 }
               }
+            },
+            "statePersistenceProvider": {
+              "type": "string",
+              "description": "State-tracking store provider (StateTrackingStoreProviders enum, e.g. FileSystem). The cache provider itself is set separately."
             }
           }
         },
@@ -2775,18 +2767,6 @@
           "description": "Internal message queue used by the queue reader.",
           "additionalProperties": true,
           "properties": {
-            "provider": {
-              "type": "string",
-              "description": "Queue provider (e.g., rabbitmq)."
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "internal",
-                "external"
-              ],
-              "description": "internal (chart-managed) or external (bring your own)."
-            },
             "rabbitmqSettings": {
               "type": "object",
               "additionalProperties": true,

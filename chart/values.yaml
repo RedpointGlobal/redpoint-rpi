@@ -888,23 +888,11 @@ queuereader:
     # RPI client IDs for this cluster
     # tenantIds:
     #   - <client-guid>
-  # Internal cache for distributed processing (top-level, not nested under realtimeConfiguration)
-  internalCache:
-    provider: redis
-    # internal: chart-managed Redis | external: BYO Redis. For external, populate
-    # the shared Secret key QueueReader_RedisCache_ConnectionString with the
-    # Redis connection string (sdk mode resolves it from the vault).
-    type: internal
   # Internal queue for distributed processing
   internalQueues:
-    provider: rabbitmq
-    # internal: chart-managed RabbitMQ | external: BYO RabbitMQ
-    type: internal
     rabbitmqSettings:
-      hostname: "rpi-queuereader-rabbitmq"
-      # username defaults to the release namespace; set to override. For external,
-      # populate the shared Secret key QueueReader_RabbitMQ_Password (sdk mode
-      # resolves it from the vault).
+      # username defaults to the release namespace; set to override.
+      username: ""
   errorQueuePath: listenerQueueError
   nonActiveQueuePath: listenerQueueNonActive
   # Optional external integrations. Disabled by default; enable and populate

@@ -394,43 +394,31 @@ spec:
         {{- if $cfg.realtimeConfiguration.isDistributed }}
         - name: InternalCache__Enabled
           value: "true"
-        - name: InternalCache__StatePersistence__Provider
-          value: "Redis"
         - name: InternalCache__MaxNumberRetries
           value: {{ $cfg.internalCache.maxNumberRetries | quote }}
         - name: InternalCache__MaxRetryDelay
           value: {{ $cfg.internalCache.maxRetryDelay | quote }}
         - name: InternalCache__FailOnCacheConnectionError
           value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
+        - name: InternalCache__StatePersistence__Provider
+          value: {{ $cfg.internalCache.statePersistenceProvider | quote }}
         - name: InternalCache__StatePersistence__FileSystem__OverrideDirectoryPath
           value: {{ $cfg.internalCache.stateFileSystem.overrideDirectoryPath | quote }}
         - name: InternalCache__StatePersistence__FileSystem__DirectoryPathOverride
           value: {{ $cfg.internalCache.stateFileSystem.directoryPathOverride | quote }}
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
-        {{- if eq $cfg.internalCache.type "internal" }}
         - name: InternalCache__RedisSettings__IPAddress
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.internalSecretName" . | quote }}
               key: QueueService_RedisCache_ConnectionString
-        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
-        - name: InternalCache__RedisSettings__IPAddress
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: QueueReader_RedisCache_ConnectionString
-        {{- end }}
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
         - name: InternalQueues__Enabled
           value: "true"
         - name: InternalQueues__HostName
-          {{- if eq $cfg.internalQueues.type "internal" }}
           value: rpi-queuereader-rabbitmq
-          {{- else }}
-          value: {{ $cfg.internalQueues.rabbitmqSettings.hostname | quote }}
-          {{- end }}
         - name: InternalQueues__VirtualHost
           value: {{ $cfg.internalQueues.rabbitmqSettings.virtualhost | quote }}
         - name: InternalQueues__Username
@@ -441,19 +429,11 @@ spec:
           value: "5672"
         {{- end }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
-        {{- if eq $cfg.internalQueues.type "internal" }}
         - name: InternalQueues__Password
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.internalSecretName" . | quote }}
               key: QueueService_RabbitMQ_Password
-        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
-        - name: InternalQueues__Password
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: QueueReader_RabbitMQ_Password
-        {{- end }}
         {{- end }}
         {{- if .Values.redpointAI.enabled }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}

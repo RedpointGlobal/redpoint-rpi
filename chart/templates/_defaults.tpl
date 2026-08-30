@@ -784,6 +784,7 @@ internalCache:
   maxNumberRetries: 100
   maxRetryDelay: "00:01:00"
   failOnCacheConnectionError: true
+  statePersistenceProvider: FileSystem
   stateFileSystem:
     overrideDirectoryPath: true
     directoryPathOverride: /rpifileoutputdirectory
