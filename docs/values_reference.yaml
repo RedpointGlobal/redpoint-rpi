@@ -1359,6 +1359,13 @@ queuereader:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
+  # Azure App Configuration store. Set enabled: true and populate Secret key
+  # ConfigurationStore_ConnectionString.
+  configurationStore:
+    # Enable the Azure App Configuration store.
+    enabled: false
+    # Configuration label filter.
+    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: true
@@ -1366,8 +1373,20 @@ queuereader:
   enabled: true
   # Queue path for error messages
   errorQueuePath: listenerQueueError
+  # Queue Reader file-output behavior.
+  fileOutput:
+    # Allow writing file output to any server location.
+    allowAllServerLocations: true
+    # Allow per-client file-output directory overrides.
+    allowClientOverrides: true
   # Internal cache used by the queue reader.
   internalCache:
+    # Fail startup if the cache connection cannot be established.
+    failOnCacheConnectionError: true
+    # Maximum cache connection retry attempts.
+    maxNumberRetries: 100
+    # Delay (hh:mm:ss) between cache connection retries.
+    maxRetryDelay: '00:01:00'
     # Cache provider (e.g., redis).
     provider: redis
     # Internal cache tuning. For type=external the connection string comes from the shared
@@ -1387,6 +1406,13 @@ queuereader:
       volumeClaimTemplates:
         enabled: true
         storage: 100Gi
+    # Filesystem state-persistence settings (used when the cache runs the FileSystem
+    # provider).
+    stateFileSystem:
+      # State directory path to use when overrideDirectoryPath is true.
+      directoryPathOverride: /rpifileoutputdirectory
+      # Override the default state directory path.
+      overrideDirectoryPath: true
     # internal (chart-managed) or external (bring your own).
     type: internal
   # Internal message queue used by the queue reader.
@@ -1417,16 +1443,56 @@ queuereader:
   isFormProcessingEnabled: true
   listenerQueueErrorTTLDays: 14
   listenerQueueNonActiveTTLDays: 14
+  # Queue Reader log levels and log-forwarding sinks.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.
+    loggly:
+      # Enable Loggly forwarding.
+      enabled: false
+      # Loggly log ingest endpoint.
+      httpsEndpoint: 'https://logs-01.loggly.com'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Microsoft namespace log level.
+    microsoft: Warning
+    # Microsoft.Hosting.Lifetime log level.
+    microsoftHostingLifetime: Warning
+    # New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.
+    newRelic:
+      # Enable New Relic forwarding.
+      enabled: false
+      # New Relic log ingest endpoint.
+      httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Database RPIError level.
     rpiError: Error
+    # Database RPITrace level.
     rpiTrace: Error
   maintenanceModeBufferTime: '00:01:00'
   maxBatchSize: 50
   # Queue path for non-active messages
   nonActiveQueuePath: listenerQueueNonActive
+  # Operational database resilience settings.
+  operationalDatabase:
+    # Maximum operational-database connection retry attempts.
+    maxRetryCount: 12
+    # Delay (hh:mm:ss) between operational-database retries.
+    maxRetryDelay: '00:01:00'
   partitionHandler:
     deduplicationCacheTTL: '01:00:00'
     offsetPositionTTL: '23:59:59'
@@ -1436,6 +1502,16 @@ queuereader:
     enabled: false
     minAvailable: 1
   podLabels: {}
+  # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
+  pubSub:
+    # Azure PubSub settings.
+    azureSettings:
+      # Azure Web PubSub endpoint URL.
+      endpoint: ''
+    # Enable Web PubSub.
+    enabled: false
+    # PubSub provider.
+    provider: Azure
   queueListenerEnabled: true
   # Realtime processing configuration
   realtimeConfiguration:
@@ -1464,11 +1540,19 @@ queuereader:
     port: 80
   serviceAccount:
     enabled: true
+  # Custom SystemVariables exposed to workflows. Each item: {name, value}.
+  systemVariables: []
   terminationGracePeriodSeconds: 120
   threadPoolSize: 10
   timeoutMinutes: 60
   type: deployment
   useMessageLocks: true
+  # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
+  userManagement:
+    # Use an external identity provider for user management.
+    useExternalUserManagement: false
+    # Use RPI native user management.
+    useNativeUserManagement: true
 
 # Realtime API service configuration — handles real-time decisioning, caching, and queue
 # processing

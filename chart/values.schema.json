@@ -2740,6 +2740,33 @@
               "type": "object",
               "additionalProperties": true,
               "description": "Internal cache tuning. For type=external the connection string comes from the shared Secret key QueueReader_RedisCache_ConnectionString, never from values."
+            },
+            "maxNumberRetries": {
+              "type": "integer",
+              "description": "Maximum cache connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between cache connection retries."
+            },
+            "failOnCacheConnectionError": {
+              "type": "boolean",
+              "description": "Fail startup if the cache connection cannot be established."
+            },
+            "stateFileSystem": {
+              "type": "object",
+              "description": "Filesystem state-persistence settings (used when the cache runs the FileSystem provider).",
+              "additionalProperties": true,
+              "properties": {
+                "overrideDirectoryPath": {
+                  "type": "boolean",
+                  "description": "Override the default state directory path."
+                },
+                "directoryPathOverride": {
+                  "type": "string",
+                  "description": "State directory path to use when overrideDirectoryPath is true."
+                }
+              }
             }
           }
         },
@@ -2791,6 +2818,195 @@
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "operationalDatabase": {
+          "type": "object",
+          "description": "Operational database resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxRetryCount": {
+              "type": "integer",
+              "description": "Maximum operational-database connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between operational-database retries."
+            }
+          }
+        },
+        "fileOutput": {
+          "type": "object",
+          "description": "Queue Reader file-output behavior.",
+          "additionalProperties": true,
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean",
+              "description": "Allow per-client file-output directory overrides."
+            },
+            "allowAllServerLocations": {
+              "type": "boolean",
+              "description": "Allow writing file output to any server location."
+            }
+          }
+        },
+        "userManagement": {
+          "type": "object",
+          "description": "User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.",
+          "additionalProperties": true,
+          "properties": {
+            "useNativeUserManagement": {
+              "type": "boolean",
+              "description": "Use RPI native user management."
+            },
+            "useExternalUserManagement": {
+              "type": "boolean",
+              "description": "Use an external identity provider for user management."
+            }
+          }
+        },
+        "systemVariables": {
+          "type": "array",
+          "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
+          "items": {
+            "type": "object",
+            "description": "",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Variable value."
+              }
+            }
+          }
+        },
+        "pubSub": {
+          "type": "object",
+          "description": "Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Web PubSub."
+            },
+            "provider": {
+              "type": "string",
+              "description": "PubSub provider."
+            },
+            "azureSettings": {
+              "type": "object",
+              "description": "Azure PubSub settings.",
+              "additionalProperties": true,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Azure Web PubSub endpoint URL."
+                }
+              }
+            }
+          }
+        },
+        "configurationStore": {
+          "type": "object",
+          "description": "Azure App Configuration store. Set enabled: true and populate Secret key ConfigurationStore_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Azure App Configuration store."
+            },
+            "labelFilter": {
+              "type": "string",
+              "description": "Configuration label filter."
+            }
+          }
+        },
+        "logging": {
+          "type": "object",
+          "description": "Queue Reader log levels and log-forwarding sinks.",
+          "additionalProperties": true,
+          "properties": {
+            "default": {
+              "description": "Default log level."
+            },
+            "database": {
+              "description": "Database log sink level."
+            },
+            "rpiTrace": {
+              "description": "Database RPITrace level."
+            },
+            "rpiError": {
+              "description": "Database RPIError level."
+            },
+            "Console": {
+              "description": "Console log level."
+            },
+            "microsoft": {
+              "type": "string",
+              "description": "Microsoft namespace log level."
+            },
+            "microsoftHostingLifetime": {
+              "type": "string",
+              "description": "Microsoft.Hosting.Lifetime log level."
+            },
+            "newRelic": {
+              "type": "object",
+              "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable New Relic forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "New Relic log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            },
+            "loggly": {
+              "type": "object",
+              "description": "Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable Loggly forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "Loggly log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            }
+          }
         }
       }
     },

@@ -781,6 +781,12 @@ seedService:
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
 internalCache:
+  maxNumberRetries: 100
+  maxRetryDelay: "00:01:00"
+  failOnCacheConnectionError: true
+  stateFileSystem:
+    overrideDirectoryPath: true
+    directoryPathOverride: /rpifileoutputdirectory
   redisSettings:
     replicas: 1
     resources:
@@ -813,12 +819,44 @@ customMetrics:
   enabled: false
   prometheus_scrape: true
 terminationGracePeriodSeconds: 120
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+systemVariables: []
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+configurationStore:
+  enabled: false
+  labelFilter: ""
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
   type: hpa
   minReplicas: 2
