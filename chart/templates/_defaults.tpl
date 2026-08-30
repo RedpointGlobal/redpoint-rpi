@@ -667,12 +667,51 @@ customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  name: rpi-nodemanager
+  portNumber: 80
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+systemVariables: []
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+mercury:
+  enabled: false
+  address: ""
+  username: ""
+configurationStore:
+  enabled: false
+  labelFilter: ""
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
   type: hpa
   minReplicas: 2

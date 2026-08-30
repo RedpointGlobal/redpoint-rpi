@@ -828,6 +828,30 @@ nodemanager:
   enabled: true
   replicas: 1
   enableRPIAuthentication: true
+  # Optional external integrations. Disabled by default; enable and populate
+  # the paired Secret key (see secrets-management.md) to activate.
+  # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
+  pubSub:
+    enabled: false
+    provider: Azure
+    azureSettings:
+      endpoint: ""
+  # Mercury integration. Password: shared Secret key Mercury_Password
+  mercury:
+    enabled: false
+    address: ""
+    username: ""
+  # Azure App Configuration store. ConnectionString: shared Secret key ConfigurationStore_ConnectionString
+  configurationStore:
+    enabled: false
+    labelFilter: ""
+  logging:
+    # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
+    newRelic:
+      enabled: false
+    # Loggly log forwarding. ApiKey: shared Secret key Loggly_ApiKey
+    loggly:
+      enabled: false
   autoscaling:
     enabled: false
 

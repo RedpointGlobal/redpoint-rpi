@@ -1226,6 +1226,13 @@ nodemanager:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
+  # Azure App Configuration store. Set enabled: true and populate Secret key
+  # ConfigurationStore_ConnectionString.
+  configurationStore:
+    # Enable the Azure App Configuration store.
+    enabled: false
+    # Configuration label filter.
+    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false
@@ -1233,17 +1240,81 @@ nodemanager:
   enableRPIAuthentication: true
   # Enable the Node Manager service
   enabled: true
+  # Node Manager file-output behavior.
+  fileOutput:
+    # Allow writing file output to any server location.
+    allowAllServerLocations: true
+    # Allow per-client file-output directory overrides.
+    allowClientOverrides: true
+  # Node Manager log levels and log-forwarding sinks.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.
+    loggly:
+      # Enable Loggly forwarding.
+      enabled: false
+      # Loggly log ingest endpoint.
+      httpsEndpoint: 'https://logs-01.loggly.com'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Microsoft namespace log level.
+    microsoft: Warning
+    # Microsoft.Hosting.Lifetime log level.
+    microsoftHostingLifetime: Warning
+    # New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.
+    newRelic:
+      # Enable New Relic forwarding.
+      enabled: false
+      # New Relic log ingest endpoint.
+      httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
+      # Default forwarded level.
+      logLevelDefault: Information
+      # RPIError level.
+      rpiError: Information
+      # RPITrace level.
+      rpiTrace: Error
+    # Database RPIError level.
     rpiError: Error
+    # Database RPITrace level.
     rpiTrace: Error
+  # Mercury integration. Set enabled: true and populate Secret key Mercury_Password.
+  mercury:
+    # Mercury service address.
+    address: ''
+    # Enable the Mercury integration.
+    enabled: false
+    # Mercury username.
+    username: ''
+  # Operational database resilience settings.
+  operationalDatabase:
+    # Maximum operational-database connection retry attempts.
+    maxRetryCount: 12
+    # Delay (hh:mm:ss) between operational-database retries.
+    maxRetryDelay: '00:01:00'
   podAnnotations: {}
   podDisruptionBudget:
     enabled: false
     minAvailable: 1
   podLabels: {}
+  # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
+  pubSub:
+    # Azure PubSub settings.
+    azureSettings:
+      # Azure Web PubSub endpoint URL.
+      endpoint: ''
+    # Enable Web PubSub.
+    enabled: false
+    # PubSub provider.
+    provider: Azure
   # Number of Node Manager pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
@@ -1261,8 +1332,22 @@ nodemanager:
     port: 80
   serviceAccount:
     enabled: true
+  # This Node Manager's externally reachable host and port.
+  serviceHost:
+    # Service host name.
+    name: rpi-nodemanager
+    # Service host port.
+    portNumber: 80
+  # Custom SystemVariables exposed to workflows. Each item: {name, value}.
+  systemVariables: []
   terminationGracePeriodSeconds: 120
   type: deployment
+  # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
+  userManagement:
+    # Use an external identity provider for user management.
+    useExternalUserManagement: false
+    # Use RPI native user management.
+    useNativeUserManagement: true
 
 # Queue Reader service configuration — processes messages from the realtime queue
 queuereader:
