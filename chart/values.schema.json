@@ -1729,18 +1729,18 @@
                 }
               }
             },
-            "stateFileSystem": {
+            "fileSystem": {
               "type": "object",
-              "description": "Filesystem state-persistence settings (when provider=filesystem).",
+              "description": "Filesystem state-persistence directory override (when provider=filesystem).",
               "additionalProperties": true,
               "properties": {
-                "overrideDirectoryPath": {
+                "OverrideDirectoryPath": {
                   "type": "boolean",
-                  "description": "Override the default state directory path."
+                  "description": "When true, inject the state directory path override env vars; when false (default) they are not injected."
                 },
-                "directoryPathOverride": {
+                "DirectoryPathOverride": {
                   "type": "string",
-                  "description": "State directory path to use when overrideDirectoryPath is true."
+                  "description": "State directory path used when OverrideDirectoryPath is true."
                 }
               }
             }

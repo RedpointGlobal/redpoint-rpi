@@ -1034,6 +1034,13 @@ executionservice:
     enabled: true
     # Fail startup if the cache connection cannot be established.
     failOnCacheConnectionError: true
+    # Filesystem state-persistence directory override (when provider=filesystem).
+    fileSystem:
+      # State directory path used when OverrideDirectoryPath is true.
+      DirectoryPathOverride: /rpifileoutputdirectory
+      # When true, inject the state directory path override env vars; when false (default)
+      # they are not injected.
+      OverrideDirectoryPath: false
     # Maximum cache connection retry attempts.
     maxNumberRetries: 100
     # Delay (hh:mm:ss) between cache connection retries.
@@ -1044,12 +1051,6 @@ executionservice:
     redisSettings:
       # Redis server address.
       ipAddress: localhost
-    # Filesystem state-persistence settings (when provider=filesystem).
-    stateFileSystem:
-      # State directory path to use when overrideDirectoryPath is true.
-      directoryPathOverride: /rpifileoutputdirectory
-      # Override the default state directory path.
-      overrideDirectoryPath: true
   # Internal RabbitMQ broker connection. Disabled by default; set enabled: true and populate
   # Secret key QueueService_RabbitMQ_Password.
   internalQueues:

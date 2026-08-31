@@ -485,9 +485,9 @@ internalCache:
   failOnCacheConnectionError: true
   redisSettings:
     ipAddress: localhost
-  stateFileSystem:
-    overrideDirectoryPath: true
-    directoryPathOverride: /rpifileoutputdirectory
+  fileSystem:
+    OverrideDirectoryPath: false
+    DirectoryPathOverride: /rpifileoutputdirectory
 seedService:
   memoryCacheSize: "10"
   maxNumberRetries: "100"

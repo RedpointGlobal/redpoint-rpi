@@ -244,10 +244,12 @@ spec:
           value: "true"
         - name: InternalCache__StatePersistence__Provider
           value: "FileSystem"
+        {{- if $cfg.internalCache.fileSystem.OverrideDirectoryPath }}
         - name: InternalCache__StatePersistence__FileSystem__OverrideDirectoryPath
-          value: {{ $cfg.internalCache.stateFileSystem.overrideDirectoryPath | quote }}
+          value: "true"
         - name: InternalCache__StatePersistence__FileSystem__DirectoryPathOverride
-          value: {{ $cfg.internalCache.stateFileSystem.directoryPathOverride | quote }}
+          value: {{ $cfg.internalCache.fileSystem.DirectoryPathOverride | quote }}
+        {{- end }}
         - name: InternalCache__MaxNumberRetries
           value: {{ $cfg.internalCache.maxNumberRetries | quote }}
         - name: InternalCache__MaxRetryDelay
