@@ -21,6 +21,7 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 | Realtime API | Expanded geolocation, identity, profile/ML processing, integration, and operational configuration |
 | Interaction API | Expanded auth/security, logging, integration, and operational configuration |
 | Queue Reader | Expanded logging, integration, distributed-processing, and operational configuration |
+| RPI NLP | Trace logging for NLP request/response diagnostics |
 
 </details>
 
@@ -131,6 +132,16 @@ executionservice:
     luxSci:
       maxConcurrentApiRequestsPerAccount: 5   # per-account LuxSci API rate guard
       maxDegreeOfParallelism: 10              # concurrent sends within an activity
+```
+
+### RPI NLP trace logging
+
+RPI NLP now supports verbose request/response trace logging for diagnostics, emitted as `RPI__NLP__EnableTrace` on every service that uses the NLP integration (Interaction API, Execution Service, Node Manager, Queue Reader, Integration API). Off by default; enable it through the shared RedpointAI logging setting.
+
+```yaml
+redpointAI:
+  logging:
+    enableTrace: true   # verbose NLP request/response tracing (default false); requires redpointAI.enabled: true
 ```
 
 </details>

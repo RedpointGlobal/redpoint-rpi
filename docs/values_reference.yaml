@@ -28,7 +28,7 @@ global:
       # Container image registry and repository path
       registry: rg1acrpub.azurecr.io/docker/redpointglobal/releases
       # RPI version tag in format: <major.minor>.<year>-<MMDD>-<HHMM>
-      tag: 7.7.20260414.1238
+      tag: 7.8.20260828.906
       # Per-service image overrides. When set, the value is used verbatim instead of
       # {registry}/{service-name}:{tag}. Useful for flat registries (e.g., ECR with all images
       # in a single repo).
