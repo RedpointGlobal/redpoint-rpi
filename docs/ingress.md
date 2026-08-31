@@ -330,10 +330,6 @@ The validation pod mounts the CSI volume on startup, which triggers the driver t
 | `azure-alb-external` | AGC gets a public IP. Services accessible from the internet. |
 | `azure-alb-internal` | AGC gets a private IP in the associated subnet. Services accessible only within the VNet. |
 
-### Infrastructure provisioning
-
-If using the [Agentic Deployment](readme-mcp.md#agentic-deployment), the Helm Assistant provisions the AGC resource, frontend, subnet association, and all required networking automatically -- no manual Bicep setup required.
-
 </details>
 
 ---

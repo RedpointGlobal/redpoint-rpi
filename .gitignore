@@ -4,6 +4,7 @@ deployment
 values-*
 .claude
 deploy/cli/
+deploy/serverless
 secrets.yaml
 rpi-secrets.yaml
 overrides.yaml
