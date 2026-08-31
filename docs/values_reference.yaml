@@ -713,13 +713,6 @@ interactionapi:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
-  # Azure App Configuration store. Set enabled: true and populate Secret key
-  # ConfigurationStore_ConnectionString.
-  configurationStore:
-    # Enable the Azure App Configuration store.
-    enabled: false
-    # Configuration label filter.
-    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false
@@ -964,13 +957,6 @@ executionservice:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
-  # Azure App Configuration store. Disabled by default; set enabled: true and populate Secret
-  # key ConfigurationStore_ConnectionString.
-  configurationStore:
-    # Enable the Azure App Configuration store.
-    enabled: false
-    # Configuration label filter.
-    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false
@@ -1227,13 +1213,6 @@ nodemanager:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
-  # Azure App Configuration store. Set enabled: true and populate Secret key
-  # ConfigurationStore_ConnectionString.
-  configurationStore:
-    # Enable the Azure App Configuration store.
-    enabled: false
-    # Configuration label filter.
-    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: false
@@ -1360,13 +1339,6 @@ queuereader:
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
     type: hpa
-  # Azure App Configuration store. Set enabled: true and populate Secret key
-  # ConfigurationStore_ConnectionString.
-  configurationStore:
-    # Enable the Azure App Configuration store.
-    enabled: false
-    # Configuration label filter.
-    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: true
@@ -1695,10 +1667,6 @@ realtimeapi:
   # meaningful with multiple Realtime API instances); render fails if set on a single-tenant
   # deployment. Clients not listed use the cluster-wide address.
   clientAddressOverrides: []
-  # Azure App Configuration store. Unset leaves both fields empty.
-  configurationStore:
-    connectionString: ''
-    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: true

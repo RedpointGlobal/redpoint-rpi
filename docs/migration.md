@@ -20,6 +20,7 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 | BigQuery | Data-warehouse support with keyless Workload Identity |
 | Realtime API | Expanded geolocation, identity, profile/ML processing, integration, and operational configuration |
 | Interaction API | Expanded auth/security, logging, integration, and operational configuration |
+| Queue Reader | Expanded logging, integration, distributed-processing, and operational configuration |
 
 </details>
 
@@ -67,7 +68,7 @@ databases:
 
 ### Realtime API: expanded configuration
 
-Expanded configuration support for geolocation, identity resolution, visitor and profile processing, logging, integrations, and operational settings, including geolocation and IP-lookup, identity and profile-merge controls, RedPoint ML scoring, Azure App Configuration, file output, SMTP, and service host settings.
+Expanded configuration support for geolocation, identity resolution, visitor and profile processing, logging, integrations, and operational settings, including geolocation and IP-lookup, identity and profile-merge controls, RedPoint ML scoring, file output, SMTP, and service host settings.
 
 ```yaml
 realtimeapi:
@@ -75,6 +76,8 @@ realtimeapi:
     enabled: true
     provider: Azure
     weatherUnits: imperial
+  RedPointMLServiceAddress: "https://<your-ml-service>"   # address of the RedPoint ML scoring service
+  RedPointMLClientID: "<client-id>"                        # client identifier for the ML service
 ```
 
 ### Interaction API: expanded configuration
@@ -89,6 +92,17 @@ interactionapi:
     requireUppercase: true
     requireLowercase: true
     requireNonAlphanumeric: true
+```
+
+### Queue Reader: expanded configuration
+
+Expanded configuration support for logging, integrations, distributed processing, and operational settings, including logging providers (New Relic, Loggly), Azure Web PubSub, NLP, SMTP, file output, operational database retry, and the chart-managed internal cache and queue for distributed processing.
+
+```yaml
+queuereader:
+  logging:
+    newRelic:
+      enabled: true   # forwards logs to New Relic; ApiKey from shared Secret key NewRelic_ApiKey
 ```
 
 </details>

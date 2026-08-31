@@ -313,14 +313,6 @@ spec:
             value: {{ $cfg.agentConfig.traceLogEnabled | quote }}
           - name: AgentConfig__CachedSelectionRuleExpiry
             value: {{ $cfg.agentConfig.cachedSelectionRuleExpiry | quote }}
-          {{- with $cfg.configurationStore.connectionString }}
-          - name: ConfigurationStore__ConnectionString
-            value: {{ . | quote }}
-          {{- end }}
-          {{- with $cfg.configurationStore.labelFilter }}
-          - name: ConfigurationStore__LabelFilter
-            value: {{ . | quote }}
-          {{- end }}
           {{- if $diag.copytoAzureBlob.enabled }}
           - name: RPI__Diagnostics__CopyToAzure__IsEnabled
             value: "true"

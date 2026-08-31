@@ -449,17 +449,6 @@ spec:
               key: Mercury_Password
         {{- end }}
         {{- end }}
-        {{- if $cfg.configurationStore.enabled }}
-        - name: ConfigurationStore__LabelFilter
-          value: {{ $cfg.configurationStore.labelFilter | quote }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-        - name: ConfigurationStore__ConnectionString
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: ConfigurationStore_ConnectionString
-        {{- end }}
-        {{- end }}
         {{- if $cfg.logging.newRelic.enabled }}
         - name: Logging__NewRelic__Enabled
           value: "true"

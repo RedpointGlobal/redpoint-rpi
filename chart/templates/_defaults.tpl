@@ -195,9 +195,6 @@ serviceHost:
 agentConfig:
   traceLogEnabled: false
   cachedSelectionRuleExpiry: 120
-configurationStore:
-  connectionString: ""
-  labelFilter: ""
 dataMaps:
   visitorProfile:
     Cache: ""
@@ -521,9 +518,6 @@ mercury:
   enabled: false
   address: ""
   username: ""
-configurationStore:
-  enabled: false
-  labelFilter: ""
 extraEnvs:
   - name: Plugins__LuxSci__IsSandboxMode
     enabled: false
@@ -613,9 +607,6 @@ mercury:
   enabled: false
   address: ""
   username: ""
-configurationStore:
-  enabled: false
-  labelFilter: ""
 logging:
   default: Error
   database: Error
@@ -725,9 +716,6 @@ mercury:
   enabled: false
   address: ""
   username: ""
-configurationStore:
-  enabled: false
-  labelFilter: ""
 logging:
   default: Error
   database: Error
@@ -874,9 +862,6 @@ pubSub:
   provider: Azure
   azureSettings:
     endpoint: ""
-configurationStore:
-  enabled: false
-  labelFilter: ""
 logging:
   default: Error
   database: Error

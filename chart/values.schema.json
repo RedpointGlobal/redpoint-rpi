@@ -1563,18 +1563,6 @@
           },
           "description": "Realtime agent configuration."
         },
-        "configurationStore": {
-          "type": "object",
-          "properties": {
-            "connectionString": {
-              "type": "string"
-            },
-            "labelFilter": {
-              "type": "string"
-            }
-          },
-          "description": "Azure App Configuration store. Unset leaves both fields empty."
-        },
         "serviceHost": {
           "type": "object",
           "description": "This Realtime API's own host and port (used for callbacks).",
@@ -2087,21 +2075,6 @@
             }
           }
         },
-        "configurationStore": {
-          "type": "object",
-          "description": "Azure App Configuration store. Disabled by default; set enabled: true and populate Secret key ConfigurationStore_ConnectionString.",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable the Azure App Configuration store."
-            },
-            "labelFilter": {
-              "type": "string",
-              "description": "Configuration label filter."
-            }
-          }
-        },
         "logging": {
           "type": "object",
           "description": "Execution Service log levels and log-forwarding sinks.",
@@ -2426,21 +2399,6 @@
             }
           }
         },
-        "configurationStore": {
-          "type": "object",
-          "description": "Azure App Configuration store. Set enabled: true and populate Secret key ConfigurationStore_ConnectionString.",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable the Azure App Configuration store."
-            },
-            "labelFilter": {
-              "type": "string",
-              "description": "Configuration label filter."
-            }
-          }
-        },
         "logging": {
           "type": "object",
           "description": "Interaction API log levels and log-forwarding sinks.",
@@ -2710,21 +2668,6 @@
             "username": {
               "type": "string",
               "description": "Mercury username."
-            }
-          }
-        },
-        "configurationStore": {
-          "type": "object",
-          "description": "Azure App Configuration store. Set enabled: true and populate Secret key ConfigurationStore_ConnectionString.",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable the Azure App Configuration store."
-            },
-            "labelFilter": {
-              "type": "string",
-              "description": "Configuration label filter."
             }
           }
         },
@@ -3079,21 +3022,6 @@
                   "description": "Azure Web PubSub endpoint URL."
                 }
               }
-            }
-          }
-        },
-        "configurationStore": {
-          "type": "object",
-          "description": "Azure App Configuration store. Set enabled: true and populate Secret key ConfigurationStore_ConnectionString.",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable the Azure App Configuration store."
-            },
-            "labelFilter": {
-              "type": "string",
-              "description": "Configuration label filter."
             }
           }
         },

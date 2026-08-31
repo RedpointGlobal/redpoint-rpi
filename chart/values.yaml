@@ -689,10 +689,6 @@ realtimeapi:
   agentConfig:
     traceLogEnabled: false
     cachedSelectionRuleExpiry: 120
-  # Azure App Configuration store. Leave blank to keep it disabled.
-  configurationStore:
-    connectionString: ""
-    labelFilter: ""
   # Passthrough lists, empty by default. See docs/values_reference.yaml for the
   # object shape of each: CacheOutputExclusions, parameterToDataMappings,
   # visitorViews, queueListenerConfiguration.
@@ -754,10 +750,6 @@ executionservice:
     enabled: false
     address: ""
     username: ""
-  # Azure App Configuration store. ConnectionString: shared Secret key ConfigurationStore_ConnectionString
-  configurationStore:
-    enabled: false
-    labelFilter: ""
   logging:
     # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
     newRelic:
@@ -817,10 +809,6 @@ interactionapi:
     enabled: false
     address: ""
     username: ""
-  # Azure App Configuration store. ConnectionString: shared Secret key ConfigurationStore_ConnectionString
-  configurationStore:
-    enabled: false
-    labelFilter: ""
   logging:
     # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
     newRelic:
@@ -864,10 +852,6 @@ nodemanager:
     enabled: false
     address: ""
     username: ""
-  # Azure App Configuration store. ConnectionString: shared Secret key ConfigurationStore_ConnectionString
-  configurationStore:
-    enabled: false
-    labelFilter: ""
   logging:
     # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
     newRelic:
@@ -926,10 +910,6 @@ queuereader:
     provider: Azure
     azureSettings:
       endpoint: ""
-  # Azure App Configuration store. ConnectionString: shared Secret key ConfigurationStore_ConnectionString
-  configurationStore:
-    enabled: false
-    labelFilter: ""
   logging:
     # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
     newRelic:
