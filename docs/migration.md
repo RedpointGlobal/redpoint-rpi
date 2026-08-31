@@ -12,7 +12,7 @@ This guide covers upgrading an existing RPI v7.7 Helm deployment to v7.8. If you
 <details>
 <summary><strong style="font-size:1.25em;">What Changed in the Helm Chart</strong></summary>
 
-v7.8 is an additive release. It introduces Google Cloud data-plane support (Cloud SQL and BigQuery), new Realtime API and Interaction API configuration, and an Azure Container Apps serverless deployment path. The pre-install and post-install validation Jobs have been removed. Existing v7.7 overrides continue to work unchanged unless you set `preflight.*` or `postInstall.*` (see the checklist below).
+v7.8 is an additive release. It introduces Google Cloud data-plane support (Cloud SQL and BigQuery) and new Realtime API and Interaction API configuration. Existing v7.7 overrides continue to work unchanged (see the checklist below).
 
 | Area | Change |
 |:---|:---|
@@ -20,8 +20,6 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 | BigQuery | Data-warehouse support with keyless Workload Identity |
 | Realtime API | Geolocation, identity settings, and client address overrides |
 | Interaction API | Password policy and account lockout |
-| Deployment | New Azure Container Apps (serverless) variant |
-| Removed | Pre-install and post-install validation Jobs |
 
 </details>
 
@@ -81,18 +79,10 @@ Native-authentication controls for the Interaction API:
 - `interactionapi.passwordPolicy` - required length plus digit, case, and non-alphanumeric requirements.
 - `interactionapi.accountLockout` - account lockout settings.
 
-### Serverless deployment (Azure Container Apps)
-
-A new Bicep-based deployment variant under `deploy/serverless/azure/` deploys RPI to Azure Container Apps as an alternative to the Kubernetes and Helm path.
-
 </details>
 
 <details>
 <summary><strong style="font-size:1.25em;">Removed in v7.8</strong></summary>
-
-### Pre-install and post-install validation Jobs
-
-The `preflight` and `postInstall` Helm Jobs and their `preflight.*` / `postInstall.*` values have been removed. If your overrides set either block, delete those keys before upgrading.
 
 ### RedpointAI vector search values
 
@@ -103,10 +93,9 @@ The `preflight` and `postInstall` Helm Jobs and their `preflight.*` / `postInsta
 <details>
 <summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
-1. Remove `preflight.*` and `postInstall.*` from your overrides if present (the Jobs no longer exist).
-2. Remove `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` if present.
-3. Review the new optional features (Cloud SQL IAM, BigQuery, Realtime geolocation, Interaction API password policy) and adopt as needed. All are opt-in and default off.
-4. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+1. Remove `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` if present.
+2. Review the new optional features (Cloud SQL IAM, BigQuery, Realtime geolocation, Interaction API password policy) and adopt as needed. All are opt-in and default off.
+3. Apply the upgrade with your existing `helm upgrade` command and overrides file.
 
 </details>
 
