@@ -18,7 +18,7 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 |:---|:---|
 | Google Cloud SQL | Passwordless IAM connectivity via the Cloud SQL Auth Proxy |
 | BigQuery | Data-warehouse support with keyless Workload Identity |
-| Realtime API | Geolocation, identity settings, and client address overrides |
+| Realtime API | Expanded geolocation, identity, profile/ML processing, integration, and operational configuration |
 | Interaction API | Expanded auth/security, logging, integration, and operational configuration |
 
 </details>
@@ -65,14 +65,17 @@ databases:
           OAuthMechanism: 3
 ```
 
-### Realtime API: geolocation, identity settings, and client address overrides
+### Realtime API: expanded configuration
 
-New Realtime API configuration blocks, all optional and off by default:
+Expanded configuration support for geolocation, identity resolution, visitor and profile processing, logging, integrations, and operational settings, including geolocation and IP-lookup, identity and profile-merge controls, RedPoint ML scoring, Azure App Configuration, file output, SMTP, and service host settings.
 
-- `realtimeapi.geolocation` - geolocation and IP-lookup plugin settings (provider, weather units, GeoIP lookup).
-- `realtimeapi.identitySettings` - identity resolution (master key, alternative keys, parameter and CAL attribute merge with exclusions).
-- `realtimeapi.clientAddressOverrides` - client address overrides.
-- `realtimeapi.authentication.enabled` - a per-service authentication toggle (also available on `deploymentapi`).
+```yaml
+realtimeapi:
+  geolocation:
+    enabled: true
+    provider: Azure
+    weatherUnits: imperial
+```
 
 ### Interaction API: expanded configuration
 
