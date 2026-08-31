@@ -100,9 +100,13 @@ Expanded configuration support for logging, integrations, distributed processing
 
 ```yaml
 queuereader:
-  logging:
-    newRelic:
-      enabled: true   # forwards logs to New Relic; ApiKey from shared Secret key NewRelic_ApiKey
+  # Operational database retry
+  operationalDatabase:
+    maxRetryCount: 12
+    maxRetryDelay: "00:01:00"
+  # Distributed processing: deploys the chart-managed Redis and RabbitMQ
+  realtimeConfiguration:
+    isDistributed: true
 ```
 
 </details>
