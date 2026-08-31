@@ -196,10 +196,12 @@ spec:
           value: {{ $cfg.operationalDatabase.maxRetryCount | quote }}
         - name: RPI__OperationalDatabase__MaxRetryDelay
           value: {{ $cfg.operationalDatabase.maxRetryDelay | quote }}
+        {{- if $cfg.serviceHost.enabled }}
         - name: RPI__ServiceHostName
           value: {{ $cfg.serviceHost.name | quote }}
         - name: RPI__ServiceHostPortNumber
           value: {{ $cfg.serviceHost.portNumber | quote }}
+        {{- end }}
         - name: RPIExecution__MaxSmartAssetInstancesForOfferReporting
           value: {{ $cfg.jobExecution.maxSmartAssetInstancesForOfferReporting | quote }}
         {{- if .Values.rebrandly.enabled }}

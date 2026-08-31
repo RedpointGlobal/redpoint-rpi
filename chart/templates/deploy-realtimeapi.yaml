@@ -276,10 +276,12 @@ spec:
             value: {{ $cfg.logging.realtimeagent.microsoftHostingLifetime | quote }}
           - name: RPI__DateTimeSource
             value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
+          {{- if $cfg.serviceHost.enabled }}
           - name: RPI__ServiceHostName
             value: {{ $cfg.serviceHost.name | quote }}
           - name: RPI__ServiceHostPortNumber
             value: {{ $cfg.serviceHost.portNumber | quote }}
+          {{- end }}
           {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
           - name: RPI__FileOutput__Directory
             value: {{ .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}

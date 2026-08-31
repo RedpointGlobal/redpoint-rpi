@@ -197,10 +197,12 @@ spec:
           value: {{ $cfg.operationalDatabase.maxRetryCount | quote }}
         - name: RPI__OperationalDatabase__MaxRetryDelay
           value: {{ $cfg.operationalDatabase.maxRetryDelay | quote }}
+        {{- if $cfg.serviceHost.enabled }}
         - name: RPI__ServiceHostName
           value: {{ $cfg.serviceHost.name | quote }}
         - name: RPI__ServiceHostPortNumber
           value: {{ $cfg.serviceHost.portNumber | quote }}
+        {{- end }}
         - name: RPIClient__HelpStartPageURL
           value: "https://docs.redpointglobal.com/rpi/"
         - name: RPIClient__ProductUpdateFeed__Enabled

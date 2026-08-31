@@ -1568,6 +1568,10 @@
           "description": "This Realtime API's own host and port (used for callbacks).",
           "additionalProperties": true,
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
             "name": {
               "type": "string",
               "description": "Service host name (empty = derived at runtime)."
@@ -1955,6 +1959,10 @@
           "description": "This Execution Service's externally reachable host and port (used for callbacks).",
           "additionalProperties": true,
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
             "name": {
               "type": "string",
               "description": "Service host name (empty = derived at runtime)."
@@ -2280,6 +2288,10 @@
           "description": "This Interaction API's externally reachable host and port.",
           "additionalProperties": true,
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
             "name": {
               "type": "string",
               "description": "Service host name."
@@ -2582,6 +2594,10 @@
           "description": "This Node Manager's externally reachable host and port.",
           "additionalProperties": true,
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
             "name": {
               "type": "string",
               "description": "Service host name."
@@ -3114,6 +3130,10 @@
           "description": "This Queue Reader's own host and port (used for callbacks).",
           "additionalProperties": true,
           "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
             "name": {
               "type": "string",
               "description": "Service host name (empty = derived at runtime)."

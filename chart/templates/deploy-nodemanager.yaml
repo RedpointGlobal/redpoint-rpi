@@ -234,10 +234,12 @@ spec:
           value: {{ $cfg.operationalDatabase.maxRetryCount | quote }}
         - name: RPI__OperationalDatabase__MaxRetryDelay
           value: {{ $cfg.operationalDatabase.maxRetryDelay | quote }}
+        {{- if $cfg.serviceHost.enabled }}
         - name: RPI__ServiceHostName
           value: {{ $cfg.serviceHost.name | quote }}
         - name: RPI__ServiceHostPortNumber
           value: {{ $cfg.serviceHost.portNumber | quote }}
+        {{- end }}
         {{- if and .Values.OpenIdProviders.enabled (eq .Values.OpenIdProviders.name "keycloak") }}
         - name: RPI__UserManagement__UseNativeUserManagement
           value: {{ $cfg.userManagement.useNativeUserManagement | quote }}

@@ -190,6 +190,7 @@ fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
 serviceHost:
+  enabled: false
   name: rpi-realtimeapi
   portNumber: 80
 agentConfig:
@@ -496,6 +497,7 @@ fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
 serviceHost:
+  enabled: false
   name: rpi-executionservice
   portNumber: 80
 userManagement:
@@ -585,6 +587,7 @@ fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
 serviceHost:
+  enabled: false
   name: rpi-interactionapi
   portNumber: 80
 userManagement:
@@ -701,6 +704,7 @@ fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
 serviceHost:
+  enabled: false
   name: rpi-nodemanager
   portNumber: 80
 userManagement:
@@ -851,6 +855,7 @@ fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
 serviceHost:
+  enabled: false
   name: rpi-queuereader
   portNumber: 80
 userManagement:

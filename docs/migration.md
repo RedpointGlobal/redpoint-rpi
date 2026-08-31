@@ -69,7 +69,7 @@ databases:
 
 ### Realtime API: expanded configuration
 
-Expanded configuration support for geolocation, identity resolution, visitor and profile processing, logging, integrations, and operational settings, including geolocation and IP-lookup, identity and profile-merge controls, RedPoint ML scoring, file output, SMTP, and service host settings.
+Expanded configuration support for geolocation, identity resolution, visitor and profile processing, logging, integrations, and operational settings, including geolocation and IP-lookup, identity and profile-merge controls, RedPoint ML scoring, file output, and SMTP.
 
 ```yaml
 realtimeapi:

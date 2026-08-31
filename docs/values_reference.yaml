@@ -843,6 +843,8 @@ interactionapi:
     enabled: true
   # This Interaction API's externally reachable host and port.
   serviceHost:
+    # Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false).
+    enabled: false
     # Service host name.
     name: rpi-interactionapi
     # Service host port.
@@ -1188,6 +1190,8 @@ executionservice:
     enabled: true
   # This Execution Service's externally reachable host and port (used for callbacks).
   serviceHost:
+    # Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false).
+    enabled: false
     # Service host name (empty = derived at runtime).
     name: rpi-executionservice
     # Service host port.
@@ -1314,6 +1318,8 @@ nodemanager:
     enabled: true
   # This Node Manager's externally reachable host and port.
   serviceHost:
+    # Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false).
+    enabled: false
     # Service host name.
     name: rpi-nodemanager
     # Service host port.
@@ -1510,6 +1516,8 @@ queuereader:
     enabled: true
   # This Queue Reader's own host and port (used for callbacks).
   serviceHost:
+    # Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false).
+    enabled: false
     # Service host name (empty = derived at runtime).
     name: rpi-queuereader
     # Service host port.
@@ -1948,6 +1956,8 @@ realtimeapi:
     enabled: true
   # This Realtime API's own host and port (used for callbacks).
   serviceHost:
+    # Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false).
+    enabled: false
     # Service host name (empty = derived at runtime).
     name: rpi-realtimeapi
     # Service host port.
