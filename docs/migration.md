@@ -59,8 +59,12 @@ databases:
     bigquery:
       enabled: true
       connections:
-        - name: MyBigQueryDSN
+        # Keyless: uses Application Default Credentials from the pod's Workload
+        # Identity service account (no key file mounted). OAuthMechanism 3 = ADC.
+        - name: gbq-tenant1
+          projectId: my-google-project
           credentialsType: workloadIdentity
+          OAuthMechanism: 3
 ```
 
 ### Realtime API: geolocation, identity settings, and client address overrides
