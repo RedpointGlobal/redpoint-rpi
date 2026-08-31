@@ -258,8 +258,10 @@ spec:
           value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
         {{- end }}
         {{- if eq $cfg.internalCache.provider "azureblob" }}
-        - name: InternalCache__StatePersistence__FileSystem__OverrideDirectoryPath
+        - name: InternalCache__Enabled
           value: "true"
+        - name: InternalCache__StatePersistence__Provider
+          value: "AzureBlobStorage"
         - name: InternalCache__StatePersistence__AzureBlobStorage__StorageAccount
           value: {{ $cfg.internalCache.azureStorageSettings.accountName | quote }}
         - name: InternalCache__StatePersistence__AzureBlobStorage__ContainerName
