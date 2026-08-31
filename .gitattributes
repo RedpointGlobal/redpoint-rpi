@@ -1,4 +1,4 @@
-# Force Unix line endings for shell scripts (prevents \r\n on Windows checkout)
+## Force Unix line endings for shell scripts (prevents \r\n on Windows checkout)
 *.sh text eol=lf
 
 # Helm templates and YAML should also stay LF
