@@ -1535,6 +1535,12 @@ queuereader:
     port: 80
   serviceAccount:
     enabled: true
+  # This Queue Reader's own host and port (used for callbacks).
+  serviceHost:
+    # Service host name (empty = derived at runtime).
+    name: rpi-queuereader
+    # Service host port.
+    portNumber: 80
   # Custom SystemVariables exposed to workflows. Each item: {name, value}.
   systemVariables: []
   terminationGracePeriodSeconds: 120
@@ -1971,6 +1977,12 @@ realtimeapi:
     port: 80
   serviceAccount:
     enabled: true
+  # This Realtime API's own host and port (used for callbacks).
+  serviceHost:
+    # Service host name (empty = derived at runtime).
+    name: rpi-realtimeapi
+    # Service host port.
+    portNumber: 80
   terminationGracePeriodSeconds: 120
   type: deployment
   # Named visitor views.

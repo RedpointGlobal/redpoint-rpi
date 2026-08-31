@@ -8,7 +8,6 @@
 {{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
-{{- $iaCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "interactionapi")) -}}
 {{- $name := "rpi-queuereader" -}}
 {{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
@@ -284,9 +283,9 @@ spec:
         {{- end }}
         {{- with (include "rpi.realtime.clientOverrides" . | trim) }}{{- . | nindent 8 }}{{- end }}
         - name: RPI__ServiceHostName
-          value: "http://rpi-interactionapi"
+          value: {{ $cfg.serviceHost.name | quote }}
         - name: RPI__ServiceHostPortNumber
-          value: {{ $iaCfg.service.port | quote }}
+          value: {{ $cfg.serviceHost.portNumber | quote }}
         {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if eq .Values.global.deployment.platform "azure" }}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}

@@ -13,7 +13,6 @@
 {{- $geo := $cfg.geolocation | default dict -}}
 {{- $geoip := $geo.ipLookup | default dict -}}
 {{- $ident := $cfg.identitySettings | default dict -}}
-{{- $iaCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "interactionapi")) -}}
 
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- if $cfg.serviceAccount.enabled }}
@@ -278,9 +277,9 @@ spec:
           - name: RPI__DateTimeSource
             value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
           - name: RPI__ServiceHostName
-            value: "http://rpi-interactionapi"
+            value: {{ $cfg.serviceHost.name | quote }}
           - name: RPI__ServiceHostPortNumber
-            value: {{ $iaCfg.service.port | quote }}
+            value: {{ $cfg.serviceHost.portNumber | quote }}
           {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
           - name: RPI__FileOutput__Directory
             value: {{ .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}

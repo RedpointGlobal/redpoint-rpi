@@ -189,6 +189,9 @@ queueListenerConfiguration: []
 fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
+serviceHost:
+  name: rpi-realtimeapi
+  portNumber: 80
 agentConfig:
   traceLogEnabled: false
   cachedSelectionRuleExpiry: 120
@@ -859,6 +862,9 @@ operationalDatabase:
 fileOutput:
   allowClientOverrides: true
   allowAllServerLocations: true
+serviceHost:
+  name: rpi-queuereader
+  portNumber: 80
 userManagement:
   useNativeUserManagement: true
   useExternalUserManagement: false

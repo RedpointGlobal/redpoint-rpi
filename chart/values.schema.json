@@ -1574,6 +1574,21 @@
             }
           },
           "description": "Azure App Configuration store. Unset leaves both fields empty."
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Realtime API's own host and port (used for callbacks).",
+          "additionalProperties": true,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service host name (empty = derived at runtime)."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
+            }
+          }
         }
       }
     },
@@ -3162,6 +3177,21 @@
                   "description": "RPIError level."
                 }
               }
+            }
+          }
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Queue Reader's own host and port (used for callbacks).",
+          "additionalProperties": true,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service host name (empty = derived at runtime)."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
             }
           }
         }
