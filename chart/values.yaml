@@ -674,6 +674,29 @@ realtimeapi:
   autoscaling:
     enabled: false
 
+  # RedPoint ML scoring integration. Leave blank to keep it disabled.
+  RedPointMLServiceAddress: ""
+  RedPointMLClientID: ""
+  # Visitor profile merge behaviour.
+  EnableProfileMergeEvents: true
+  TrackProfileMergeInSourceProfile: true
+  # File output written by the service. Directory comes from the
+  # FileOutputDirectory persistent volume claim when enabled.
+  fileOutput:
+    allowClientOverrides: true
+    allowAllServerLocations: true
+  # Realtime agent runtime.
+  agentConfig:
+    traceLogEnabled: false
+    cachedSelectionRuleExpiry: 120
+  # Azure App Configuration store. Leave blank to keep it disabled.
+  configurationStore:
+    connectionString: ""
+    labelFilter: ""
+  # Passthrough lists, empty by default. See docs/values_reference.yaml for the
+  # object shape of each: CacheOutputExclusions, parameterToDataMappings,
+  # visitorViews, queueListenerConfiguration.
+
 # ==========================
 # Callback API
 # ==========================

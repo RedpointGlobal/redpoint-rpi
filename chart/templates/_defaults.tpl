@@ -165,6 +165,36 @@ RealtimeServerCookieHttpOnly: false
 CacheOutputCollectIPAddress: true
 HashVisitorID: false
 EventListeningLocalCacheDuration: 60
+RPIVersion: "7.8"
+RealtimeAgentAddress: ""
+RealtimeAgentInProcessPath: ""
+SaveProfilePostDecisionResponse: false
+CachedAttributeLoadTimeoutMS: 0
+MessageHistoryProfileRecordLimit: 100
+MessageHistoryDaysInProfile: 365
+MaxNoEventMetadataInstances: 100
+NoMinsCacheSelectionResults: 60
+NoMinsCacheRecommendResults: 60
+RedPointMLServiceAddress: ""
+RedPointMLClientID: ""
+EnableProfileMergeEvents: true
+TrackProfileMergeInSourceProfile: true
+RegionLanguageCodeParameter: ""
+WebVisitorCacheDuration: 0
+MaxNoVisitorDevicesAllowed: 6
+CacheOutputExclusions: []
+parameterToDataMappings: []
+visitorViews: []
+queueListenerConfiguration: []
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+agentConfig:
+  traceLogEnabled: false
+  cachedSelectionRuleExpiry: 120
+configurationStore:
+  connectionString: ""
+  labelFilter: ""
 dataMaps:
   visitorProfile:
     Cache: ""
@@ -243,6 +273,8 @@ logging:
     rpiTrace: Error
     rpiError: Error
     console: Error
+    microsoft: Error
+    microsoftHostingLifetime: Error
   realtimeapi:
     default: Error
     endpoint: Error
@@ -250,6 +282,7 @@ logging:
     plugins: Error
     other: Error
     console: "false"
+    nlogTarget: ""
 autoscaling:
   type: hpa
   minReplicas: 2

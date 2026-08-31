@@ -13,6 +13,7 @@
 {{- $geo := $cfg.geolocation | default dict -}}
 {{- $geoip := $geo.ipLookup | default dict -}}
 {{- $ident := $cfg.identitySettings | default dict -}}
+{{- $iaCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "interactionapi")) -}}
 
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- if $cfg.serviceAccount.enabled }}
@@ -268,8 +269,59 @@ spec:
             value: {{ $cfg.logging.realtimeapi.default | quote }}
           - name: Logging__RPIRealtime__ConsoleLogging
             value: {{ $cfg.logging.realtimeapi.console | quote }}
+          - name: Logging__RPIRealtime__NLogTarget
+            value: {{ $cfg.logging.realtimeapi.nlogTarget | quote }}
+          - name: Logging__LogLevel__Microsoft
+            value: {{ $cfg.logging.realtimeagent.microsoft | quote }}
+          - name: Logging__LogLevel__Microsoft.Hosting.Lifetime
+            value: {{ $cfg.logging.realtimeagent.microsoftHostingLifetime | quote }}
           - name: RPI__DateTimeSource
             value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
+          - name: RPI__ServiceHostName
+            value: "http://rpi-interactionapi"
+          - name: RPI__ServiceHostPortNumber
+            value: {{ $iaCfg.service.port | quote }}
+          {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
+          - name: RPI__FileOutput__Directory
+            value: {{ .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
+          {{- end }}
+          - name: RPI__FileOutput__AllowClientOverrides
+            value: {{ $cfg.fileOutput.allowClientOverrides | quote }}
+          - name: RPI__FileOutput__AllowAllServerLocations
+            value: {{ $cfg.fileOutput.allowAllServerLocations | quote }}
+          - name: RPI__SMTP__EmailSenderAddress
+            value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
+          - name: RPI__SMTP__Address
+            value: {{ .Values.SMTPSettings.SMTP_Address | quote }}
+          - name: RPI__SMTP__Port
+            value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
+          - name: RPI__SMTP__EnableSSL
+            value: {{ .Values.SMTPSettings.EnableSSL | quote }}
+          - name: RPI__SMTP__UseCredentials
+            value: {{ .Values.SMTPSettings.UseCredentials | quote }}
+          {{- if .Values.SMTPSettings.UseCredentials }}
+          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          - name: RPI__SMTP__Username
+            value: {{ .Values.SMTPSettings.SMTP_Username | quote }}
+          - name: RPI__SMTP__Password
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.secretName" . | quote }}
+                key: SMTP_Password
+          {{- end }}
+          {{- end }}
+          - name: AgentConfig__TraceLogEnabled
+            value: {{ $cfg.agentConfig.traceLogEnabled | quote }}
+          - name: AgentConfig__CachedSelectionRuleExpiry
+            value: {{ $cfg.agentConfig.cachedSelectionRuleExpiry | quote }}
+          {{- with $cfg.configurationStore.connectionString }}
+          - name: ConfigurationStore__ConnectionString
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $cfg.configurationStore.labelFilter }}
+          - name: ConfigurationStore__LabelFilter
+            value: {{ . | quote }}
+          {{- end }}
           {{- if $diag.copytoAzureBlob.enabled }}
           - name: RPI__Diagnostics__CopyToAzure__IsEnabled
             value: "true"
@@ -480,6 +532,86 @@ spec:
             value: {{ $cfg.enableAuditMetricsInHeaders | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__EnableEventListening
             value: {{ $cfg.enableEventListening | quote }}
+          - name: RealtimeAPIConfiguration__RPIVersion
+            value: {{ $cfg.RPIVersion | quote }}
+          {{- with $cfg.RealtimeAgentAddress }}
+          - name: RealtimeAPIConfiguration__AppSettings__RealtimeAgentAddress
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $cfg.RealtimeAgentInProcessPath }}
+          - name: RealtimeAPIConfiguration__AppSettings__RealtimeAgentInProcessPath
+            value: {{ . | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__AppSettings__SaveProfilePostDecisionResponse
+            value: {{ $cfg.SaveProfilePostDecisionResponse | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__CachedAttributeLoadTimeoutMS
+            value: {{ $cfg.CachedAttributeLoadTimeoutMS | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MessageHistoryProfileRecordLimit
+            value: {{ $cfg.MessageHistoryProfileRecordLimit | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MessageHistoryDaysInProfile
+            value: {{ $cfg.MessageHistoryDaysInProfile | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MaxNoEventMetadataInstances
+            value: {{ $cfg.MaxNoEventMetadataInstances | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__NoMinsCacheSelectionResults
+            value: {{ $cfg.NoMinsCacheSelectionResults | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__NoMinsCacheRecommendResults
+            value: {{ $cfg.NoMinsCacheRecommendResults | quote }}
+          {{- with $cfg.RedPointMLServiceAddress }}
+          - name: RealtimeAPIConfiguration__AppSettings__RedPointMLServiceAddress
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $cfg.RedPointMLClientID }}
+          - name: RealtimeAPIConfiguration__AppSettings__RedPointMLClientID
+            value: {{ . | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__AppSettings__EnableProfileMergeEvents
+            value: {{ $cfg.EnableProfileMergeEvents | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__TrackProfileMergeInSourceProfile
+            value: {{ $cfg.TrackProfileMergeInSourceProfile | quote }}
+          {{- with $cfg.RegionLanguageCodeParameter }}
+          - name: RealtimeAPIConfiguration__AppSettings__RegionLanguageCodeParameter
+            value: {{ . | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__AppSettings__WebVisitorCacheDuration
+            value: {{ $cfg.WebVisitorCacheDuration | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MaxNoVisitorDevicesAllowed
+            value: {{ $cfg.MaxNoVisitorDevicesAllowed | quote }}
+          {{- range $i, $x := $cfg.CacheOutputExclusions }}
+          - name: RealtimeAPIConfiguration__AppSettings__CacheOutputExclusions__{{ $i }}
+            value: {{ $x | quote }}
+          {{- end }}
+          {{- range $i, $m := $cfg.parameterToDataMappings }}
+          - name: RealtimeAPIConfiguration__AppSettings__ParameterToDataMappings__{{ $i }}__ParameterName
+            value: {{ $m.parameterName | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__ParameterToDataMappings__{{ $i }}__CALName
+            value: {{ $m.calName | quote }}
+          {{- end }}
+          {{- range $i, $v := $cfg.visitorViews }}
+          - name: RealtimeAPIConfiguration__VisitorViews__{{ $i }}__Name
+            value: {{ $v.name | quote }}
+          {{- range $j, $p := ($v.parameterNames | default list) }}
+          - name: RealtimeAPIConfiguration__VisitorViews__{{ $i }}__ParameterNames__{{ $j }}
+            value: {{ $p | quote }}
+          {{- end }}
+          {{- range $j, $d := ($v.databaseFieldNames | default list) }}
+          - name: RealtimeAPIConfiguration__VisitorViews__{{ $i }}__DatabaseFieldNames__{{ $j }}
+            value: {{ $d | quote }}
+          {{- end }}
+          {{- end }}
+          {{- range $i, $q := $cfg.queueListenerConfiguration }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__Name
+            value: {{ $q.name | quote }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__SendAddressParameter
+            value: {{ $q.sendAddressParameter | quote }}
+          {{- range $j, $p := ($q.parameters | default list) }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__Parameters__{{ $j }}
+            value: {{ $p | quote }}
+          {{- end }}
+          {{- range $j, $r := ($q.repeaterParameters | default list) }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__RepeaterParameters__{{ $j }}
+            value: {{ $r | quote }}
+          {{- end }}
+          {{- end }}
           {{- if $geo.enabled }}
           - name: RealtimeAPIConfiguration__GeolocationSettings__Provider
             value: {{ $geo.provider | default "Azure" | quote }}

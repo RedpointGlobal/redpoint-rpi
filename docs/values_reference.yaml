@@ -1556,9 +1556,34 @@ realtimeapi:
   CORSOrigins:
   - '*'
   CacheOutputCollectIPAddress: true
+  # Cache-output exclusion entries.
+  CacheOutputExclusions: []
   CacheWebFormData: false
+  # Timeout in milliseconds for loading cached attribute lists. 0 uses the application
+  # default.
+  CachedAttributeLoadTimeoutMS: 0
+  # Emit events when visitor profiles are merged.
+  EnableProfileMergeEvents: true
   EventListeningLocalCacheDuration: 60
   HashVisitorID: false
+  # Maximum number of event metadata instances retained.
+  MaxNoEventMetadataInstances: 100
+  # Maximum number of devices tracked per visitor.
+  MaxNoVisitorDevicesAllowed: 6
+  # Days of message history retained in the visitor profile.
+  MessageHistoryDaysInProfile: 365
+  # Maximum message-history records retained per visitor profile.
+  MessageHistoryProfileRecordLimit: 100
+  # Minutes to cache recommendation results.
+  NoMinsCacheRecommendResults: 60
+  # Minutes to cache selection results.
+  NoMinsCacheSelectionResults: 60
+  # RPI product version reported by the Realtime API.
+  RPIVersion: '7.8'
+  # Address of the Interaction Realtime Agent. Unset leaves the application default.
+  RealtimeAgentAddress: ''
+  # Path to the in-process Realtime Agent assembly. Unset leaves the application default.
+  RealtimeAgentInProcessPath: ''
   # Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie
   # host-only (the variable is not emitted).
   RealtimeServerCookieDomain: ''
@@ -1570,8 +1595,24 @@ realtimeapi:
   RealtimeServerCookieHttpOnly: false
   # Name of the Realtime server visitor cookie.
   RealtimeServerCookieName: rg-visitor
+  # RedPoint ML client identifier. Unset leaves the application default.
+  RedPointMLClientID: ''
+  # RedPoint ML service address. Unset leaves the application default.
+  RedPointMLServiceAddress: ''
+  # Parameter name carrying the region language code. Unset leaves the application default.
+  RegionLanguageCodeParameter: ''
+  # Persist the visitor profile after returning a decision response.
+  SaveProfilePostDecisionResponse: false
   ThresholdBetweenPageVisitsMinutes: 1
   ThresholdBetweenSiteVisitsMinutes: 120
+  # Record the merge on the source profile when profiles are merged.
+  TrackProfileMergeInSourceProfile: true
+  # Web visitor cache duration in minutes. 0 uses the application default.
+  WebVisitorCacheDuration: 0
+  # Realtime agent configuration.
+  agentConfig:
+    cachedSelectionRuleExpiry: 120
+    traceLogEnabled: false
   # Realtime API authentication configuration
   authentication:
     # Basic authentication settings
@@ -1647,6 +1688,10 @@ realtimeapi:
   # meaningful with multiple Realtime API instances); render fails if set on a single-tenant
   # deployment. Clients not listed use the cluster-wide address.
   clientAddressOverrides: []
+  # Azure App Configuration store. Unset leaves both fields empty.
+  configurationStore:
+    connectionString: ''
+    labelFilter: ''
   customMetrics:
     enabled: false
     prometheus_scrape: true
@@ -1698,6 +1743,10 @@ realtimeapi:
   enableHelpPages: true
   # Enable the Realtime API service
   enabled: true
+  # File output behaviour.
+  fileOutput:
+    allowAllServerLocations: true
+    allowClientOverrides: true
   # Realtime geolocation settings (weather / location enrichment). Defaults use the native
   # Azure provider; a custom provider can be supplied via the plugin fields. The provider
   # APIKey is not set here - it is supplied via the shared RPI Secret key
@@ -1787,22 +1836,29 @@ realtimeapi:
       console: Error
       database: Error
       default: Error
+      microsoft: Error
+      microsoftHostingLifetime: Error
       rpiError: Error
       rpiTrace: Error
     realtimeapi:
       console: 'false'
       default: Error
       endpoint: Error
+      nlogTarget: ''
       other: Error
       plugins: Error
       shared: Error
   multitenant: false
   name: rpi-realtimeapi
+  # Mappings from an inbound parameter to a cached attribute list.
+  parameterToDataMappings: []
   podAnnotations: {}
   podDisruptionBudget:
     enabled: false
     minAvailable: 1
   podLabels: {}
+  # Queue listener configurations.
+  queueListenerConfiguration: []
   # Real-time queue provider configuration
   queueProvider:
     # Amazon MSK queue provider settings
@@ -1917,6 +1973,8 @@ realtimeapi:
     enabled: true
   terminationGracePeriodSeconds: 120
   type: deployment
+  # Named visitor views.
+  visitorViews: []
 
 # Callback API service configuration — handles callback channel processing (e.g., SendGrid)
 callbackapi:

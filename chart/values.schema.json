@@ -1397,6 +1397,183 @@
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "RPIVersion": {
+          "type": "string",
+          "description": "RPI product version reported by the Realtime API."
+        },
+        "RealtimeAgentAddress": {
+          "type": "string",
+          "description": "Address of the Interaction Realtime Agent. Unset leaves the application default."
+        },
+        "RealtimeAgentInProcessPath": {
+          "type": "string",
+          "description": "Path to the in-process Realtime Agent assembly. Unset leaves the application default."
+        },
+        "SaveProfilePostDecisionResponse": {
+          "type": "boolean",
+          "description": "Persist the visitor profile after returning a decision response."
+        },
+        "CachedAttributeLoadTimeoutMS": {
+          "type": "integer",
+          "description": "Timeout in milliseconds for loading cached attribute lists. 0 uses the application default."
+        },
+        "MessageHistoryProfileRecordLimit": {
+          "type": "integer",
+          "description": "Maximum message-history records retained per visitor profile."
+        },
+        "MessageHistoryDaysInProfile": {
+          "type": "integer",
+          "description": "Days of message history retained in the visitor profile."
+        },
+        "MaxNoEventMetadataInstances": {
+          "type": "integer",
+          "description": "Maximum number of event metadata instances retained."
+        },
+        "NoMinsCacheSelectionResults": {
+          "type": "integer",
+          "description": "Minutes to cache selection results."
+        },
+        "NoMinsCacheRecommendResults": {
+          "type": "integer",
+          "description": "Minutes to cache recommendation results."
+        },
+        "RedPointMLServiceAddress": {
+          "type": "string",
+          "description": "RedPoint ML service address. Unset leaves the application default."
+        },
+        "RedPointMLClientID": {
+          "type": "string",
+          "description": "RedPoint ML client identifier. Unset leaves the application default."
+        },
+        "EnableProfileMergeEvents": {
+          "type": "boolean",
+          "description": "Emit events when visitor profiles are merged."
+        },
+        "TrackProfileMergeInSourceProfile": {
+          "type": "boolean",
+          "description": "Record the merge on the source profile when profiles are merged."
+        },
+        "RegionLanguageCodeParameter": {
+          "type": "string",
+          "description": "Parameter name carrying the region language code. Unset leaves the application default."
+        },
+        "WebVisitorCacheDuration": {
+          "type": "integer",
+          "description": "Web visitor cache duration in minutes. 0 uses the application default."
+        },
+        "MaxNoVisitorDevicesAllowed": {
+          "type": "integer",
+          "description": "Maximum number of devices tracked per visitor."
+        },
+        "CacheOutputExclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Cache-output exclusion entries."
+        },
+        "parameterToDataMappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "parameterName": {
+                "type": "string"
+              },
+              "calName": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Mappings from an inbound parameter to a cached attribute list."
+        },
+        "visitorViews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "parameterNames": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "databaseFieldNames": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "description": "Named visitor views."
+        },
+        "queueListenerConfiguration": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "sendAddressParameter": {
+                "type": "string"
+              },
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "repeaterParameters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "description": "Queue listener configurations."
+        },
+        "fileOutput": {
+          "type": "object",
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean"
+            },
+            "allowAllServerLocations": {
+              "type": "boolean"
+            }
+          },
+          "description": "File output behaviour."
+        },
+        "agentConfig": {
+          "type": "object",
+          "properties": {
+            "traceLogEnabled": {
+              "type": "boolean"
+            },
+            "cachedSelectionRuleExpiry": {
+              "type": "integer"
+            }
+          },
+          "description": "Realtime agent configuration."
+        },
+        "configurationStore": {
+          "type": "object",
+          "properties": {
+            "connectionString": {
+              "type": "string"
+            },
+            "labelFilter": {
+              "type": "string"
+            }
+          },
+          "description": "Azure App Configuration store. Unset leaves both fields empty."
         }
       }
     },
