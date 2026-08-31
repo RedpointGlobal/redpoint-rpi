@@ -59,8 +59,6 @@ databases:
     bigquery:
       enabled: true
       connections:
-        # Keyless: uses Application Default Credentials from the pod's Workload
-        # Identity service account (no key file mounted). OAuthMechanism 3 = ADC.
         - name: gbq-tenant1
           projectId: my-google-project
           credentialsType: workloadIdentity
