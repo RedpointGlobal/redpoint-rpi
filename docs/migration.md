@@ -19,7 +19,7 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 | Google Cloud SQL | Passwordless IAM connectivity via the Cloud SQL Auth Proxy |
 | BigQuery | Data-warehouse support with keyless Workload Identity |
 | Realtime API | Geolocation, identity settings, and client address overrides |
-| Interaction API | Password policy and account lockout |
+| Interaction API | Expanded auth/security, logging, integration, and operational configuration |
 
 </details>
 
@@ -74,12 +74,19 @@ New Realtime API configuration blocks, all optional and off by default:
 - `realtimeapi.clientAddressOverrides` - client address overrides.
 - `realtimeapi.authentication.enabled` - a per-service authentication toggle (also available on `deploymentapi`).
 
-### Interaction API: password policy and account lockout
+### Interaction API: expanded configuration
 
-Native-authentication controls for the Interaction API:
+Expanded configuration support for authentication/security, logging, integrations, and operational settings, including password policies, account lockout, token lifetimes, logging providers, Azure services, and client service credentials.
 
-- `interactionapi.passwordPolicy` - required length plus digit, case, and non-alphanumeric requirements.
-- `interactionapi.accountLockout` - account lockout settings.
+```yaml
+interactionapi:
+  passwordPolicy:
+    requiredLength: 12
+    requireDigit: true
+    requireUppercase: true
+    requireLowercase: true
+    requireNonAlphanumeric: true
+```
 
 </details>
 
