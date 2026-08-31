@@ -96,7 +96,7 @@ interactionapi:
 
 ### Queue Reader: expanded configuration
 
-Expanded configuration support for logging, integrations, distributed processing, and operational settings, including logging providers (New Relic, Loggly), Azure Web PubSub, NLP, SMTP, file output, operational database retry, and the chart-managed internal cache and queue for distributed processing.
+Expanded configuration support for logging, integrations, distributed processing, and operational settings, including logging providers (New Relic, Loggly), NLP, SMTP, file output, operational database retry, and the chart-managed internal cache and queue for distributed processing.
 
 ```yaml
 queuereader:
