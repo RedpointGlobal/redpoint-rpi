@@ -109,6 +109,30 @@ queuereader:
     isDistributed: true
 ```
 
+### Per-tenant Realtime API address override
+
+The cluster-wide Realtime API address can be overridden per client (tenant). Each entry pairs a client GUID with the Realtime API base address for that client; the override is consumed by the Interaction API and Execution Service. Requires `realtimeapi.multitenant: true`.
+
+```yaml
+realtimeapi:
+  multitenant: true
+  clientAddressOverrides:
+    - clientId: <client-guid>
+      address: https://realtimeapi-tenant1.example.com
+```
+
+### LuxSci send throughput controls
+
+Two independent concurrency caps for large LuxSci sends on the Execution Service: a per-account API rate guard and the per-activity send parallelism.
+
+```yaml
+executionservice:
+  jobExecution:
+    luxSci:
+      maxConcurrentApiRequestsPerAccount: 5   # per-account LuxSci API rate guard
+      maxDegreeOfParallelism: 10              # concurrent sends within an activity
+```
+
 </details>
 
 <details>
@@ -118,14 +142,27 @@ queuereader:
 
 `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` have been removed. RPI now creates the search index, vector profile, and algorithm dynamically at runtime, so these values are no longer needed. See [Redpoint AI](redpoint-ai.md).
 
+### Internal cache OpsDB failover
+
+`InternalCache__BackupToOpsDBInterval` and `InternalCache__FailOnPrimaryDataLoss` have been removed - OpsDB-backed cache failover was removed in 7.8. Remove them from your overrides if set (Execution Service and Queue Reader).
+
+### Swagger on the Interaction API
+
+The Interaction API no longer emits `EnableSwagger`. The setting remains valid and unchanged for the Integration API.
+
+### LuxSci SendRequestCount renamed
+
+`Plugins__LuxSci__SendRequestCount` was renamed to `Plugins__LuxSci__MaxConcurrentApiRequestsPerAccount`. The old key binds to nothing and is silently ignored, so update any override that sets it.
+
 </details>
 
 <details>
 <summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
 1. Remove `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` if present.
-2. Review the new optional features (Cloud SQL IAM, BigQuery, Realtime geolocation, Interaction API password policy) and adopt as needed. All are opt-in and default off.
-3. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+2. Check for silent breaks: rename the LuxSci `SendRequestCount` cap to `maxConcurrentApiRequestsPerAccount`, and stop setting `InternalCache__StatePersistence__Provider: DefaultCache` (removed from the provider enum - use `FileSystem` or `AzureBlobStorage`). Both are ignored rather than rejected if left in place.
+3. Review the new optional features (Cloud SQL IAM, BigQuery, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput) and adopt as needed. All are opt-in and default off.
+4. Apply the upgrade with your existing `helm upgrade` command and overrides file.
 
 </details>
 
