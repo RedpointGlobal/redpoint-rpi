@@ -1,14 +1,10 @@
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
-{{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
 {{- $rbCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "rebrandly")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $QueueReadercacheName := "rpi-queuereader-cache" -}}
-{{- $ExecutioncacheName := "rpi-executionservice-cache" -}}
 
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
-{{- if eq $qrCfg.internalCache.provider "redis" }}
-{{- if eq $qrCfg.internalCache.type "internal" }}
 {{- if $qrCfg.internalCache.redisSettings.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -18,19 +14,15 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $QueueReadercacheName "component" "cache") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $qrCfg.internalCache.redisSettings.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $qrCfg.internalCache.redisSettings.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $QueueReadercacheName }}
 {{- end }}
 {{- end }}
-{{- end }}
-{{- end }}
 
 ---
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
-{{- if eq $qrCfg.internalCache.provider "redis" }}
-{{- if eq $qrCfg.internalCache.type "internal" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -59,9 +51,7 @@ data:
     # Networking / timeouts
     bind 0.0.0.0
     port 6379
-    {{- if not (eq .Values.secretsManagement.provider "sdk") }}
     protected-mode yes
-    {{- end }}
     timeout 300
     tcp-keepalive 60
     tcp-backlog 511
@@ -166,12 +156,7 @@ spec:
           ports:
             - containerPort: 6379
               name: redis
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "$(REDIS_PASSWORD)"]
-          {{- end }}
-          {{- if eq .Values.secretsManagement.provider "sdk" }}
-          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-          {{- end }}
           env:
           - name: REDIS_PASSWORD
             valueFrom:
@@ -206,24 +191,14 @@ spec:
           {{- end }}
           readinessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 6
           livenessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 3
@@ -257,26 +232,4 @@ spec:
           requests:
             storage: {{ $qrCfg.internalCache.redisSettings.volumeClaimTemplates.storage | quote }}
   {{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-
----
-{{- if $execCfg.enabled }}
-{{- if eq $execCfg.internalCache.type "internal" }}
-{{- if $execCfg.internalCache.redisSettings.podDisruptionBudget.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ $ExecutioncacheName }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $ExecutioncacheName "component" "cache") | nindent 4 }}
-spec:
-  maxUnavailable: {{ $execCfg.internalCache.redisSettings.podDisruptionBudget.maxUnavailable }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: {{ $ExecutioncacheName }}
-{{- end }}
-{{- end }}
 {{- end }}

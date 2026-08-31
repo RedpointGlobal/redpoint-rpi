@@ -4,7 +4,6 @@
 {{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
 {{- $startup := fromYaml (include "rpi.merged.startupProbe" .) -}}
 {{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
-{{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $name := "rpi-deploymentapi" -}}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
@@ -136,6 +135,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
       containers:
       - name: {{ $name }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
@@ -146,6 +149,19 @@ spec:
         {{- if .Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
+        {{- end }}
+        {{- $auth := $cfg.authentication | default dict }}
+        {{- if $auth.enabled }}
+        - name: Authentication__Enabled
+          value: "true"
+        - name: Authentication__Issuer
+          value: {{ required "deploymentapi.authentication.issuer is required when deploymentapi.authentication.enabled=true" $auth.issuer | quote }}
+        - name: Authentication__HostAddress
+          value: {{ required "deploymentapi.authentication.hostAddress is required when deploymentapi.authentication.enabled=true" $auth.hostAddress | quote }}
+        - name: Authentication__Audience
+          value: {{ required "deploymentapi.authentication.audience is required when deploymentapi.authentication.enabled=true" $auth.audience | quote }}
+        - name: Authentication__ClientId
+          value: {{ required "deploymentapi.authentication.clientId is required when deploymentapi.authentication.enabled=true" $auth.clientId | quote }}
         {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}

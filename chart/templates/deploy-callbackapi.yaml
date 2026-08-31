@@ -1,11 +1,9 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "callbackapi")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
-{{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
-{{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
-{{- $startup := fromYaml (include "rpi.merged.startupProbe" .) -}}
 {{- $topo := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
 {{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $rtQueueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- $name := "rpi-callbackapi" -}}
@@ -45,7 +43,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -115,7 +113,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
     {{- with .Values.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.customAnnotations }}
   annotations:
@@ -184,6 +182,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
       containers:
       - env:
         {{- if .Values.global.deployment.podTimezone }}
@@ -242,7 +244,7 @@ spec:
         {{- end }}
         {{- if $diag.dotNetTools.enabled }}
         - name: DOTNET_BUNDLE_EXTRACT_BASE_DIR
-          value: {{ $diag.dotNetTools.extractionBaseDir | quote }} 
+          value: {{ $diag.dotNetTools.extractionBaseDir | quote }}
         - name: RPI__Diagnostics__UseDotNetTools__Path
           value: {{  $diag.dotNetTools.path  | quote }}
         - name: RPI__Diagnostics__UseDotNetTools__UseCounters
@@ -282,6 +284,10 @@ spec:
           value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
         {{- end }}
         {{- end }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: ODBCINI
+          value: /odbc-config/odbc.ini
+        {{- end }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CONNECTIONSTRINGS__LOGGINGDATABASE
           valueFrom:
@@ -294,17 +300,12 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- if eq $rtQueueProvider "amazonsqs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Amazon.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
           value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key
           value: "AccessKey"
@@ -313,10 +314,6 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: AWS_Access_Key_ID
-        {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "SecretKey"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
@@ -325,8 +322,6 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: AWS_Secret_Access_Key
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "RegionEndpoint"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
@@ -336,7 +331,7 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
           value: {{ $rtCfg.queueProvider.amazonsqs.visibilityTimeout | quote }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "azureservicebus" }}
+        {{- if eq $rtQueueProvider "azureservicebus" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Azure.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -347,9 +342,7 @@ spec:
           value: "ServiceBus"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "ConnectionString"
-        {{- end }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-        {{- if eq $rtCfg.queueProvider.provider "azureservicebus" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
             secretKeyRef:
@@ -357,7 +350,7 @@ spec:
               key: RealtimeAPI_ServiceBus_ConnectionString
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "azureeventhubs" }}
+        {{- if eq $rtQueueProvider "azureeventhubs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Azure.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -368,9 +361,7 @@ spec:
           value: {{ $rtCfg.queueProvider.azureeventhubs.eventHubName | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "EventHubConnectionString"
-        {{- end }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-        {{- if eq $rtCfg.queueProvider.provider "azureeventhubs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
             secretKeyRef:
@@ -378,7 +369,7 @@ spec:
               key: RealtimeAPI_EventHub_ConnectionString
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "googlepubsub" }}
+        {{- if eq $rtQueueProvider "googlepubsub" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Google.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -390,7 +381,7 @@ spec:
           value: {{ $rtCfg.queueProvider.googlepubsub.projectId | quote }}
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+        {{- if eq $rtQueueProvider "rabbitmq" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Resonance.RabbitMQAccess"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -398,7 +389,11 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key
           value: "Hostname"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Value
+          {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
+          value: {{ printf "rpi-realtimeapi-rabbitmq.%s.svc.cluster.local." .Release.Namespace | quote }}
+          {{- else }}
           value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.hostname | quote }}
+          {{- end }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "VirtualHost"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
@@ -406,12 +401,16 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "Username"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+          value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "Password"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
+        - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+              key: RealtimeAPI_RabbitMQ_Password
+        {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
           valueFrom:
             secretKeyRef:
@@ -419,7 +418,7 @@ spec:
               key: RealtimeAPI_RabbitMQ_Password
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
+        {{- if eq $rtQueueProvider "amazonmsk" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Resonance.KafkaQueueAccess"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -430,8 +429,6 @@ spec:
           value: {{ $rtCfg.queueProvider.amazonmsk.bootstrapServers | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "AccessKey"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
@@ -439,12 +436,8 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: AWS_Access_Key_ID
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "SecretKey"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
           valueFrom:
@@ -452,8 +445,6 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: AWS_Secret_Access_Key
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "RegionEndpoint"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
@@ -490,6 +481,15 @@ spec:
         - name: http
           containerPort: 8080
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+        {{- end }}
         {{- if $cfg.resources.enabled }}
         resources:
           {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
@@ -515,11 +515,16 @@ spec:
           - name: tempstore
             mountPath: /tmp
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          - name: odbc-config
+            mountPath: /app/odbc-config/odbc2.ini
+            subPath: odbc2.ini
+          - name: odbcini
+            mountPath: /odbc-config
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ .configMapName | quote }}
-            mountPath: {{ .ConfigMapFilePath }}/{{ .keyName }}
-            subPath: {{ .keyName }}
+          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -529,11 +534,11 @@ spec:
           {{- include "rpi.snowflake.volumeMount" . | nindent 10 }}
           {{- end }}
           {{- end }}
-          {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}    
+          {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
           - name: fileoutputdirectory
             mountPath: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
           {{- end }}
-          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}  
+          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}
           - name: realtimeplugins
             mountPath: {{ .Values.storage.persistentVolumeClaims.Plugins.mountPath }}
           {{- end }}
@@ -547,11 +552,17 @@ spec:
         - name: tempstore
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: odbc-config
+          configMap:
+            name: odbc-config
+            defaultMode: 0777
+        - name: odbcini
+          emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
         {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ .configMapName | quote }}
+        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
           configMap:
-            name: {{ .configMapName | quote }}
+            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}
@@ -590,7 +601,7 @@ spec:
       {{- end }}
 {{- end }}
 
-# Multi Tenant RPI 
+# Multi Tenant RPI
 ---
 {{- if $cfg.multitenancy.enabled }}
 {{- if $cfg.serviceAccount.enabled }}
@@ -604,7 +615,7 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $name }}-{{ $instance.name}}
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 4 }}
   {{- $saAnnotations := include "rpi.mergedAnnotations" (dict "root" $ "type" "serviceAccount") | trim }}
   {{- $ciAnnotations := include "rpi.cloudidentity.saAnnotations" $ | trim }}
   {{- if or $saAnnotations $ciAnnotations }}
@@ -633,7 +644,7 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $name }}-{{ $instance.name}}
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 4 }}
   {{- $svcAnnotations := include "rpi.mergedAnnotations" (dict "root" $ "type" "service") | trim }}
   {{- if $svcAnnotations }}
   annotations:
@@ -663,11 +674,11 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $name }}-{{ $instance.name}}
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 4 }}
     {{- with $.Values.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with .Values.customAnnotations }}
+  {{- with $.Values.customAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -682,7 +693,7 @@ spec:
     metadata:
       labels:
         app: {{ $name }}-{{ $instance.name}}
-        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 8 }}
+        {{- include "redpoint-rpi.componentLabels" (dict "root" $ "name" $name "component" "api") | nindent 8 }}
         {{- with $.Values.customLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -693,7 +704,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- with (include "rpi.cloudidentity.podLabels" (dict "root" $ "svcCloudIdentity" (hasKey $cfg "cloudIdentity" | ternary $cfg.cloudIdentity false)) | trim) }}{{- . | nindent 8 }}{{- end }}
-      {{- if or $.Values.commonAnnotations $.Values.customAnnotations $cfg.podAnnotations (or .Values.customMetrics.enabled $cfg.customMetrics.enabled) $.Values.serviceMesh.enabled }}
+      {{- if or $.Values.commonAnnotations $.Values.customAnnotations $cfg.podAnnotations (or $.Values.customMetrics.enabled $cfg.customMetrics.enabled) $.Values.serviceMesh.enabled }}
       annotations:
         {{- with $.Values.commonAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -704,8 +715,8 @@ spec:
         {{- with $cfg.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- if (or .Values.customMetrics.enabled $cfg.customMetrics.enabled) }}
-        prometheus.io/scrape: {{ or .Values.customMetrics.enabled $cfg.customMetrics.prometheus_scrape | quote }}
+        {{- if (or $.Values.customMetrics.enabled $cfg.customMetrics.enabled) }}
+        prometheus.io/scrape: {{ or $.Values.customMetrics.enabled $cfg.customMetrics.prometheus_scrape | quote }}
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
         {{- end }}
@@ -720,11 +731,15 @@ spec:
       serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" $ "name" $instanceName "cfg" $cfg) }}
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
       terminationGracePeriodSeconds: 120
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" $) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" $ | nindent 8 }}
+      {{- end }}
       containers:
       - env:
-        {{- if .Values.global.deployment.podTimezone }}
+        {{- if $.Values.global.deployment.podTimezone }}
         - name: TZ
-          value: {{ .Values.global.deployment.podTimezone | quote }}
+          value: {{ $.Values.global.deployment.podTimezone | quote }}
         {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
@@ -816,6 +831,10 @@ spec:
           value: "{{ $.Values.cloudIdentity.google.configMapFilePath }}/{{ $.Values.cloudIdentity.google.keyName }}"
         {{- end }}
         {{- end }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: ODBCINI
+          value: /odbc-config/odbc.ini
+        {{- end }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CONNECTIONSTRINGS__LOGGINGDATABASE
           valueFrom:
@@ -828,19 +847,14 @@ spec:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" $ | quote }}
         {{- end }}
-        {{- if eq $.Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" $ | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- if eq $rtQueueProvider "amazonsqs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Amazon.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
           value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key
           value: "AccessKey"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Value
           valueFrom:
@@ -848,12 +862,8 @@ spec:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
               key: AWS_Access_Key_ID
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "SecretKey"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
@@ -861,8 +871,6 @@ spec:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
               key: AWS_Secret_Access_Key
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonsqs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "RegionEndpoint"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
@@ -872,7 +880,7 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
           value: {{ $rtCfg.queueProvider.amazonsqs.visibilityTimeout | quote }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "azureservicebus" }}
+        {{- if eq $rtQueueProvider "azureservicebus" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Azure.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -883,9 +891,7 @@ spec:
           value: "ServiceBus"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "ConnectionString"
-        {{- end }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
-        {{- if eq $rtCfg.queueProvider.provider "azureservicebus" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
             secretKeyRef:
@@ -893,7 +899,7 @@ spec:
               key: RealtimeAPI_ServiceBus_ConnectionString
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "azureeventhubs" }}
+        {{- if eq $rtQueueProvider "azureeventhubs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Azure.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -904,9 +910,7 @@ spec:
           value: {{ $rtCfg.queueProvider.azureeventhubs.eventHubName | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "EventHubConnectionString"
-        {{- end }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
-        {{- if eq $rtCfg.queueProvider.provider "azureeventhubs" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
             secretKeyRef:
@@ -914,7 +918,7 @@ spec:
               key: RealtimeAPI_EventHub_ConnectionString
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "googlepubsub" }}
+        {{- if eq $rtQueueProvider "googlepubsub" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Google.Server"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -926,7 +930,7 @@ spec:
           value: {{ $rtCfg.queueProvider.googlepubsub.projectId | quote }}
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+        {{- if eq $rtQueueProvider "rabbitmq" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Resonance.RabbitMQAccess"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -934,28 +938,32 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key
           value: "Hostname"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.hostname | quote }}
+          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.hostname | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "VirtualHost"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.virtualHost | quote }}
+          value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.virtualhost | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "Username"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
-          value: {{ $rtCfg.queueProvider.rabbitmq.username | quote }}
+          value: {{ include "rpi.realtime.rabbitmqUsername" $ | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "Password"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
-        {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
+        {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
+        - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.internalSecretName" $ | quote }}
+              key: RealtimeAPI_RabbitMQ_Password
+        {{- else if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
-              key: RABBITMQ_Password
+              key: RealtimeAPI_RabbitMQ_Password
         {{- end }}
         {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
+        {{- if eq $rtQueueProvider "amazonmsk" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly
           value: "RedPoint.Resonance.KafkaQueueAccess"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type
@@ -966,8 +974,6 @@ spec:
           value: {{ $rtCfg.queueProvider.amazonmsk.bootstrapServers | quote }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key
           value: "AccessKey"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value
           valueFrom:
@@ -975,12 +981,8 @@ spec:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
               key: AWS_Access_Key_ID
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key
           value: "SecretKey"
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value
           valueFrom:
@@ -988,8 +990,6 @@ spec:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
               key: AWS_Secret_Access_Key
         {{- end }}
-        {{- end }}
-        {{- if eq $rtCfg.queueProvider.provider "amazonmsk" }}
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key
           value: "RegionEndpoint"
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Value
@@ -1019,38 +1019,46 @@ spec:
         - name: CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__9__Value
           value: {{ $rtCfg.queueProvider.amazonmsk.UseAwsMsk | quote }}
         {{- end }}
-        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
-        imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        image: {{ include "rpi.image" (dict "root" $ "name" $name) }}
+        imagePullPolicy: {{  $.Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
         name: callbackapi
-        {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 8 }}
         ports:
         - name: http
           containerPort: 8080
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+        {{- end }}
         {{- if $cfg.resources.enabled }}
         resources:
-          {{- if $cfg.resources.limits }}
+          {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
           limits:
-            {{- if $cfg.resources.limits.cpu }}
-            cpu: {{ $cfg.resources.limits.cpu }}
+            {{- with $cfg.resources.limits.cpu }}
+            cpu: {{ . }}
             {{- end }}
-            {{- if $cfg.resources.limits.memory }}
-            memory: {{ $cfg.resources.limits.memory }}
+            {{- with $cfg.resources.limits.memory }}
+            memory: {{ . }}
             {{- end }}
           {{- end }}
-          {{- if $cfg.resources.requests }}
+          {{- if and $cfg.resources.requests (ne $cfg.resources.requests.enabled false) }}
           requests:
-            {{- if $cfg.resources.requests.cpu }}
-            cpu: {{ $cfg.resources.requests.cpu }}
+            {{- with $cfg.resources.requests.cpu }}
+            cpu: {{ . }}
             {{- end }}
-            {{- if $cfg.resources.requests.memory }}
-            memory: {{ $cfg.resources.requests.memory }}
+            {{- with $cfg.resources.requests.memory }}
+            memory: {{ . }}
             {{- end }}
           {{- end }}
         {{- end }}
         volumeMounts:
           {{- if eq $.Values.global.deployment.platform "google"}}
-          {{- if eq $.Values.cloudIdentity.enabled }}
+          {{- if and $.Values.cloudIdentity.enabled $.Values.cloudIdentity.google.configMapName }}
           - name: {{ $.Values.cloudIdentity.google.configMapName }}
             mountPath: "/app/google-creds/{{ $.Values.cloudIdentity.google.configMapName }}.json"
             subPath: "{{ $.Values.cloudIdentity.google.configMapName }}.json"
@@ -1063,10 +1071,17 @@ spec:
             subPath: "{{ $.Values.cloudIdentity.google.configMapName }}.json"
           {{- end }}
           {{- end }}
+          {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          - name: odbc-config
+            mountPath: /app/odbc-config/odbc2.ini
+            subPath: odbc2.ini
+          - name: odbcini
+            mountPath: /odbc-config
+          {{- end }}
           {{- include "rpi.customCACerts.volumeMount" $ | nindent 10 }}
       volumes:
       {{- if eq $.Values.global.deployment.platform "google"}}
-      {{- if eq $.Values.cloudIdentity.enabled }}
+      {{- if and $.Values.cloudIdentity.enabled $.Values.cloudIdentity.google.configMapName }}
         - name: {{ $.Values.cloudIdentity.google.configMapName | quote }}
           configMap:
             name: {{ $.Values.cloudIdentity.google.configMapName | quote }}
@@ -1078,6 +1093,14 @@ spec:
           configMap:
             name: {{ $.Values.cloudIdentity.google.configMapName | quote }}
       {{- end }}
+      {{- end }}
+      {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: odbc-config
+          configMap:
+            name: odbc-config
+            defaultMode: 0777
+        - name: odbcini
+          emptyDir: {}
       {{- end }}
         {{- include "rpi.customCACerts.volume" $ | nindent 8 }}
       {{- if $.Values.nodeSelector.enabled }}

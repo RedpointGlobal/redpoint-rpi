@@ -205,6 +205,19 @@ spec:
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
         {{- end }}
+        {{- if .Values.OpenIdProviders.enabled }}
+        {{- if eq .Values.OpenIdProviders.name "keycloak" }}
+        - name: RPI__UserManagement__Keycloak__ClientId
+          value: rpi-service
+        - name: RPI__UserManagement__Keycloak__ClientSecret
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: CDP_Keycloak_Client_Secret
+        - name: Authentication__OpenIdProviders__0__RedirectURL
+          value: {{ .Values.OpenIdProviders.redirectURL | quote }}
+        {{- end }}
+        {{- end }}
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
         - name: LOG_LEVEL
           value: {{ $cfg.logging.verbosity | quote }}
@@ -224,6 +237,8 @@ spec:
           value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
         - name: SMTP_PROTOCOL
           value: SMTP
+        - name: API_BASE_URL
+          value: "https://{{ .Values.ingress.hosts.smartactivation }}.{{ .Values.ingress.domain }}"
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI_SHARED_USER
           value: {{ .Values.integrationapi.username | quote }}

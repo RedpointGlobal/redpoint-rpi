@@ -14,6 +14,7 @@ RPI services are exposed to external traffic through Kubernetes Ingress resource
 | **Chart-managed nginx** | Simplest setup. The chart deploys its own nginx ingress controller. | At the nginx controller (K8s TLS Secret) |
 | **BYO ingress controller** | You already have an ingress controller (nginx, Traefik, HAProxy, etc.) | At your controller |
 | **AWS ALB** | AWS environments using Application Load Balancer with the AWS Load Balancer Controller | At the ALB (ACM certificate) |
+| **Azure AGC** | Azure environments using Application Gateway for Containers with the ALB controller | At AGC (K8s TLS Secret synced from Key Vault via CSI) |
 
 ---
 
@@ -237,6 +238,104 @@ Execution service and node manager do not have ingress rules by default (they ar
 
 </details>
 
+<details>
+<summary><strong style="font-size:1.25em;">Azure Application Gateway for Containers (AGC)</strong></summary>
+
+[Application Gateway for Containers](https://learn.microsoft.com/en-us/azure/application-gateway/for-containers/overview) is Azure's next-generation ingress for AKS. It replaces the traditional Application Gateway Ingress Controller (AGIC) and provides layer 7 load balancing, TLS termination, traffic splitting, and automatic scaling. It runs outside the AKS cluster data plane and is managed by the ALB controller add-on.
+
+### Prerequisites
+
+- AKS cluster with the **ALB controller** add-on enabled
+- Application Gateway for Containers resource created in Azure (with a frontend and subnet association)
+- The AGC subnet must be delegated to `Microsoft.ServiceNetworking/trafficControllers` (min /24)
+- **CSI Secret Store driver** add-on enabled (for TLS certificate sync from Key Vault)
+- TLS certificate uploaded to Azure Key Vault
+
+### Overrides
+
+```yaml
+ingress:
+  controller:
+    enabled: false                          # No chart-managed nginx
+  className: azure-alb-internal             # or azure-alb-external for public
+  certificateSource: kubernetes
+  tls:
+    - secretName: ingress-tls               # Created by CSI sync from Key Vault
+  domain: example.com
+  annotations:
+    alb.networking.azure.io/alb-name: agc-rpi
+    alb.networking.azure.io/alb-namespace: alb-infra    # omit for ALB-managed mode
+  hosts:
+    config: rpi-deploymentapi
+    client: rpi-interactionapi
+    integration: rpi-integrationapi
+    realtime: rpi-realtimeapi
+    callbackapi: rpi-callbackapi
+    queuereader: rpi-queuereader
+```
+
+### TLS via Key Vault + CSI
+
+AGC requires the TLS certificate as a Kubernetes Secret (it cannot pull directly from Key Vault). Use the CSI Secret Store driver to sync the certificate from Key Vault to a K8s TLS Secret named `ingress-tls`:
+
+```yaml
+secretsManagement:
+  csi:
+    secretProviderClasses:
+    - name: rpi-tls-sync
+      provider: azure
+      parameters:
+        clientID: <managed-identity-client-id>
+        keyvaultName: <keyvault-name>
+        tenantId: <tenant-id>
+        usePodIdentity: "false"
+        useVMManagedIdentity: "false"
+        useWorkloadIdentity: "true"
+      objects:
+      - objectName: <cert-name-in-keyvault>
+        objectType: secret
+      secretObjects:
+      - secretName: ingress-tls
+        type: kubernetes.io/tls
+        data:
+        - objectName: <cert-name-in-keyvault>
+          key: tls.key
+
+validationPods:
+  deployments:
+  - name: rpi-tls-sync
+    type: csiSecret
+    secretProviderClass: rpi-tls-sync
+    mountPath: /mnt/tls
+```
+
+The validation pod mounts the CSI volume on startup, which triggers the driver to sync the certificate from Key Vault into the `ingress-tls` K8s Secret. The pod stays running to keep the secret synced (auto-rotation).
+
+### What the chart creates
+
+- One `Ingress` resource with `ingressClassName: azure-alb-internal` (or `azure-alb-external`) and AGC annotations
+- Host rules for each enabled service
+- TLS entry referencing `ingress-tls`
+
+### What the chart does NOT create
+
+- The Application Gateway for Containers resource itself (provision via Azure CLI, Bicep, or Terraform)
+- The ALB controller (enable as an AKS add-on)
+- The CSI Secret Store driver (enable as an AKS add-on)
+
+### Public vs Private
+
+| IngressClass | Behavior |
+|:-------------|:---------|
+| `azure-alb-external` | AGC gets a public IP. Services accessible from the internet. |
+| `azure-alb-internal` | AGC gets a private IP in the associated subnet. Services accessible only within the VNet. |
+
+### Infrastructure provisioning
+
+If using the [Agentic Deployment](readme-mcp.md#agentic-deployment), the Helm Assistant provisions the AGC resource, frontend, subnet association, and all required networking automatically -- no manual Bicep setup required.
+
+</details>
+
 ---
 
 ## Host Routing
@@ -325,4 +424,4 @@ cert-manager watches the Ingress, provisions the certificate, and stores it in t
 - [cert-manager docs](https://cert-manager.io/docs/) - Automated certificate management
 
 ---
-<sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>

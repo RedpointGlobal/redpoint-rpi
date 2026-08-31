@@ -1,30 +1,22 @@
 {{/*
 ============================================================
-  INTERNAL DEFAULTS — _defaults.tpl
+  INTERNAL DEFAULTS - _defaults.tpl
 ============================================================
   Chart-managed defaults that users should NOT edit directly.
   Override any value directly in your overrides file under
   the matching top-level key (e.g., realtimeapi:, ingress:).
 
-  Architecture:
-    _defaults.tpl   — this file, defines default YAML per component
-    _helpers.tpl    — merge helpers that combine:
-                      defaults + user values (user wins)
-
-  Each component has a named template that returns YAML:
-
-    {{- $d := fromYaml (include "rpi.defaults.realtimeapi" .) -}}
-    {{- $u := .Values.realtimeapi | default dict -}}
-    {{- $cfg := mustMergeOverwrite $d $u -}}
+  This file defines the default YAML per component; _helpers.tpl merges
+  it with your overrides, and your overrides win.
 
   Sections:
     1. Cross-cutting defaults (probes, security, topology, ingress)
     2. RPI core services (.NET)
     3. Supporting services (Rebrandly, diagnostics)
     4. Smart Activation services (Java)
+    5. Utility jobs
 ============================================================
 */}}
-
 
 {{/* ============================================================
      1. CROSS-CUTTING DEFAULTS
@@ -111,8 +103,6 @@ internalImageOverride:
   image: registry.k8s.io/ingress-nginx/controller:v1.14.3@sha256:82917be97c0939f6ada1717bb39aa7e66c229d6cfb10dcfc8f1bd42f9efe0f81
 service:
   port: 80
-tls:
-  - secretName: ingress-tls
 {{- end -}}
 
 {{/* ------ Diagnostics Mode ------ */}}
@@ -123,6 +113,10 @@ dotNetTools:
   useCounters: false
   path: /app/dotnet-tools
   extractionBaseDir: /tmp
+copytoSftp:
+  useSftp: true
+copytoAzureBlob:
+  useAzureIdentityAuthentication: false
 netutils:
   enabled: false
   securityContext:
@@ -138,7 +132,6 @@ netutils:
         - ALL
       add: ["NET_ADMIN", "NET_RAW"]
 {{- end -}}
-
 
 {{/* ============================================================
      2. RPI CORE SERVICES (.NET)
@@ -156,16 +149,8 @@ rollout:
   revisionHistoryLimit: 3
 serviceAccount:
   enabled: true
-authentication:
-  type: basic
-  basic:
-    standard: false
-    forms: true
-    listenerQueue: true
-    recommendations: true
 enableHelpPages: true
 enableEventListening: true
-realtimeProcessingEnabled: true
 ThresholdBetweenSiteVisitsMinutes: 120
 ThresholdBetweenPageVisitsMinutes: 1
 CacheWebFormData: false
@@ -180,25 +165,71 @@ RealtimeServerCookieHttpOnly: false
 CacheOutputCollectIPAddress: true
 HashVisitorID: false
 EventListeningLocalCacheDuration: 60
+RPIVersion: "7.8"
+RealtimeAgentAddress: ""
+RealtimeAgentInProcessPath: ""
+SaveProfilePostDecisionResponse: false
+CachedAttributeLoadTimeoutMS: 0
+MessageHistoryProfileRecordLimit: 100
+MessageHistoryDaysInProfile: 365
+MaxNoEventMetadataInstances: 100
+NoMinsCacheSelectionResults: 60
+NoMinsCacheRecommendResults: 60
+RedPointMLServiceAddress: ""
+RedPointMLClientID: ""
+EnableProfileMergeEvents: true
+TrackProfileMergeInSourceProfile: true
+RegionLanguageCodeParameter: ""
+WebVisitorCacheDuration: 0
+MaxNoVisitorDevicesAllowed: 6
+CacheOutputExclusions: []
+parameterToDataMappings: []
+visitorViews: []
+queueListenerConfiguration: []
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  enabled: false
+  name: rpi-realtimeapi
+  portNumber: 80
+agentConfig:
+  traceLogEnabled: false
+  cachedSelectionRuleExpiry: 120
 dataMaps:
   visitorProfile:
+    Cache: ""
     DaysToPersist: 365
     CompressData: true
   visitorHistory:
+    Cache: ""
     DaysToPersist: 365
     CompressData: true
   nonVisitorData:
+    Cache: ""
     DaysToPersist: 365
-    CompressData: true
+    CompressData: false
   productRecommendation:
+    Cache: ""
     DaysToPersist: 365
-    CompressData: true
-  offerHistory:
-    DaysToPersist: 365
-    CompressData: true
+    CompressData: false
+  visitorBackup:
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
   messageHistory:
-    DaysToPersist: 365
-    CompressData: true
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
+  visitorReadonlyParameters:
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
+    KeySuffix: "_p"
+  offerHistory:
+    Cache: ""
+    DaysToPersist: 9999
+    CompressData: false
 idValidation:
   enableVisitorIDValidation: true
   visitorID:
@@ -243,6 +274,8 @@ logging:
     rpiTrace: Error
     rpiError: Error
     console: Error
+    microsoft: Error
+    microsoftHostingLifetime: Error
   realtimeapi:
     default: Error
     endpoint: Error
@@ -250,8 +283,8 @@ logging:
     plugins: Error
     other: Error
     console: "false"
+    nlogTarget: ""
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -281,7 +314,6 @@ queueProvider:
   rabbitmq:
     rabbitmqSettings:
       hostname: "rpi-realtimeapi-rabbitmq"
-      username: redpointrpi
       virtualhost: /
       resources:
         enabled: true
@@ -294,9 +326,6 @@ queueProvider:
       volumeClaimTemplates:
         enabled: true
         storage: 100Gi
-      volumes:
-        enabled: false
-        claimName: rpi-realtimeapi-rabbitmq-data
       podDisruptionBudget:
         enabled: false
         minAvailable: 1
@@ -313,9 +342,6 @@ cacheProvider:
       volumeClaimTemplates:
         enabled: true
         storage: 50Gi
-      podDisruptionBudget:
-        enabled: false
-        minAvailable: 1
 {{- end -}}
 
 {{/* ------ Callback API ------ */}}
@@ -341,7 +367,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -370,15 +395,27 @@ customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -388,7 +425,6 @@ autoscaling:
     serverAddress: ""
     useTriggerAuthentication: true
     authenticationRef: rpi-executionservice
-    identityId: ""
     metricName: execution_max_thread_count
     query: ""
     threshold: "80"
@@ -418,12 +454,11 @@ podDisruptionBudget:
 resources:
   enabled: true
 jobExecution:
-  internalAddress: ""
   auditTaskEvents: true
   maxThreadsPerExecutionService: 100
   executionShutdownWaitForActivity: "00:08:00"
   overrideCustomSQLReservedWords: false
-  maxSmartAssetInstancesForOfferCodes: "100000"
+  maxSmartAssetInstancesForOfferReporting: "100000"
   rpdmOApiPrefixUri: /v1/
   rpdmOApiRequestTimeout: "200"
   taskTimeout: 60
@@ -434,41 +469,62 @@ jobExecution:
     enabled: true
     maxConcurrentWorkflowActivities: 100
     maximumQueueTime: "24:00:00"
-  luxScisendRequestCount: 5
+  luxSci:
+    maxConcurrentApiRequestsPerAccount: 5
+    maxDegreeOfParallelism: 10
+    numberOfDaysToBacktrack: 30
+  persistTaskExecutionDetails: false
+  executionFilterRules:
+    jobRules: []
+    clients: []
 internalCache:
-  backupToOpsDBInterval: "00:00:20"
-  maxNumberRetries: "100"
+  maxNumberRetries: 100
   maxRetryDelay: "00:01:00"
-  failOnPrimaryDataLoss: true
   failOnCacheConnectionError: true
   redisSettings:
-    type: internal
-    replicas: 1
-    resources:
-      enabled: true
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        memory: 3Gi
-    volumeClaimTemplates:
-      enabled: true
-      storage: 100Gi
-    podDisruptionBudget:
-      enabled: false
-      minAvailable: 1
+    ipAddress: localhost
+  fileSystem:
+    OverrideDirectoryPath: false
+    DirectoryPathOverride: /rpifileoutputdirectory
 seedService:
   memoryCacheSize: "10"
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  enabled: false
+  name: rpi-executionservice
+  portNumber: 80
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+systemVariables: []
+internalQueues:
+  enabled: false
+  hostName: localhost
+  virtualHost: "/"
+  username: redpointrpi
+  port: 5672
+  isDurable: true
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+mercury:
+  enabled: false
+  address: ""
+  username: ""
 extraEnvs:
   - name: Plugins__LuxSci__IsSandboxMode
     enabled: false
     value: "true"
   - name: Plugins__SendGrid__EnableSandBoxMode
-    enabled: false
-    value: "true"
-  - name: Plugins__Twilio__DisableSendSMSCampaign
     enabled: false
     value: "true"
   - name: RPI_MPULSE_UPSERT_CONTACT_DEBUG
@@ -511,28 +567,70 @@ rollout:
 serviceAccount:
   enabled: true
 authMetaHttpEnabled: true
-enableSwagger: true
 allowSavingLoginDetails: true
 alwaysShowClientsAtLogin: true
-useExternalUserManagement: false
 service:
   port: 80
 customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 productUpdateFeed:
-  enabled: true 
+  enabled: true
   url: https://www.redpointglobal.com/feed/productfeed
+accessTokenLifetimeSeconds: 3600
+refreshTokenLifetimeSeconds: 36000
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  enabled: false
+  name: rpi-interactionapi
+  portNumber: 80
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+microsoftForceLogin: true
+mapControl:
+  enabled: false
+  provider: Bing
+weatherApi:
+  enabled: false
+  address: "https://dataservice.accuweather.com"
+systemVariables: []
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+mercury:
+  enabled: false
+  address: ""
+  username: ""
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -564,7 +662,6 @@ customMetrics:
   enabled: false
   prometheus_scrape: true
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
 logging:
   default: Error
   database: Error
@@ -572,7 +669,6 @@ logging:
   rpiError: Error
   Console: Error
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -601,15 +697,50 @@ customMetrics:
   enabled: false
   prometheus_scrape: false
 terminationGracePeriodSeconds: 120
-enableRPIAuthentication: true
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  enabled: false
+  name: rpi-nodemanager
+  portNumber: 80
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+systemVariables: []
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
+mercury:
+  enabled: false
+  address: ""
+  username: ""
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -634,9 +765,6 @@ serviceAccount:
   enabled: true
 service:
   port: 80
-customMetrics:
-  enabled: false
-  prometheus_scrape: false
 terminationGracePeriodSeconds: 120
 logging:
   default: Error
@@ -665,9 +793,7 @@ isEventProcessingEnabled: true
 isCacheProcessingEnabled: true
 queueListenerEnabled: true
 isCallbackServiceProcessingEnabled: true
-nonActiveQueuePath: listenerQueueNonActive
 listenerQueueNonActiveTTLDays: 14
-errorQueuePath: listenerQueueError
 listenerQueueErrorTTLDays: 14
 maintenanceModeBufferTime: "00:01:00"
 threadPoolSize: 10
@@ -682,10 +808,14 @@ seedService:
   memoryCacheSize: "10"
   maxNumberRetries: "100"
   maxRetryDelay: "00:01:00"
-realtimeConfiguration:
-  isDistributed: true
 internalCache:
-  backupToOpsDBInterval: "00:00:20"
+  maxNumberRetries: 100
+  maxRetryDelay: "00:01:00"
+  failOnCacheConnectionError: true
+  statePersistenceProvider: FileSystem
+  stateFileSystem:
+    overrideDirectoryPath: true
+    directoryPathOverride: /rpifileoutputdirectory
   redisSettings:
     replicas: 1
     resources:
@@ -704,8 +834,6 @@ internalCache:
 internalQueues:
   rabbitmqSettings:
     virtualhost: /
-    hostname: rpi-queuereader-rabbitmq
-    username: rabbitmq
     resources:
       enabled: true
       requests:
@@ -716,21 +844,50 @@ internalQueues:
     volumeClaimTemplates:
       enabled: true
       storage: 100Gi
-    volumes:
-      enabled: false
-      claimName: rpi-queuereader-rabbitmq-data
 customMetrics:
   enabled: false
   prometheus_scrape: true
 terminationGracePeriodSeconds: 120
+operationalDatabase:
+  maxRetryCount: 12
+  maxRetryDelay: "00:01:00"
+fileOutput:
+  allowClientOverrides: true
+  allowAllServerLocations: true
+serviceHost:
+  enabled: false
+  name: rpi-queuereader
+  portNumber: 80
+userManagement:
+  useNativeUserManagement: true
+  useExternalUserManagement: false
+systemVariables: []
+pubSub:
+  enabled: false
+  provider: Azure
+  azureSettings:
+    endpoint: ""
 logging:
   default: Error
   database: Error
   rpiTrace: Error
   rpiError: Error
   Console: Error
+  microsoft: Warning
+  microsoftHostingLifetime: Warning
+  newRelic:
+    enabled: false
+    httpsEndpoint: "https://log-api.newrelic.com/log/v1"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
+  loggly:
+    enabled: false
+    httpsEndpoint: "https://logs-01.loggly.com"
+    logLevelDefault: Information
+    rpiTrace: Error
+    rpiError: Information
 autoscaling:
-  enabled: false
   type: hpa
   minReplicas: 2
   maxReplicas: 5
@@ -742,7 +899,6 @@ podDisruptionBudget:
 resources:
   enabled: true
 {{- end -}}
-
 
 {{/* ============================================================
      3. SUPPORTING SERVICES
@@ -771,15 +927,11 @@ redisSettings:
       cpu: 3000m
   volumeClaimTemplates:
     enabled: false
-    type: dynamic
     size: 50Gi
     storageClassName: default
     accessModes: ReadWriteOnce
 service:
   port: 80
-customMetrics:
-  enabled: false
-  prometheus_scrape: false
 terminationGracePeriodSeconds: 120
 logging:
   default: Error
@@ -787,7 +939,6 @@ logging:
 resources:
   enabled: true
 {{- end -}}
-
 
 {{/* ============================================================
      4. SMART ACTIVATION SERVICES (Java)
@@ -1121,40 +1272,6 @@ volumeClaimTemplates:
 {{/* ============================================================
      5. UTILITY JOBS
      ============================================================ */}}
-
-{{/* ------ Post-Install Job ------ */}}
-{{- define "rpi.defaults.postInstall" -}}
-enabled: false
-existingSecret: ""
-activationKey: ""
-systemName: ""
-adminUsername: coreuser
-adminPassword: ""
-adminEmail: ""
-deploymentapiHost: rpi-deploymentapi
-deploymentapiPort: "80"
-waitTimeout: "360"
-maxReadyWaitSeconds: "600"
-pollIntervalSeconds: "15"
-backoffLimit: 3
-tenant:
-  enabled: false
-  name: ""
-  existingSecret: ""
-  dataWarehouse:
-    provider: SQLServer
-    server: ""
-    database: ""
-    username: ""
-    password: ""
-resources:
-  requests:
-    cpu: 50m
-    memory: 64Mi
-  limits:
-    cpu: 200m
-    memory: 128Mi
-{{- end -}}
 
 {{/* ------ Database Upgrade Job ------ */}}
 {{- define "rpi.defaults.databaseUpgrade" -}}

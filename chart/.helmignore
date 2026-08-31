@@ -4,7 +4,6 @@
 .DS_Store
 # Common VCS dirs
 .git/
-.gitignore
 .bzr/
 .bzrignore
 .hg/
@@ -21,3 +20,5 @@
 .idea/
 *.tmproj
 .vscode/
+# Test assets are local-only and never ship in the packaged chart.
+tests/

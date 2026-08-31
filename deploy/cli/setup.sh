@@ -20,7 +20,7 @@ set -euo pipefail
 OUTPUT_FILE="overrides.yaml"
 SECRETS_FILE="secrets.yaml"
 PREREQS_FILE="prereqs.sh"
-DEFAULT_TAG="7.7.20260220.1524"
+DEFAULT_TAG="7.8.20260828.906"
 DEFAULT_NAMESPACE="redpoint-rpi"
 DEFAULT_REGISTRY="rg1acrpub.azurecr.io/docker/redpointglobal/releases"
 SECRET_NAME="redpoint-rpi-secrets"
@@ -87,6 +87,7 @@ while getopts "o:a:fh" opt; do
       echo "    -f <file>        Overrides file to read configuration from (required)"
       echo "    -o <file>        Output secrets file (default: secrets.yaml)"
       echo "    -n <namespace>   Kubernetes namespace (default: ${DEFAULT_NAMESPACE})"
+      echo "    -c <chart-path>  Chart to render for secret discovery (default: ./chart)"
       echo ""
       echo "  Options for deploy:"
       echo "    -f <file>        Overrides file (required)"
@@ -217,6 +218,16 @@ gen_password() {
   else
     head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'
   fi
+}
+
+gen_uuid() {
+  local hex
+  if command -v openssl &> /dev/null; then
+    hex=$(openssl rand -hex 16)
+  else
+    hex=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+  fi
+  printf '%s-%s-%s-%s-%s' "${hex:0:8}" "${hex:8:4}" "${hex:12:4}" "${hex:16:4}" "${hex:20:12}"
 }
 
 # ============================================================
@@ -350,8 +361,6 @@ if [ "$FILE_MODE" = "true" ]; then
   _CFG[engine]=$(cfg '.features.redpoint_ai.deployment' '')
   _CFG[temp]=$(cfg '.features.redpoint_ai.temperature' '')
   _CFG[search_endpoint]=$(cfg '.features.redpoint_ai.search_endpoint' '')
-  _CFG[vector_profile]=$(cfg '.features.redpoint_ai.vector_profile' '')
-  _CFG[vector_config]=$(cfg '.features.redpoint_ai.vector_config' '')
   _CFG[embeddings_model]=$(cfg '.features.redpoint_ai.embeddings_model' '')
   _CFG[model_dims]=$(cfg '.features.redpoint_ai.model_dimensions' '')
   _CFG[container_name]=$(cfg '.features.redpoint_ai.container_name' '')
@@ -1054,14 +1063,12 @@ add_redpoint_ai() {
   local api_base api_version engine temp
   prompt api_base "OpenAI API base URL" "https://example.openai.azure.com/"
   prompt api_version "API version" "2023-07-01-preview"
-  prompt engine "ChatGPT engine/model" "gpt-5.1"
+  prompt engine "ChatGPT engine/model" "gpt-5.2"
   prompt temp "ChatGPT temperature (0.0–1.0)" "0.5"
   echo ""
-  echo "  ${BOLD}Azure Cognitive Search${RESET}"
-  local search_endpoint vector_profile vector_config
+  echo "  ${BOLD}Azure AI Search${RESET}"
+  local search_endpoint
   prompt search_endpoint "Search endpoint URL" "https://example.search.windows.net"
-  prompt vector_profile "Vector search profile" "vector-profile-000000000000"
-  prompt vector_config "Vector search config" "vector-config-000000000000"
   echo ""
   echo "  ${BOLD}Model Storage${RESET}"
   local embeddings_model model_dims container_name blob_folder
@@ -1086,8 +1093,6 @@ redpointAI:
     ChatGptTemp: ${temp}
   cognitiveSearch:
     SearchEndpoint: ${search_endpoint}
-    VectorSearchProfile: ${vector_profile}
-    VectorSearchConfig: ${vector_config}
   modelStorage:
     EmbeddingsModel: ${embeddings_model}
     ModelDimensions: ${model_dims}
@@ -1736,11 +1741,6 @@ add_extra_envs() {
   # SendGrid sandbox
   prompt_yesno yn "Enable SendGrid sandbox mode?" "n"
   envs="${envs}\n    - name: Plugins__SendGrid__EnableSandBoxMode\n      enabled: ${yn}\n      value: \"true\""
-  [ "$yn" = "true" ] && any_enabled=true
-
-  # Twilio disable SMS
-  prompt_yesno yn "Disable Twilio SMS campaigns?" "n"
-  envs="${envs}\n    - name: Plugins__Twilio__DisableSendSMSCampaign\n      enabled: ${yn}\n      value: \"true\""
   [ "$yn" = "true" ] && any_enabled=true
 
   # Locale
@@ -2404,8 +2404,71 @@ for k in keys:
 print(v if v is not None else '')" "$1" "$2"
 }
 
+# Derive the required application-secret keys from the rendered chart and prompt
+# for any value not already provided. The rendered manifests are the authoritative
+# source of secret requirements: every secretKeyRef bound to the application Secret
+# is a key the deployment needs. Requires the Helm CLI and the chart to render.
+discover_and_prompt_secret_keys() {
+  local overrides="$1" output="$2" namespace="$3" chart="$4" release="${5:-rpi}"
+
+  if ! command -v helm &>/dev/null; then
+    echo "  ${DIM}helm not found; skipping automatic secret-key discovery.${RESET}"; return 0
+  fi
+  if [ ! -d "$chart" ]; then
+    echo "  ${DIM}Chart not found at ${chart}; skipping automatic secret-key discovery (point at it with -c).${RESET}"; return 0
+  fi
+
+  # The app secret name the rendered chart will bind to (default redpoint-rpi-secrets).
+  local secret_name
+  secret_name=$(read_val "$overrides" "secretsManagement.kubernetes.secretName")
+  secret_name="${secret_name:-$SECRET_NAME}"
+
+  local rendered
+  if ! rendered=$(helm template "$release" "$chart" -f "$overrides" -n "$namespace" 2>/dev/null); then
+    echo "  ${DIM}Chart render failed; skipping automatic secret-key discovery.${RESET}"; return 0
+  fi
+
+  local required
+  required=$(printf '%s' "$rendered" | python3 -c "
+import sys, yaml
+want = sys.argv[1]
+keys = set()
+def walk(o):
+    if isinstance(o, dict):
+        skr = o.get('secretKeyRef')
+        if isinstance(skr, dict) and skr.get('name') == want and skr.get('key'):
+            keys.add(skr['key'])
+        for v in o.values(): walk(v)
+    elif isinstance(o, list):
+        for v in o: walk(v)
+for doc in yaml.safe_load_all(sys.stdin):
+    walk(doc)
+for k in sorted(keys): print(k)
+" "$secret_name")
+
+  [ -z "$required" ] && return 0
+
+  # Read the key list on fd 3 so prompt_secret's read still consumes the real
+  # stdin (the terminal) rather than the loop's input.
+  local prompted=false key _val
+  while IFS= read -r key <&3; do
+    [ -z "$key" ] && continue
+    # Skip keys already collected by the prompts above (they are in the secret file).
+    grep -qE "^  ${key}:" "$output" 2>/dev/null && continue
+    if [ "$prompted" = false ]; then
+      echo "  ${BOLD}Additional secrets required by your configuration${RESET}"
+      prompted=true
+    fi
+    prompt_secret _val "${key}"
+    echo "  ${key}: \"${_val}\"" >> "$output"
+    echo "    ${GREEN}✔ ${key} added${RESET}"
+  done 3<<< "$required"
+  [ "$prompted" = true ] && echo ""
+  return 0
+}
+
 cli_secrets() {
-  local overrides="$1" output="$2" namespace="$3"
+  local overrides="$1" output="$2" namespace="$3" chart="${4:-./chart}" release="${5:-rpi}"
 
   if [ -z "$overrides" ]; then
     echo "${RED}Error: -f <overrides-file> is required.${RESET}" >&2
@@ -2445,10 +2508,23 @@ cli_secrets() {
   secrets_provider="${secrets_provider:-kubernetes}"
   rt_enabled=$(read_val "$overrides" "realtimeapi.enabled")
   rt_enabled="${rt_enabled:-false}"
+  # Unset providers resolve to the chart's platform defaults.
   rt_cache_provider=$(read_val "$overrides" "realtimeapi.cacheProvider.provider")
-  rt_cache_provider="${rt_cache_provider:-mongodb}"
+  if [ -z "$rt_cache_provider" ]; then
+    case "$platform" in
+      google) rt_cache_provider="googlebigtable" ;;
+      *) rt_cache_provider="mongodb" ;;
+    esac
+  fi
   rt_queue_provider=$(read_val "$overrides" "realtimeapi.queueProvider.provider")
-  rt_queue_provider="${rt_queue_provider:-rabbitmq}"
+  if [ -z "$rt_queue_provider" ]; then
+    case "$platform" in
+      azure) rt_queue_provider="azureservicebus" ;;
+      amazon) rt_queue_provider="amazonsqs" ;;
+      google) rt_queue_provider="googlepubsub" ;;
+      *) rt_queue_provider="rabbitmq" ;;
+    esac
+  fi
 
   # Pre-fill database values from overrides if present
   local db_host db_user db_pulse db_logging
@@ -2469,7 +2545,7 @@ cli_secrets() {
     echo "  Ensure your vault contains the required secrets before deploying."
     echo ""
     echo "  ${BOLD}References:${RESET}"
-    echo "    Secrets guide:    https://github.com/RedPointGlobal/redpoint-rpi/blob/release/v7.7/docs/secrets-management.md"
+    echo "    Secrets guide:    https://github.com/RedPointGlobal/redpoint-rpi/blob/main/docs/secrets-management.md"
     echo "    Vault setup:      https://rpi-helm-assistant.redpointcdp.com (Automate tab)"
     echo ""
 
@@ -2566,7 +2642,7 @@ SECRETS_DB
   # --- Realtime API secrets ---
   if [ "$rt_enabled" = "true" ] || [ "$rt_enabled" = "True" ]; then
     local rt_auth_token rt_rabbitmq_pass rt_redis_pass qs_redis_pass qs_rabbitmq_pass
-    rt_auth_token=$(gen_password)
+    rt_auth_token=$(gen_uuid)
     rt_rabbitmq_pass=$(gen_password)
     rt_redis_pass=$(gen_password)
     qs_redis_pass=$(gen_password)
@@ -2649,6 +2725,32 @@ SECRETS_AUTO
     echo ""
   fi
 
+  # --- Execution Service internal-cache Azure Blob connection string ---
+  # Only prompt when executionservice.internalCache.provider is azureblob
+  # AND useCloudIdentity is false. The connection string lands in the
+  # shared K8s Secret as ExecutionService_AzureBlob_ConnectionString;
+  # the chart reads it via secretKeyRef. When useCloudIdentity is true,
+  # the pod authenticates via Workload Identity and no secret is needed.
+  local exec_internal_cache_provider exec_use_cloud_identity
+  exec_internal_cache_provider=$(read_val "$overrides" "executionservice.internalCache.provider")
+  exec_use_cloud_identity=$(read_val "$overrides" "executionservice.internalCache.azureStorageSettings.useCloudIdentity")
+  exec_use_cloud_identity="${exec_use_cloud_identity:-false}"
+  if [ "$exec_internal_cache_provider" = "azureblob" ] \
+     && [ "$exec_use_cloud_identity" != "true" ] \
+     && [ "$exec_use_cloud_identity" != "True" ]; then
+    echo "  ${BOLD}Execution Service internal cache (Azure Blob)${RESET}"
+    local exec_azure_blob_conn
+    read -rsp "    Connection string: " exec_azure_blob_conn
+    echo ""
+
+    cat >> "$output" << SECRETS_EXEC_AZBLOB
+  # -- Execution Service internal cache (Azure Blob) --
+  ExecutionService_AzureBlob_ConnectionString: "${exec_azure_blob_conn}"
+SECRETS_EXEC_AZBLOB
+    echo "  ${GREEN}✔ Execution Service Azure Blob secret added${RESET}"
+    echo ""
+  fi
+
   # --- Rebrandly secrets ---
   local rebrandly_enabled_k8s
   rebrandly_enabled_k8s=$(read_val "$overrides" "rebrandly.enabled")
@@ -2688,6 +2790,11 @@ SECRETS_SMTP
       echo "  ${YELLOW}Skipped. Add SMTP_Password to the secret manually if SMTP authentication is needed.${RESET}"
     fi
     echo ""
+  fi
+
+  # --- Application-secret keys required by the rendered chart ---
+  if [ "$secrets_provider" = "kubernetes" ]; then
+    discover_and_prompt_secret_keys "$overrides" "$output" "$namespace" "$chart" "$release"
   fi
 
   # --- Custom CA certificate ---
@@ -3316,7 +3423,7 @@ elif [ "${CLI_COMMAND:-}" = "troubleshoot" ]; then
   cli_troubleshoot "$CLI_NAMESPACE" "$CLI_SYMPTOM"
   exit 0
 elif [ "${CLI_COMMAND:-}" = "secrets" ]; then
-  cli_secrets "$CLI_OVERRIDES" "$CLI_SECRETS_OUT" "$CLI_NAMESPACE"
+  cli_secrets "$CLI_OVERRIDES" "$CLI_SECRETS_OUT" "$CLI_NAMESPACE" "$CLI_CHART" "$CLI_RELEASE"
   exit 0
 elif [ "${CLI_COMMAND:-}" = "deploy" ]; then
   cli_deploy "$CLI_OVERRIDES" "$CLI_NAMESPACE" "$CLI_CHART" "$CLI_DRY_RUN" "$CLI_RELEASE"
@@ -3630,7 +3737,7 @@ QS_RABBITMQ_PASSWORD=""
 
 QUEUE_PREFIX=""
 if [ "$REALTIME_ENABLED" = "true" ]; then
-  RT_AUTH_TOKEN=$(gen_password)
+  RT_AUTH_TOKEN=$(gen_uuid)
   RT_RABBITMQ_PASSWORD=$(gen_password)
   RT_REDIS_CACHE_PASSWORD=$(gen_password)
   QS_REDIS_PASSWORD=$(gen_password)
@@ -3950,17 +4057,6 @@ ${CACHE_EXTRA}
 ${QUEUE_EXTRA}
 YAML
 fi
-
-# Pre-flight
-cat >> "$OUTPUT_FILE" << YAML
-
-# ----------------------------------------------------------
-#  Pre-flight Validation
-# ----------------------------------------------------------
-preflight:
-  enabled: true
-  mode: test
-YAML
 
 # ============================================================
 # Data Warehouse — write block collected during step 3b

@@ -29,7 +29,6 @@ metadata:
     {{- include "smartactivation.componentLabels" (dict "root" . "name" $name "component" "messaging") | nindent 4 }}
 data:
   rabbitmq.conf: |
-    # Default RabbitMQ configuration
     listeners.tcp.default = 5672
     management.listener.port = 15672
     loopback_users.guest = false

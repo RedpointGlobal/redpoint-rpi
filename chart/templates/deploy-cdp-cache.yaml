@@ -48,7 +48,7 @@ data:
     appendonly yes
     appendfsync everysec
 
-    # Limit max memory if you want eviction behavior — uncomment & set:
+    # Limit max memory if you want eviction behavior - uncomment & set:
     # maxmemory 2gb
     # maxmemory-policy allkeys-lru
 

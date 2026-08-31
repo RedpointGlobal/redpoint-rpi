@@ -22,13 +22,13 @@ global:
     images:
       registry: rg1acrpub.azurecr.io/docker/redpointglobal/releases
       # RPI version: <major.minor>.<year>-<MMDD>-<HHMM>
-      tag: "7.7.20260818.833"
+      tag: "7.8.20260828.906"
       imagePullPolicy: Always
       imagePullSecret:
         enabled: true
         name: redpoint-rpi
-      # To override the utility image (net-utils) used by jobs and validation pods,
-      # use images.overrides or images.nameOverrides. Defaults to {registry}/net-utils:latest.
+      # net-utils image (used by the database-upgrade job). Default
+      # {registry}/net-utils:{tag}. Override via overrides or nameOverrides below.
       # Image resolution priority: overrides > nameOverrides > default ({registry}/{service-name}:{tag})
       #
       # overrides: Full URI per service, used verbatim (no registry/tag appended).
@@ -131,12 +131,72 @@ databases:
   operational:
     # Supported: sqlserver, postgresql, sqlserveronvm
     provider: sqlserver
+    # Cloud SQL for PostgreSQL authenticated via GKE Workload Identity
+    # (Application Default Credentials) instead of username/password.
+    # Requires provider=postgresql, platform=google, and cloudIdentity
+    # enabled; not combinable with cloudSqlProxy.
+    googleWorkloadIdentity: false
     server_host: <my-database-server-host>
     server_username: <my-database-server-username>
     server_password: <my-database-server-password>
     pulse_database_name: <my-pulse-database-name>
     pulse_logging_database_name: <my-logging-database-name>
+    # Schema the Deployment API uses within the operational database.
+    databaseSchema: "dbo"
     encrypt: true
+
+    # Google Cloud SQL Auth Proxy (GKE only; PostgreSQL or SQL Server).
+    # When enabled, pods reach the operational database through a co-located
+    # Cloud SQL Auth Proxy instead of connecting to the instance directly.
+    #
+    # Enable only when global.deployment.platform=google, provider is postgresql
+    # or sqlserver, and secretsManagement.provider=sdk (the render fails otherwise).
+    #
+    # All connection values come from your vault. Set the operational database
+    # host to 127.0.0.1 and the port to cloudSqlProxy.port (default 5432 for
+    # postgresql, 1433 for sqlserver).
+    #
+    # SQL Server gotchas (apply if provider=sqlserver):
+    #   * Set `databases.operational.encrypt: false` in your overrides. The default
+    #     is `true`, which makes Microsoft.Data.SqlClient negotiate TLS during
+    #     pre-login. The loopback proxy is plaintext and SqlClient bails with
+    #     "an error occurred during the pre-login handshake". Encryption on the
+    #     wire is still handled by the proxy → Cloud SQL leg via mTLS.
+    #   * Use comma-port syntax: `Server=tcp:127.0.0.1,1433` (NOT `:1433`). The
+    #     colon form fails to parse and the proxy log will show zero connections.
+    #   * Cloud SQL for SQL Server does NOT support IAM DB auth via the proxy.
+    #     Leave `autoIamAuthn: false` and put a real SQL login/password in the vault.
+    #   * Vault `ConnectionStrings--*` entries should include
+    #     `Encrypt=False;TrustServerCertificate=True;` for the same reason as #1.
+    cloudSqlProxy:
+      enabled: false
+      # Required when enabled: "<project>:<region>:<instance>"
+      connectionName: ""
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.2
+      # Local port the proxy listens on. Defaults per engine: 5432 for
+      # postgresql, 1433 for sqlserver. Override here if needed.
+      # port: 5432
+      # Use the Cloud SQL instance's private IP (requires VPC peering between GKE and Cloud SQL).
+      privateIp: true
+      # Use IAM database authentication instead of password auth. PostgreSQL only;
+      # ignored for SQL Server (Cloud SQL for SQL Server has no IAM DB auth via the
+      # proxy). When true, connections authenticate as
+      # cloudIdentity.google.serviceAccountEmail with no password. The service
+      # account must be registered as a Cloud SQL IAM user:
+      #   gcloud sql users create <sa-email> --type=cloud_iam_service_account ...
+      autoIamAuthn: false
+      # Graceful shutdown window; proxy drains connections before exiting.
+      terminationGracePeriod: "30s"
+      # Authentication mode is auto-detected:
+      # - Workload Identity (default): the pod's service account must be bound to
+      #   a GCP service account with roles/cloudsql.client. No key file.
+      # - Service-account key file: used when cloudIdentity.google.configMapName is
+      #   set, reusing the platform-wide Google service account key.
+      resources:
+        requests: { cpu: 50m, memory: 64Mi }
+        limits:   { cpu: 200m, memory: 256Mi }
+      # Extra CLI args appended to the proxy command (e.g., ["--structured-logs", "--debug"]).
+      additionalArgs: []
 
   # ==========================
   # Data Warehouse Providers
@@ -146,6 +206,24 @@ databases:
     # BigQuery
     bigquery:
       enabled: false
+      # One entry per BigQuery connection. Choose how each connection
+      # authenticates with credentialsType:
+      #
+      #   serviceAccount  - authenticate with a Google service account key.
+      #     Provide serviceAccountEmail and the key file (configMapName,
+      #     keyName, ConfigMapFilePath). Choose this when the pods cannot use
+      #     Workload Identity, for example when RPI runs on Azure and connects
+      #     to BigQuery on Google Cloud.
+      #
+      #   workloadIdentity - authenticate with Workload Identity, no key file.
+      #     Choose this when running on GKE with Workload Identity configured
+      #     (set cloudIdentity.google.serviceAccountEmail and leave
+      #     cloudIdentity.google.configMapName empty). Omit serviceAccountEmail,
+      #     configMapName and keyName on the connection.
+      #
+      # OAuthMechanism is the BigQuery ODBC driver's authentication mode: use 0
+      # for a service account key, and your driver's Application Default
+      # Credentials value (typically 3) for Workload Identity.
       connections:
         - name: gbq-tenant1
           projectId: gbq-tenant1
@@ -159,6 +237,13 @@ databases:
           allowLargeResults: 0
           largeResultsDataSetId: _bqodbc_temp_tables
           largeResultsTempTableExpirationTime: "3600000"
+        # Workload Identity (keyless) connection:
+        # - name: gbq-tenant1
+        #   projectId: gbq-tenant1
+        #   sqlDialect: 1
+        #   OAuthMechanism: 3
+        #   credentialsType: workloadIdentity
+        #   allowLargeResults: 0
 
     # Snowflake
     snowflake:
@@ -208,9 +293,18 @@ cloudIdentity:
   google:
     serviceAccountEmail: my-google-svs-account@my-project.iam.gserviceaccount.com
     projectId: your_google_project_id
-    # ConfigMap containing the service account JSON credentials file
+    # Name of the ConfigMap containing a Google service account key file.
+    #
+    # Leave empty ("") to authenticate to Google Cloud services (Cloud SQL,
+    # BigQuery, Pub/Sub, Bigtable) with Workload Identity - no key file
+    # required (recommended on GKE).
+    # Set this to your ConfigMap name only if your deployment authenticates
+    # with a mounted service account key instead of Workload Identity; the
+    # default value below keeps that key-file behaviour.
     configMapName: my-google-svs-account
+    # Filename of the key inside the ConfigMap. Used only when configMapName is set.
     keyName: my-google-svs-account.json
+    # Directory the key file is mounted into. Used only when configMapName is set.
     configMapFilePath: /app/google-creds
   # --- Amazon IRSA / Access Keys ---
   amazon:
@@ -243,14 +337,19 @@ secretsManagement:
   # SDK - App reads from cloud vault directly (provider: sdk)
   # --------------------------------------------------------
   sdk:
+    # Cloud-vault behavior in SDK mode. Both are overridable on any cloud:
+    #   useForAppSettings - read app settings (incl. the database connection)
+    #     from the vault. Default true; keep true in SDK mode.
+    #   useForConfigPasswords - store RPI config passwords in the vault.
+    #     Default true on azure/amazon; false on google (Google Secret Manager
+    #     rejects empty secret values, so an unset credential fails
+    #     provisioning) - on google they are kept in the operational database.
     azure:
       vaultUri: https://myvault.vault.azure.net/
       configurationReloadIntervalSeconds: 30
       useADTokenForDatabaseConnection: true
     amazon:
       secretTagKey: ""
-    google:
-      projectId: ""
   # --------------------------------------------------------
   # CSI - CSI driver syncs vault to K8s Secret (provider: csi)
   # Pods consume secrets via secretKeyRef (same as kubernetes mode)
@@ -264,7 +363,7 @@ secretsManagement:
     # When set to deploymentapi, the Deployment API pod mounts the CSI volume on
     # startup, which triggers the CSI driver to sync secrets from the vault into
     # the K8s Secret. No validation pods needed. All other service pods read from
-    # the K8s Secret via secretKeyRef as usual.
+    # the K8s Secret as usual.
     syncService: none
     # SecretProviderClass definitions
     secretProviderClasses:
@@ -420,6 +519,14 @@ realtimeapi:
   enabled: true
   replicas: 1
   rpiClientID: 00000000-0000-0000-0000-000000000000
+  # Per-client Realtime API address overrides (multitenant only; requires
+  # realtimeapi.multitenant=true). Each entry routes one client (tenant) to a
+  # specific Realtime API base address; clients not listed use the
+  # cluster-wide address.
+  clientAddressOverrides: []
+  # clientAddressOverrides:
+  #   - clientId: 00000000-0000-0000-0000-000000000000
+  #     address: https://realtime-eu.example.com
   authentication:
     # Supported: basic, oauth
     type: basic
@@ -429,18 +536,77 @@ realtimeapi:
       listenerQueue: true
       recommendations: true
     oauth:
-      databaseName: RPIRealtimeCore
       accessTokenLifetimeSeconds: 360
       refreshTokenLifetimeSeconds: 360
   CORSOrigins: ["*"]
+  # Realtime server visitor cookie (defaults shown; uncomment to override).
+  # RealtimeServerCookieDomain is optional: unset leaves the cookie host-only.
+  # RealtimeServerCookieEnabled: false
+  # RealtimeServerCookieName: rg-visitor
+  # RealtimeServerCookieExpires: 60
+  # RealtimeServerCookieHttpOnly: false
+  # RealtimeServerCookieDomain: ".example.com"
+
+  # Geolocation settings for real-time weather / location enrichment.
+  # Disabled by default. When enabled, the settings below are applied AND the
+  # provider APIKey becomes required: supply it via the shared RPI Secret key
+  # `RealtimeAPI_Geolocation_APIKey` (kubernetes/csi) or the cloud vault (sdk).
+  # Enabling the feature without that key makes the Realtime API pod fail fast
+  # (by design). To use your own provider instead of native Azure, author a
+  # plugin and set pluginAssembly / pluginType / pluginSettings (and the ipLookup
+  # equivalents).
+  geolocation:
+    enabled: false
+    # Supported: Azure (native), or a custom provider via the plugin fields below
+    provider: Azure
+    # Supported: imperial, metric
+    weatherUnits: imperial
+    coordsCacheTimespanMinutes: 10
+    # Custom geolocation provider plugin (leave blank to use the native provider)
+    pluginAssembly: ""
+    pluginType: ""
+    # Plugin settings as a list of key/value pairs, e.g.:
+    #   pluginSettings:
+    #     - key: Endpoint
+    #       value: "https://..."
+    pluginSettings: []
+    # Optional IP-address-based geolocation lookup
+    ipLookup:
+      enableGeoIPLookup: false
+      coordsCacheTimespanMinutesIPLookup: 30
+      pluginAssembly: ""
+      pluginType: ""
+      pluginSettings: []
+
+  # Identity settings: how a known visitor's profile is keyed once they identify
+  # themselves (via querystring, a cached attribute list, or a Realtime cache offer).
+  identitySettings:
+    # Principal key used to identify a known visitor's profile. e.g. with
+    # masterKeyName "CustomerKey", ?CustomerKey=12345 keys the profile on
+    # CustomerKey=12345. Blank leaves the visitor keyed on the RPI-assigned GUID.
+    masterKeyName: ""
+    # Alternative names the master key may appear under (e.g. "CK" for "CustomerKey").
+    masterKeyAliases: []
+    # Additional keys that can also identify a visitor. Linked to the master key
+    # via a querystring carrying both, or a populated Realtime cache.
+    alternativeKeys: []
+    # Merge querystring parameters / cached-attribute-list attributes into the profile.
+    mergeParameters: true
+    mergeCALAttributes: true
+    # Parameter / CAL attribute names to exclude from the merge, e.g.:
+    #   parameterMergeExclusions:
+    #     - utm_source
+    parameterMergeExclusions: []
+    calMergeExclusions: []
 
   # Real-Time Cache Provider
   cacheProvider:
     enabled: true
     # Supported: mongodb, azureredis, redis, inMemorySql, googlebigtable
+    # Empty resolves to the platform default: google -> googlebigtable,
+    # azure/amazon/selfhosted -> mongodb.
     provider: ""
     mongodb:
-      connectionString: mongodb://<my_username>:<my_password>@myserver.mongodb.net:27017/Pulse?authSource=admin&ssl=true
       databaseName: <my-realtime-cache-db>
       collectionName: <my-realtime-cache-collection>
       # Authentication mechanism for MongoDB Atlas.
@@ -454,13 +620,6 @@ realtimeapi:
       #             Prerequisites:
       #               1. Add the IAM role ARN as a database user in Atlas (Database Access → AWS IAM)
       #               2. The IAM role needs a trust policy for your EKS cluster's OIDC provider
-      #               3. Create a pod identity association:
-      #                  aws eks create-pod-identity-association \
-      #                    --cluster-name <cluster> --namespace <namespace> \
-      #                    --service-account <sa-name> --role-arn <role-arn>
-      #             The connection string still goes through the secret (CLI prompts for it)
-      #             but uses authMechanism=MONGODB-AWS instead of credentials.
-      #             Example: mongodb+srv://cluster0.abc123.mongodb.net/test?authSource=%24external&authMechanism=MONGODB-AWS
       authMechanism: default
       # IAM role ARN for MONGODB-AWS authentication (only used when authMechanism: iamRole)
       roleArn: ""
@@ -469,14 +628,6 @@ realtimeapi:
     redis:
       # internal: chart-managed Redis | external: BYO Redis
       type: internal
-      redisSettings:
-        # Required if type=external
-        connectionString: "my-redis-host:6379,password=<your-password>,abortConnect=False"
-    inMemorySql:
-      server_host: <my-cache-database-server-host>
-      database_name: <my-cache-database-name>
-      username: <my-cache-database-username>
-      password: <my-cache-database-password>
     googlebigtable:
       projectId: <my-bigtable-project-id>
       instanceId: <my-bigtable-instance-id>
@@ -485,6 +636,8 @@ realtimeapi:
   queueProvider:
     enabled: true
     # Supported: amazonsqs, azureservicebus, googlepubsub, azureeventhubs, rabbitmq, azurestorage, amazonmsk
+    # Empty resolves to the platform default: azure -> azureservicebus,
+    # amazon -> amazonsqs, google -> googlepubsub, selfhosted -> rabbitmq.
     provider: ""
     queueNames:
       formQueuePath: RPIWebFormSubmission
@@ -496,27 +649,21 @@ realtimeapi:
     amazonsqs:
       # Supported: accessKey (configure keys under cloudIdentity.amazonSettings)
       credentialsType: accessKey
-    azureservicebus:
-      connectionstring: Endpoint=sb://<my-namespace>.servicebus.windows.net/;SharedAccessKeyName=<my-policy>;SharedAccessKey=<my-key>
     azurestorage:
-      connectionString: DefaultEndpointsProtocol=https;AccountName=myAccoutName;AccountKey=myAccountAccessKey;EndpointSuffix=core.windows.net
       storageAccountName: myStorageAccountName
       useAzureIdentityAuthentication: false
     googlepubsub:
       projectId: <my-google-project-id>
     azureeventhubs:
-      connectionstring: Endpoint=sb://<my-namespace>.servicebus.windows.net/;SharedAccessKeyName=<my-policy>;SharedAccessKey=<my-key>;EntityPath=<my-hub>
       eventHubName: RPIQueueListener
       NamespaceName: my_eventhub_namespace_name
       PartitionIds:
         - "0"
     rabbitmq:
       # internal: chart-managed RabbitMQ | external: BYO RabbitMQ
+      # rabbitmqSettings.username defaults to the release namespace; set to override.
       type: internal
     amazonmsk:
-      region: <my-aws-region>
-      accessKeyId: <my-aws-iam-access-key>
-      secretAccessKey: <my-aws-iam-secret-access-key>
       bootstrapServers: <my-server1.c2.kafka.us-east-1.amazonaws.com:9198>
 
   # Custom Realtime plugins (see docs/plugins.md for examples)
@@ -526,6 +673,25 @@ realtimeapi:
 
   autoscaling:
     enabled: false
+
+  # RedPoint ML scoring integration. Leave blank to keep it disabled.
+  RedPointMLServiceAddress: ""
+  RedPointMLClientID: ""
+  # Visitor profile merge behaviour.
+  EnableProfileMergeEvents: true
+  TrackProfileMergeInSourceProfile: true
+  # File output written by the service. Directory comes from the
+  # FileOutputDirectory persistent volume claim when enabled.
+  fileOutput:
+    allowClientOverrides: true
+    allowAllServerLocations: true
+  # Realtime agent runtime.
+  agentConfig:
+    traceLogEnabled: false
+    cachedSelectionRuleExpiry: 120
+  # Passthrough lists, empty by default. See docs/values_reference.yaml for the
+  # object shape of each: CacheOutputExclusions, parameterToDataMappings,
+  # visitorViews, queueListenerConfiguration.
 
 # ==========================
 # Callback API
@@ -555,20 +721,42 @@ executionservice:
   # Internal cache for execution state
   internalCache:
     enabled: true
-    # Supported: default, filesystem, azureblob
+    # Supported: filesystem, azureblob
     provider: filesystem
-    # Redis settings (when provider=default or for state caching)
-    redisSettings:
-      # internal: chart-managed Redis | external: BYO Redis
-      type: internal
-      # Required if type=external
-      connectionString: "my-redis-host:6379,password=<your-password>,abortConnect=False"
     # Azure Blob settings (when provider=azureblob)
     azureStorageSettings:
       accountName: my_storage_account_name
       containerName: rpi
       connectionString: DefaultEndpointsProtocol=https;AccountName=<myAccoutName;AccountKey=<myAccountAccessKey;EndpointSuffix=core.windows.net
       useCloudIdentity: false
+  # Optional external integrations. Disabled by default; enable and populate
+  # the paired Secret key (see secrets-management.md) to activate.
+  # Internal RabbitMQ broker. Password: shared Secret key QueueService_RabbitMQ_Password
+  internalQueues:
+    enabled: false
+    hostName: localhost
+    virtualHost: "/"
+    username: redpointrpi
+    port: 5672
+    isDurable: true
+  # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
+  pubSub:
+    enabled: false
+    provider: Azure
+    azureSettings:
+      endpoint: ""
+  # Mercury integration. Password: shared Secret key Mercury_Password
+  mercury:
+    enabled: false
+    address: ""
+    username: ""
+  logging:
+    # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
+    newRelic:
+      enabled: false
+    # Loggly log forwarding. ApiKey: shared Secret key Loggly_ApiKey
+    loggly:
+      enabled: false
   autoscaling:
     enabled: false
     # Supported: hpa, keda (KEDA is recommended for execution service)
@@ -581,6 +769,53 @@ interactionapi:
   enabled: true
   replicas: 1
   enableRPIAuthentication: true
+  # Native-auth password policy, enforced when users are created or change
+  # their password. The Interaction API is the identity provider; the policy
+  # also applies on the Integration API (both share one user store).
+  passwordPolicy:
+    requiredLength: 6
+    requiredUniqueChars: 1
+    requireDigit: true
+    requireNonAlphanumeric: true
+    requireLowercase: true
+    requireUppercase: true
+  # Account lockout after repeated failed sign-in attempts. Optional: when a
+  # key is unset the application default applies. lockoutTimeSpan is a .NET
+  # TimeSpan, e.g. "00:05:00" for five minutes.
+  accountLockout: {}
+    # maxFailedAccessAttempts: 5
+    # lockoutTimeSpan: "00:05:00"
+  # Native-auth token lifetimes (seconds)
+  accessTokenLifetimeSeconds: 3600
+  refreshTokenLifetimeSeconds: 36000
+  # RPI Client map control. ApplicationId: shared Secret key MapControl_ApplicationId
+  mapControl:
+    enabled: false
+    provider: Bing
+  # RPI Client weather lookup. APIKey: shared Secret key Weather_ApiKey
+  weatherApi:
+    enabled: false
+    address: "https://dataservice.accuweather.com"
+  # Optional external integrations. Disabled by default; enable and populate
+  # the paired Secret key (see secrets-management.md) to activate.
+  # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
+  pubSub:
+    enabled: false
+    provider: Azure
+    azureSettings:
+      endpoint: ""
+  # Mercury integration. Password: shared Secret key Mercury_Password
+  mercury:
+    enabled: false
+    address: ""
+    username: ""
+  logging:
+    # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
+    newRelic:
+      enabled: false
+    # Loggly log forwarding. ApiKey: shared Secret key Loggly_ApiKey
+    loggly:
+      enabled: false
   autoscaling:
     enabled: false
 
@@ -604,6 +839,26 @@ nodemanager:
   enabled: true
   replicas: 1
   enableRPIAuthentication: true
+  # Optional external integrations. Disabled by default; enable and populate
+  # the paired Secret key (see secrets-management.md) to activate.
+  # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
+  pubSub:
+    enabled: false
+    provider: Azure
+    azureSettings:
+      endpoint: ""
+  # Mercury integration. Password: shared Secret key Mercury_Password
+  mercury:
+    enabled: false
+    address: ""
+    username: ""
+  logging:
+    # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
+    newRelic:
+      enabled: false
+    # Loggly log forwarding. ApiKey: shared Secret key Loggly_ApiKey
+    loggly:
+      enabled: false
   autoscaling:
     enabled: false
 
@@ -613,6 +868,15 @@ nodemanager:
 deploymentapi:
   enabled: true
   replicas: 1
+  # OIDC authentication for the Deployment API endpoints. Disabled by default.
+  # When enabled, all four values below are required (the render fails if any
+  # is missing); there are no defaults.
+  authentication:
+    enabled: false
+    # issuer: https://login.example.com/realms/rpi
+    # hostAddress: https://deployment.example.com
+    # audience: rpi-deploymentapi
+    # clientId: rpi-deploymentapi
   # Use exported tenant template files for new tenant creation
   templateTenant:
     useTemplateFiles: false
@@ -628,28 +892,31 @@ queuereader:
   realtimeConfiguration:
     # Enable distributed processing for high-volume transactions
     isDistributed: false
-  # Internal cache for distributed processing (top-level, not nested under realtimeConfiguration)
-  internalCache:
-    provider: redis
-    # internal: chart-managed Redis | external: BYO Redis
-    type: internal
-    redisSettings:
-      # Required if type=external
-      connectionString: "my-redis-host:6379,password=<your-password>,abortConnect=False"
+    # RPI client IDs for this cluster
+    # tenantIds:
+    #   - <client-guid>
   # Internal queue for distributed processing
   internalQueues:
-    provider: rabbitmq
-    # internal: chart-managed RabbitMQ | external: BYO RabbitMQ
-    type: internal
     rabbitmqSettings:
-      hostname: "rpi-queuereader-rabbitmq"
-      username: redpointrpi
-      password: my_Super_Strong_Pwd
-    # RPI client IDs for this cluster
-    tenantIds:
-      - 00000000-0000-0000-0000-000000000000
-  errorQueuePath: listenerQueueError 
+      # username defaults to the release namespace; set to override.
+      username: ""
+  errorQueuePath: listenerQueueError
   nonActiveQueuePath: listenerQueueNonActive
+  # Optional external integrations. Disabled by default; enable and populate
+  # the paired Secret key (see secrets-management.md) to activate.
+  # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
+  pubSub:
+    enabled: false
+    provider: Azure
+    azureSettings:
+      endpoint: ""
+  logging:
+    # New Relic log forwarding. ApiKey: shared Secret key NewRelic_ApiKey
+    newRelic:
+      enabled: false
+    # Loggly log forwarding. ApiKey: shared Secret key Loggly_ApiKey
+    loggly:
+      enabled: false
   autoscaling:
     enabled: false
 
@@ -659,20 +926,16 @@ queuereader:
 rebrandly:
   enabled: false
   apiKey: my_rebrandly_api_key
-  secretName: rpi-rebrandly
   redisSettings:
-    # internal: chart-managed Redis | external: BYO Redis
+    # internal: chart-managed Redis | external: BYO Redis. For external, populate
+    # the shared Secret key Rebrandly_Redis_Password (sdk mode resolves it from
+    # the vault); useAzureCredentials=true uses Azure identity instead.
     type: internal
-    # External Redis settings (if type=external)
+    # External Redis endpoint (if type=external)
     hostname: rpi-rebrandly-cache
-    username: my_redis_username
-    password: my_redis_password
     useAzureCredentials: false
     port: 6379
 
-# ==========================
-# Diagnostics Mode
-# ==========================
 diagnosticsMode:
   copytoAzureBlob:
     enabled: false
@@ -682,12 +945,16 @@ diagnosticsMode:
     blobServiceEndpoint: https://yourstorage.blob.core.windows.net
     enableCdn: false
     UseDataLakeStorageGen2: false
+    # Use the pod's managed identity instead of the access key
+    useAzureIdentityAuthentication: false
   copytoSftp:
     enabled: false
     sftpHost: <your-sftp-host>
     sftpUsername: <your-sftp-username>
     sftpPassword: <your-sftp-password>
     sftpPort: "22"
+    # Transfer diagnostics over SFTP rather than plain FTP
+    useSftp: true
 
 # ==========================
 # Microsoft Entra ID Authentication
@@ -800,8 +1067,7 @@ serviceMesh:
   #   networks:
   #     - cidr: 10.0.0.0/8
   #
-  # Linkerd Server CRDs for L7 traffic policy.
-  # Each server creates a Server + AuthorizationPolicy + NetworkAuthentication.
+  # L7 traffic policy per service.
   # podSelector is auto-derived from the name if not set (e.g., name "aks-rpi-realtimeapi"
   # produces podSelector app.kubernetes.io/name: rpi-realtimeapi).
   # Per-server values override serverDefaults.
@@ -910,14 +1176,18 @@ redpointAI:
     ChatGptEngine: gpt-5.2
     ChatGptTemp: 0.5
   cognitiveSearch:
+    # RPI creates and uses the vector-search profile + config dynamically
+    # when it generates the index (SQL Database Definition > Update AI
+    # Model); no client-facing setting is required for them.
     SearchEndpoint: https://example.search.windows.net
-    VectorSearchProfile: vector-profile-000000000000
-    VectorSearchConfig: vector-config-000000000000
   modelStorage:
     EmbeddingsModel: text-embedding-ada-002
     ModelDimensions: 1536
     ContainerName: my_blob_container_name
     BlobFolder: my_blob_container_folder_name
+  logging:
+    # Verbose NLP request/response tracing for diagnostics. Off by default.
+    enableTrace: false
 
 # ==========================
 # Smart Activation
@@ -1008,45 +1278,7 @@ customAnnotations: {}
 # Custom Metrics
 # ==========================
 # Enable Prometheus scrape annotations on all RPI service pods.
-# When enabled, each pod gets prometheus.io/scrape, /port, and /path annotations.
+# When enabled, RPI service pods advertise Prometheus scrape annotations so an
+# external Prometheus can discover and scrape them.
 customMetrics:
   enabled: false
-
-# ==========================
-# Post-Install Automation
-# ==========================
-# Automates license activation, cluster DB install, and optional tenant creation.
-# Runs as a Helm post-install hook (and ArgoCD PostSync).
-postInstall:
-  enabled: false
-  # Use an existing K8s secret instead of inline values
-  # Keys: activation-key, admin-password, admin-username, admin-email
-  # existingSecret: ""
-  activationKey: ""
-  systemName: ""
-  adminUsername: "coreuser"
-  adminPassword: ""
-  adminEmail: ""
-  tenant:
-    enabled: false
-    name: ""
-    # existingSecret: ""  # Keys: dw-server, dw-database, dw-username, dw-password
-    dataWarehouse:
-      provider: SQLServer
-      server: ""
-      database: ""
-      username: ""
-      password: ""
-  waitTimeout: 360
-  backoffLimit: 3
-
-# ==========================
-# Pre-flight Validation
-# ==========================
-# Validates configuration before deployment:
-#   DNS resolution, DB connectivity, cloud identity, secrets management.
-# mode: test     -> runs with `helm test rpi`
-# mode: preInstall -> blocks install on failure
-preflight:
-  enabled: false
-  mode: test

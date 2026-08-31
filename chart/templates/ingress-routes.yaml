@@ -4,6 +4,7 @@
 {{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
 {{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $rtQueueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $cbCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "callbackapi")) -}}
 {{- $sioCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "socketio")) -}}
 apiVersion: networking.k8s.io/v1
@@ -102,7 +103,7 @@ spec:
               port:
                 number: {{ $cbCfg.service.port }}
     {{- end }}
-    {{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+    {{- if eq $rtQueueProvider "rabbitmq" }}
     {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
     - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rabbitmqconsole "domain" $ingCfg.domain) }}
       http:
@@ -116,8 +117,6 @@ spec:
           pathType: Prefix
     {{- end }}
     {{- end }}
-    {{- if eq $qrCfg.internalCache.provider "redis" }}
-    {{- if eq $qrCfg.internalCache.type "internal" }}
     {{- if $qrCfg.realtimeConfiguration.isDistributed }}
     - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rabbitmqconsole "domain" $ingCfg.domain) }}
       http:
@@ -129,8 +128,6 @@ spec:
                 number: 15672
           path: /
           pathType: Prefix
-    {{- end }}
-    {{- end }}
     {{- end }}
     {{- if $cbCfg.multitenancy.enabled }}
     {{- if $cbCfg.enabled }}

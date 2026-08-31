@@ -411,6 +411,7 @@ metadata:
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
+  internalTrafficPolicy: Local
   {{- if eq .Values.global.deployment.platform "amazon" }}
   externalTrafficPolicy: Cluster
   {{- end }}

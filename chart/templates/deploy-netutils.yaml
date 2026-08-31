@@ -44,7 +44,7 @@ spec:
       {{- end }}
       containers:
       - name: {{ $name }}
-        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        image: rg1acrpub.azurecr.io/docker/redpointglobal/releases/net-utils:latest
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
         volumeMounts:
         - name: tempdata

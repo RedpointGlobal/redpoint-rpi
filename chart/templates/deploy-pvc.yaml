@@ -1,5 +1,5 @@
 {{/*
-  Dynamic PVCs — standalone PVC for dynamic provisioning
+  Dynamic PVCs - standalone PVC for dynamic provisioning
   Creates PVCs that reference a StorageClass. The CSI driver auto-provisions storage.
   Configured via: storage.dynamicPVCs[]
 */}}
@@ -22,7 +22,7 @@ spec:
 {{- end }}
 
 {{/*
-  Persistent Volumes — PV + PVC pair creation (static provisioning)
+  Persistent Volumes - PV + PVC pair creation (static provisioning)
   Creates PersistentVolume and PersistentVolumeClaim resources for CSI-backed storage
   (Azure Blob, Azure File, AWS EFS, GCP Filestore, etc.).
   Configured via: storage.persistentVolumes[]

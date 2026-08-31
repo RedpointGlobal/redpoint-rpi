@@ -52,7 +52,6 @@ secretsManagement:
 %{ endif ~}
 %{ if secrets_provider == "kubernetes" ~}
   kubernetes:
-    autoCreateSecrets: true
     secretName: redpoint-rpi-secrets
 %{ endif ~}
 

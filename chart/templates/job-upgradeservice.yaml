@@ -4,6 +4,10 @@
 {{- $tagSanitized := .Values.global.deployment.images.tag | replace "." "-" | lower | trunc 40 -}}
 {{- $name := printf "rpi-db-upgrade-%s" $tagSanitized -}}
 
+{{- if hasKey (.Values.databaseUpgrade | default dict) "image" }}
+{{- fail "databaseUpgrade.image is not configurable. The net-utils image resolves through the canonical rpi.image helper. To override, set global.deployment.images.overrides.net-utils (full URI) or global.deployment.images.nameOverrides.net-utils (registry stays, basename changes)." }}
+{{- end }}
+
 {{- if $cfg.enabled }}
 {{- if $deploymentapiCfg.enabled }}
 apiVersion: batch/v1
@@ -48,7 +52,7 @@ spec:
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx "noSupplementalGroups" true) | nindent 6 }}
       containers:
       - name: db-upgrade
-        image: {{ printf "%s/net-utils:latest" .Values.global.deployment.images.registry }}
+        image: rg1acrpub.azurecr.io/docker/redpointglobal/releases/net-utils:latest
         imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
         {{- if $cfg.notification.enabled }}

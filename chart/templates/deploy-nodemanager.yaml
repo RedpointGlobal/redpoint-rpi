@@ -23,7 +23,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "controller") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -94,8 +94,8 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "controller") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
-    {{- with $cfg.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- with .Values.customLabels }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.customAnnotations }}
   annotations:
@@ -164,6 +164,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
       containers:
       - env:
         {{- if .Values.global.deployment.podTimezone }}
@@ -174,6 +178,42 @@ spec:
           value: "http://rpi-nodemanager"
         - name: RPIExecution__TriggersMaxDaysInactive
           value: {{ $execCfg.jobExecution.triggersMaxDaysInactive | quote }}
+        - name: RPIExecution__AuditTaskEvents
+          value: {{ $execCfg.jobExecution.auditTaskEvents | quote }}
+        - name: RPIExecution__MaxThreadsPerExecutionService
+          value: {{ $execCfg.jobExecution.maxThreadsPerExecutionService | quote }}
+        - name: RPIExecution__ExecutionShutdownWaitForActivity
+          value: {{ $execCfg.jobExecution.executionShutdownWaitForActivity | quote }}
+        - name: RPIExecution__OverrideCustomSQLReservedWords
+          value: {{ $execCfg.jobExecution.overrideCustomSQLReservedWords | quote }}
+        - name: RPIExecution__RPDMOApiPrefixUri
+          value: {{ $execCfg.jobExecution.rpdmOApiPrefixUri | quote }}
+        - name: RPIExecution__TaskTimeout
+          value: {{ $execCfg.jobExecution.taskTimeout | quote }}
+        - name: RPIExecution__TriggerCheckCriteriaInterval
+          value: {{ $execCfg.jobExecution.triggerCheckCriteriaInterval | quote }}
+        - name: RPIExecution__DefaultMaintenanceModeBufferTime
+          value: {{ $execCfg.jobExecution.defaultMaintenanceModeBufferTime | quote }}
+        - name: RPIExecution__PersistTaskExecutionDetails
+          value: {{ $execCfg.jobExecution.persistTaskExecutionDetails | quote }}
+        - name: RPIExecution__WorkflowPrioritization__Enabled
+          value: {{ $execCfg.jobExecution.workflowPrioritization.enabled | quote }}
+        - name: RPIExecution__WorkflowPrioritization__MaxConcurrentWorkflowActivities
+          value: {{ $execCfg.jobExecution.workflowPrioritization.maxConcurrentWorkflowActivities | quote }}
+        - name: RPIExecution__WorkflowPrioritization__MaximumQueueTime
+          value: {{ $execCfg.jobExecution.workflowPrioritization.maximumQueueTime | quote }}
+        {{- range $i, $rule := $execCfg.jobExecution.executionFilterRules.jobRules }}
+        - name: RPIExecution__ExecutionFilterRules__JobRules__{{ $i }}__Type
+          value: {{ $rule.type | quote }}
+        {{- range $j, $jn := $rule.jobNames }}
+        - name: RPIExecution__ExecutionFilterRules__JobRules__{{ $i }}__JobNames__{{ $j }}
+          value: {{ $jn | quote }}
+        {{- end }}
+        {{- end }}
+        {{- range $k, $client := $execCfg.jobExecution.executionFilterRules.clients }}
+        - name: RPIExecution__ExecutionFilterRules__Clients__{{ $k }}
+          value: {{ $client | quote }}
+        {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
         - name: Logging__Database__LogLevel__Default
@@ -184,14 +224,37 @@ spec:
           value: {{ $cfg.logging.rpiError | quote }}
         - name: Logging__Console__LogLevel__Default
           value: {{ $cfg.logging.Console | quote }}
+        - name: Logging__LogLevel__Microsoft
+          value: {{ $cfg.logging.microsoft | quote }}
+        - name: Logging__LogLevel__Microsoft.Hosting.Lifetime
+          value: {{ $cfg.logging.microsoftHostingLifetime | quote }}
         - name: RPI__DateTimeSource
           value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
+        - name: RPI__OperationalDatabase__MaxRetryCount
+          value: {{ $cfg.operationalDatabase.maxRetryCount | quote }}
+        - name: RPI__OperationalDatabase__MaxRetryDelay
+          value: {{ $cfg.operationalDatabase.maxRetryDelay | quote }}
+        {{- if $cfg.serviceHost.enabled }}
+        - name: RPI__ServiceHostName
+          value: {{ $cfg.serviceHost.name | quote }}
+        - name: RPI__ServiceHostPortNumber
+          value: {{ $cfg.serviceHost.portNumber | quote }}
+        {{- end }}
+        {{- if and .Values.OpenIdProviders.enabled (eq .Values.OpenIdProviders.name "keycloak") }}
+        - name: RPI__UserManagement__UseNativeUserManagement
+          value: {{ $cfg.userManagement.useNativeUserManagement | quote }}
+        - name: RPI__UserManagement__UseExternalUserManagement
+          value: "true"
+        {{- else }}
+        - name: RPI__UserManagement__UseNativeUserManagement
+          value: {{ $cfg.userManagement.useNativeUserManagement | quote }}
+        - name: RPI__UserManagement__UseExternalUserManagement
+          value: {{ $cfg.userManagement.useExternalUserManagement | quote }}
+        {{- end }}
         {{- if .Values.OpenIdProviders.enabled }}
         {{- if eq .Values.OpenIdProviders.name "keycloak" }}
-        - name: RPI__UserManagement__UseExternalUserManagement
-          value: 'true'
         - name: RPI__UserManagement__Keycloak__Address
-          value: "http://cdp-keycloak/auth"
+          value: "http://cdp-keycloak/auth/"
         - name: RPI__UserManagement__Keycloak__Realm
           value: redpoint-mercury
         - name: RPI__UserManagement__Keycloak__ClientId
@@ -219,8 +282,10 @@ spec:
           value: {{ $diag.copytoAzureBlob.blobServiceEndpoint | quote }}
         - name: RPI__Diagnostics__CopyToAzure__EnableCdn
           value: {{ $diag.copytoAzureBlob.enableCdn | quote }}
-        - name: RPI__Diagnostics__CopyToAzure__AzureUseDataLakeStorageGen2
+        - name: RPI__Diagnostics__CopyToAzure__UseDataLakeStorageGen2
           value: {{ $diag.copytoAzureBlob.UseDataLakeStorageGen2 | quote }}
+        - name: RPI__Diagnostics__CopyToAzure__UseAzureIdentityAuthentication
+          value: {{ $diag.copytoAzureBlob.useAzureIdentityAuthentication | quote }}
         {{- end }}
         {{- if $diag.copytoSftp.enabled }}
         - name: RPI__Diagnostics__CopyToSFTP__SecureFTPHost
@@ -232,10 +297,10 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CopyToSFTPSecureFTPPassword
-        - name: RPI__Diagnostics__CopyToSFTP__PortNumberNumber
+        - name: RPI__Diagnostics__CopyToSFTP__PortNumber
           value: {{ $diag.copytoSftp.sftpPort | quote }}
-        - name: RPI__Diagnostics__UseSFTP
-          value: "true"
+        - name: RPI__Diagnostics__CopyToSFTP__UseSFTP
+          value: {{ $diag.copytoSftp.useSftp | quote }}
         - name: RPI__Diagnostics__CopyToSFTP__IsEnabled
           value: "true"
         {{- end }}
@@ -261,6 +326,10 @@ spec:
           value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
         {{- end }}
         {{- end }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: ODBCINI
+          value: /odbc-config/odbc.ini
+        {{- end }}
         {{- if not $rtCfg.multitenant }}
         - name: RealtimeAPIAddressOverride
           value: "http://rpi-realtimeapi"
@@ -269,6 +338,31 @@ spec:
           value: "https://support.redpointglobal.com"
         - name: Authentication__EnableRPIAuthentication
           value: {{ $cfg.enableRPIAuthentication | quote }}
+        - name: RPI__FileOutput__AllowClientOverrides
+          value: {{ $cfg.fileOutput.allowClientOverrides | quote }}
+        - name: RPI__FileOutput__AllowAllServerLocations
+          value: {{ $cfg.fileOutput.allowAllServerLocations | quote }}
+        - name: RPI__SMTP__EmailSenderAddress
+          value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
+        - name: RPI__SMTP__Address
+          value: {{ .Values.SMTPSettings.SMTP_Address | quote }}
+        - name: RPI__SMTP__Port
+          value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
+        - name: RPI__SMTP__EnableSSL
+          value: {{ .Values.SMTPSettings.EnableSSL | quote }}
+        - name: RPI__SMTP__UseCredentials
+          value: {{ .Values.SMTPSettings.UseCredentials | quote }}
+        {{- if .Values.SMTPSettings.UseCredentials }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: RPI__SMTP__Username
+          value: {{ .Values.SMTPSettings.SMTP_Username | quote }}
+        - name: RPI__SMTP__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: SMTP_Password
+        {{- end }}
+        {{- end }}
         - name: DisableHttpRedirect
           value: "true"
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
@@ -282,11 +376,8 @@ spec:
             secretKeyRef:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
-        {{- end }} 
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
         {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.redpointAI.enabled }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiKey
@@ -325,6 +416,78 @@ spec:
           value: {{ .Values.redpointAI.modelStorage.ContainerName | quote }}
         - name: RPI__NLP__Model__BlobFolder
           value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
+        - name: RPI__NLP__EnableTrace
+          value: {{ .Values.redpointAI.logging.enableTrace | quote }}
+        {{- end }}
+        {{- range $i, $v := $cfg.systemVariables }}
+        - name: SystemVariables__Variables__{{ $i }}__Name
+          value: {{ $v.name | quote }}
+        - name: SystemVariables__Variables__{{ $i }}__Value
+          value: {{ $v.value | quote }}
+        {{- end }}
+        {{- if $cfg.pubSub.enabled }}
+        - name: PubSub__Provider
+          value: {{ $cfg.pubSub.provider | quote }}
+        - name: PubSub__AzureSettings__Endpoint
+          value: {{ $cfg.pubSub.azureSettings.endpoint | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: PubSub__AzureSettings__ConnectionString
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: PubSub_ConnectionString
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.mercury.enabled }}
+        - name: Mercury__Address
+          value: {{ $cfg.mercury.address | quote }}
+        - name: Mercury__Username
+          value: {{ $cfg.mercury.username | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Mercury__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Mercury_Password
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.logging.newRelic.enabled }}
+        - name: Logging__NewRelic__Enabled
+          value: "true"
+        - name: Logging__NewRelic__HttpsEndpoint
+          value: {{ $cfg.logging.newRelic.httpsEndpoint | quote }}
+        - name: Logging__NewRelic__LogLevel__Default
+          value: {{ $cfg.logging.newRelic.logLevelDefault | quote }}
+        - name: Logging__NewRelic__RPITrace
+          value: {{ $cfg.logging.newRelic.rpiTrace | quote }}
+        - name: Logging__NewRelic__RPIError
+          value: {{ $cfg.logging.newRelic.rpiError | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Logging__NewRelic__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: NewRelic_ApiKey
+        {{- end }}
+        {{- end }}
+        {{- if $cfg.logging.loggly.enabled }}
+        - name: Logging__Loggly__Enabled
+          value: "true"
+        - name: Logging__Loggly__HttpsEndpoint
+          value: {{ $cfg.logging.loggly.httpsEndpoint | quote }}
+        - name: Logging__Loggly__LogLevel__Default
+          value: {{ $cfg.logging.loggly.logLevelDefault | quote }}
+        - name: Logging__Loggly__RPITrace
+          value: {{ $cfg.logging.loggly.rpiTrace | quote }}
+        - name: Logging__Loggly__RPIError
+          value: {{ $cfg.logging.loggly.rpiError | quote }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        - name: Logging__Loggly__ApiKey
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Loggly_ApiKey
+        {{- end }}
         {{- end }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
@@ -335,6 +498,15 @@ spec:
           name: web-port
           protocol: TCP
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+        {{- end }}
         {{- if $cfg.resources.enabled }}
         resources:
           {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
@@ -360,11 +532,16 @@ spec:
           - name: tempstore
             mountPath: /tmp
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          - name: odbc-config
+            mountPath: /app/odbc-config/odbc2.ini
+            subPath: odbc2.ini
+          - name: odbcini
+            mountPath: /odbc-config
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ .configMapName | quote }}
-            mountPath: {{ .ConfigMapFilePath }}/{{ .keyName }}
-            subPath: {{ .keyName }}
+          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -392,11 +569,17 @@ spec:
         - name: tempstore
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: odbc-config
+          configMap:
+            name: odbc-config
+            defaultMode: 0777
+        - name: odbcini
+          emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
         {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ .configMapName | quote }}
+        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
           configMap:
-            name: {{ .configMapName | quote }}
+            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}

@@ -94,6 +94,37 @@ If using **sdk** or **csi**, set up your vault and store the required secrets be
 See the [Storage Guide](storage.md) for FileOutputDirectory configuration, internal Redis/RabbitMQ provisioning options (dynamic, static BYO, emptyDir), and EFS permission setup.
 
 <details>
+<summary><strong style="font-size:1.25em;">Automated Deployment (Agentic)</strong></summary>
+
+If you want to skip the manual steps below, the **RPI Deploy Agent** can provision infrastructure and deploy RPI end-to-end. It supports Azure (AKS Automatic) today, with AWS and GCP coming soon.
+
+### Option A: Claude Code
+
+If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, connect the RPI Helm Assistant and run:
+
+```bash
+# Connect once (saved globally)
+claude mcp add rpi-helm --transport http https://rpi-helm-assistant.redpointcdp.com/mcp --scope user
+
+# Deploy
+/deploy-rpi Deploy RPI on Azure in East US 2, SQL Server, Realtime API with MongoDB cache and Service Bus
+```
+
+The agent provisions the full Azure landing zone (AKS, SQL Server, Key Vault, Service Bus, Application Gateway for Containers, Storage, Private Endpoints), generates Helm overrides, deploys the chart, initializes the cluster, and hands back a running environment with admin credentials.
+
+All commands execute locally on your machine. Your credentials never leave your terminal. See [Agentic Deployment](readme-mcp.md#agentic-deployment) for details.
+
+### Option B: Web UI
+
+Use the **Agentic** tab at [rpi-helm-assistant.redpointcdp.com](https://rpi-helm-assistant.redpointcdp.com) to generate a complete deployment plan. You'll get downloadable Bicep parameters, Helm overrides, a vault checklist, and step-by-step commands to run in your environment.
+
+### Continue manually
+
+If you prefer to set up infrastructure yourself and have full control over each step, continue with the sections below.
+
+</details>
+
+<details>
 <summary><strong style="font-size:1.25em;">Generate Your Overrides</strong></summary>
 
 The overrides file is a small YAML file containing only your customizations. The chart provides sensible defaults for everything else.
@@ -364,4 +395,4 @@ The `secretProviderClassName` in your Snowflake or CA cert config must match the
 
 
 ---
-<sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>

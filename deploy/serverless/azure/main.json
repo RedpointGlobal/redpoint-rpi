@@ -1,0 +1,2780 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "14287201401727480908"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[deployment().location]",
+      "metadata": {
+        "description": "Azure region for deployment (inherited from --location flag)"
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique environment name for this deployment (e.g., dev, test, prod). Different values create isolated environments with separate resources."
+      }
+    },
+    "imageTag": {
+      "type": "string",
+      "defaultValue": "7.7.20260327.1408",
+      "metadata": {
+        "description": "RPI container image tag"
+      }
+    },
+    "imageRegistry": {
+      "type": "string",
+      "defaultValue": "rg1acrpub.azurecr.io/docker/redpointglobal/releases",
+      "metadata": {
+        "description": "Container registry (full path without image name)"
+      }
+    },
+    "registryServer": {
+      "type": "string",
+      "defaultValue": "rg1acrpub.azurecr.io",
+      "metadata": {
+        "description": "Container registry server (e.g. rg1acrpub.azurecr.io)"
+      }
+    },
+    "imageNameOverrides": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Override individual image names. Keys: interactionapi, deploymentapi, executionservice, nodemanager, integrationapi, realtimeapi, callbackapi, queuereader, rediscache, rabbitmq, mongodb. Example: { interactionapi: \"redpoint-interaction-api\" }"
+      }
+    },
+    "registryUsername": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Container registry username"
+      }
+    },
+    "registryPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Container registry password"
+      }
+    },
+    "databaseType": {
+      "type": "string",
+      "defaultValue": "sqlserver",
+      "allowedValues": [
+        "sqlserver",
+        "postgresql"
+      ],
+      "metadata": {
+        "description": "Database type: sqlserver or postgresql"
+      }
+    },
+    "databaseUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Database admin username"
+      }
+    },
+    "databasePassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Database admin password"
+      }
+    },
+    "useExistingDatabase": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Use existing pre-created database server and databases instead of creating new ones"
+      }
+    },
+    "existingDatabaseServerFQDN": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "FQDN of the existing database server (required when useExistingDatabase=true). Example: myserver.database.windows.net or myserver.postgres.database.azure.com"
+      }
+    },
+    "existingPulseDatabaseName": {
+      "type": "string",
+      "defaultValue": "Pulse",
+      "metadata": {
+        "description": "Name of the existing Pulse database (required when useExistingDatabase=true)"
+      }
+    },
+    "existingPulseLoggingDatabaseName": {
+      "type": "string",
+      "defaultValue": "Pulse_Logging",
+      "metadata": {
+        "description": "Name of the existing Pulse Logging database (required when useExistingDatabase=true)"
+      }
+    },
+    "ingressDomain": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Ingress domain for external access"
+      }
+    },
+    "ingressMode": {
+      "type": "string",
+      "defaultValue": "external",
+      "allowedValues": [
+        "external",
+        "internal"
+      ],
+      "metadata": {
+        "description": "Ingress visibility: external (public) or internal (private, VNet only)"
+      }
+    },
+    "certificateKeyVaultName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Name of the Key Vault containing the TLS certificate for custom domain binding. Leave empty to skip certificate binding."
+      }
+    },
+    "certificateKeyVaultResourceGroup": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource group containing the Key Vault with the TLS certificate"
+      }
+    },
+    "certificateKeyVaultSubscriptionId": {
+      "type": "string",
+      "defaultValue": "[subscription().subscriptionId]",
+      "metadata": {
+        "description": "Subscription ID containing the Key Vault with the TLS certificate (defaults to the deployment subscription)"
+      }
+    },
+    "certificateName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Certificate name in the Key Vault (e.g., redpointcdp-com). The latest version is always used."
+      }
+    },
+    "enableRealtime": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Realtime API"
+      }
+    },
+    "enableCallback": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Callback API"
+      }
+    },
+    "enableQueueReader": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Queue Reader"
+      }
+    },
+    "cacheProvider": {
+      "type": "string",
+      "defaultValue": "redis",
+      "allowedValues": [
+        "redis",
+        "mongodb"
+      ],
+      "metadata": {
+        "description": "Realtime cache provider"
+      }
+    },
+    "cacheProviderType": {
+      "type": "string",
+      "defaultValue": "managed",
+      "allowedValues": [
+        "managed",
+        "internal",
+        "external"
+      ],
+      "metadata": {
+        "description": "Cache deployment type: managed (Azure service), internal (container in environment), or external (BYO connection string)"
+      }
+    },
+    "externalCacheConnectionString": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "External cache connection string (required when cacheProviderType=external)"
+      }
+    },
+    "queueProvider": {
+      "type": "string",
+      "defaultValue": "servicebus",
+      "allowedValues": [
+        "servicebus",
+        "rabbitmq"
+      ],
+      "metadata": {
+        "description": "Realtime queue provider"
+      }
+    },
+    "queueProviderType": {
+      "type": "string",
+      "defaultValue": "managed",
+      "allowedValues": [
+        "managed",
+        "internal",
+        "external"
+      ],
+      "metadata": {
+        "description": "Queue deployment type: managed (Azure service), internal (container in environment), or external (BYO connection details)"
+      }
+    },
+    "externalQueueConnectionString": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "External queue connection string (required when queueProvider=servicebus and queueProviderType=external)"
+      }
+    },
+    "externalRabbitMQHostname": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "External RabbitMQ hostname (required when queueProvider=rabbitmq and queueProviderType=external)"
+      }
+    },
+    "externalRabbitMQPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "External RabbitMQ password (required when queueProvider=rabbitmq and queueProviderType=external)"
+      }
+    },
+    "useExistingLogAnalytics": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Use an existing Log Analytics workspace instead of creating a new one"
+      }
+    },
+    "existingLogAnalyticsWorkspaceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource ID of an existing Log Analytics workspace (required when useExistingLogAnalytics=true)"
+      }
+    },
+    "existingLogAnalyticsResourceGroup": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource group containing the existing Log Analytics workspace (required when useExistingLogAnalytics=true)"
+      }
+    },
+    "logRetentionDays": {
+      "type": "int",
+      "defaultValue": 30,
+      "metadata": {
+        "description": "Log Analytics workspace retention in days (only used when creating a new workspace)"
+      }
+    },
+    "cpuCores": {
+      "type": "string",
+      "defaultValue": "0.5",
+      "metadata": {
+        "description": "Container app CPU (cores)"
+      }
+    },
+    "appMemory": {
+      "type": "string",
+      "defaultValue": "1Gi",
+      "metadata": {
+        "description": "Container app memory"
+      }
+    },
+    "execCpuCores": {
+      "type": "string",
+      "defaultValue": "2",
+      "metadata": {
+        "description": "Execution service CPU (cores)"
+      }
+    },
+    "execMemory": {
+      "type": "string",
+      "defaultValue": "4Gi",
+      "metadata": {
+        "description": "Execution service memory"
+      }
+    },
+    "useExistingVnet": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Use an existing VNet. When true, provide existingVnetId and existingSubnetId."
+      }
+    },
+    "existingVnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource ID of an existing VNet (required when useExistingVnet=true)"
+      }
+    },
+    "existingSubnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource ID of an existing subnet for the Container Apps Environment (required when useExistingVnet=true). Must be delegated to Microsoft.App/environments and at least /23."
+      }
+    },
+    "enablePrivateEndpoints": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable private endpoints for Key Vault, Storage, and Database. Requires VNet integration."
+      }
+    },
+    "privateEndpointSubnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource ID of an existing subnet for private endpoints (can be the same as or different from the Container Apps subnet)"
+      }
+    },
+    "useExistingDnsZones": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Use existing private DNS zones instead of creating new ones. Set to true if your subscription already has privatelink.* zones linked to the VNet."
+      }
+    },
+    "existingDnsZoneResourceGroup": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource group containing the existing private DNS zones (required when useExistingDnsZones=true)"
+      }
+    },
+    "existingDnsZoneSubscriptionId": {
+      "type": "string",
+      "defaultValue": "[subscription().subscriptionId]",
+      "metadata": {
+        "description": "Subscription ID containing the existing private DNS zones (required when zones are in a different subscription). Defaults to the deployment subscription."
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[substring(uniqueString(subscription().subscriptionId, parameters('location'), parameters('environmentName')), 0, 6)]",
+    "prefix": "[format('rpi-{0}', variables('uniqueSuffix'))]",
+    "tags": {
+      "redpoint-rpi": "serverless",
+      "rpi-environment-id": "[variables('uniqueSuffix')]",
+      "environment": "production",
+      "managed-by": "bicep"
+    },
+    "isInternal": "[equals(parameters('ingressMode'), 'internal')]",
+    "peSubnetId": "[if(parameters('enablePrivateEndpoints'), if(empty(parameters('privateEndpointSubnetId')), parameters('existingSubnetId'), parameters('privateEndpointSubnetId')), '')]",
+    "hasCert": "[and(and(not(empty(parameters('ingressDomain'))), not(empty(parameters('certificateKeyVaultName')))), not(empty(parameters('certificateName'))))]",
+    "createDnsRecords": "[and(not(empty(parameters('ingressDomain'))), not(empty(parameters('existingDnsZoneResourceGroup'))))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[format('rg-{0}', variables('prefix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('rpi-identity-{0}', variables('uniqueSuffix'))]",
+      "resourceGroup": "[format('rg-{0}', variables('prefix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "prefix": {
+            "value": "[variables('prefix')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "10817860971509498240"
+            }
+          },
+          "parameters": {
+            "prefix": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('{0}-identity', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('prefix')))]"
+            },
+            "clientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('prefix'))), '2023-01-31').clientId]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('prefix'))), '2023-01-31').principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', variables('prefix')))]"
+      ]
+    },
+    {
+      "condition": "[variables('hasCert')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('cert-kv-access-{0}', variables('uniqueSuffix'))]",
+      "subscriptionId": "[parameters('certificateKeyVaultSubscriptionId')]",
+      "resourceGroup": "[parameters('certificateKeyVaultResourceGroup')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "keyVaultName": {
+            "value": "[parameters('certificateKeyVaultName')]"
+          },
+          "principalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-identity-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.principalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "3964276956801299819"
+            }
+          },
+          "parameters": {
+            "keyVaultName": {
+              "type": "string"
+            },
+            "principalId": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('principalId'), '4633458b-17de-408a-b874-0445c86b69e6')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-identity-{0}', variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('rpi-resources-{0}', variables('uniqueSuffix'))]",
+      "resourceGroup": "[format('rg-{0}', variables('prefix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "prefix": {
+            "value": "[variables('prefix')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "managedIdentityId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-identity-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.id.value]"
+          },
+          "managedIdentityClientId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-identity-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.clientId.value]"
+          },
+          "managedIdentityPrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-identity-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.principalId.value]"
+          },
+          "imageTag": {
+            "value": "[parameters('imageTag')]"
+          },
+          "imageRegistry": {
+            "value": "[parameters('imageRegistry')]"
+          },
+          "registryServer": {
+            "value": "[parameters('registryServer')]"
+          },
+          "imageNameOverrides": {
+            "value": "[parameters('imageNameOverrides')]"
+          },
+          "registryUsername": {
+            "value": "[parameters('registryUsername')]"
+          },
+          "registryPassword": {
+            "value": "[parameters('registryPassword')]"
+          },
+          "databaseType": {
+            "value": "[parameters('databaseType')]"
+          },
+          "databaseUsername": {
+            "value": "[parameters('databaseUsername')]"
+          },
+          "databasePassword": {
+            "value": "[parameters('databasePassword')]"
+          },
+          "useExistingDatabase": {
+            "value": "[parameters('useExistingDatabase')]"
+          },
+          "existingDatabaseServerFQDN": {
+            "value": "[parameters('existingDatabaseServerFQDN')]"
+          },
+          "existingPulseDatabaseName": {
+            "value": "[parameters('existingPulseDatabaseName')]"
+          },
+          "existingPulseLoggingDatabaseName": {
+            "value": "[parameters('existingPulseLoggingDatabaseName')]"
+          },
+          "ingressDomain": {
+            "value": "[parameters('ingressDomain')]"
+          },
+          "certificateKeyVaultName": {
+            "value": "[parameters('certificateKeyVaultName')]"
+          },
+          "certificateName": {
+            "value": "[parameters('certificateName')]"
+          },
+          "enableRealtime": {
+            "value": "[parameters('enableRealtime')]"
+          },
+          "enableCallback": {
+            "value": "[parameters('enableCallback')]"
+          },
+          "enableQueueReader": {
+            "value": "[parameters('enableQueueReader')]"
+          },
+          "cacheProvider": {
+            "value": "[parameters('cacheProvider')]"
+          },
+          "cacheProviderType": {
+            "value": "[parameters('cacheProviderType')]"
+          },
+          "externalCacheConnectionString": {
+            "value": "[parameters('externalCacheConnectionString')]"
+          },
+          "queueProvider": {
+            "value": "[parameters('queueProvider')]"
+          },
+          "queueProviderType": {
+            "value": "[parameters('queueProviderType')]"
+          },
+          "externalQueueConnectionString": {
+            "value": "[parameters('externalQueueConnectionString')]"
+          },
+          "externalRabbitMQHostname": {
+            "value": "[parameters('externalRabbitMQHostname')]"
+          },
+          "externalRabbitMQPassword": {
+            "value": "[parameters('externalRabbitMQPassword')]"
+          },
+          "useExistingLogAnalytics": {
+            "value": "[parameters('useExistingLogAnalytics')]"
+          },
+          "existingLogAnalyticsWorkspaceId": {
+            "value": "[parameters('existingLogAnalyticsWorkspaceId')]"
+          },
+          "existingLogAnalyticsResourceGroup": {
+            "value": "[parameters('existingLogAnalyticsResourceGroup')]"
+          },
+          "logRetentionDays": {
+            "value": "[parameters('logRetentionDays')]"
+          },
+          "cpuCores": {
+            "value": "[parameters('cpuCores')]"
+          },
+          "appMemory": {
+            "value": "[parameters('appMemory')]"
+          },
+          "execCpuCores": {
+            "value": "[parameters('execCpuCores')]"
+          },
+          "execMemory": {
+            "value": "[parameters('execMemory')]"
+          },
+          "useExistingVnet": {
+            "value": "[parameters('useExistingVnet')]"
+          },
+          "existingVnetId": {
+            "value": "[parameters('existingVnetId')]"
+          },
+          "existingSubnetId": {
+            "value": "[parameters('existingSubnetId')]"
+          },
+          "enablePrivateEndpoints": {
+            "value": "[parameters('enablePrivateEndpoints')]"
+          },
+          "isInternal": {
+            "value": "[variables('isInternal')]"
+          },
+          "peSubnetId": {
+            "value": "[variables('peSubnetId')]"
+          },
+          "useExistingDnsZones": {
+            "value": "[parameters('useExistingDnsZones')]"
+          },
+          "existingDnsZoneResourceGroup": {
+            "value": "[parameters('existingDnsZoneResourceGroup')]"
+          },
+          "existingDnsZoneSubscriptionId": {
+            "value": "[parameters('existingDnsZoneSubscriptionId')]"
+          },
+          "subscriptionId": {
+            "value": "[subscription().subscriptionId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "15273385908058410635"
+            }
+          },
+          "parameters": {
+            "prefix": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            },
+            "managedIdentityId": {
+              "type": "string"
+            },
+            "managedIdentityClientId": {
+              "type": "string"
+            },
+            "managedIdentityPrincipalId": {
+              "type": "string"
+            },
+            "imageTag": {
+              "type": "string"
+            },
+            "imageRegistry": {
+              "type": "string"
+            },
+            "registryServer": {
+              "type": "string"
+            },
+            "imageNameOverrides": {
+              "type": "object"
+            },
+            "registryUsername": {
+              "type": "string"
+            },
+            "registryPassword": {
+              "type": "securestring"
+            },
+            "databaseType": {
+              "type": "string"
+            },
+            "databaseUsername": {
+              "type": "string"
+            },
+            "databasePassword": {
+              "type": "securestring"
+            },
+            "useExistingDatabase": {
+              "type": "bool"
+            },
+            "existingDatabaseServerFQDN": {
+              "type": "string"
+            },
+            "existingPulseDatabaseName": {
+              "type": "string"
+            },
+            "existingPulseLoggingDatabaseName": {
+              "type": "string"
+            },
+            "ingressDomain": {
+              "type": "string"
+            },
+            "certificateKeyVaultName": {
+              "type": "string"
+            },
+            "certificateName": {
+              "type": "string"
+            },
+            "enableRealtime": {
+              "type": "bool"
+            },
+            "enableCallback": {
+              "type": "bool"
+            },
+            "enableQueueReader": {
+              "type": "bool"
+            },
+            "useExistingLogAnalytics": {
+              "type": "bool"
+            },
+            "existingLogAnalyticsWorkspaceId": {
+              "type": "string"
+            },
+            "existingLogAnalyticsResourceGroup": {
+              "type": "string"
+            },
+            "cacheProvider": {
+              "type": "string"
+            },
+            "cacheProviderType": {
+              "type": "string"
+            },
+            "externalCacheConnectionString": {
+              "type": "securestring"
+            },
+            "queueProvider": {
+              "type": "string"
+            },
+            "queueProviderType": {
+              "type": "string"
+            },
+            "externalQueueConnectionString": {
+              "type": "securestring"
+            },
+            "externalRabbitMQHostname": {
+              "type": "string"
+            },
+            "externalRabbitMQPassword": {
+              "type": "securestring"
+            },
+            "logRetentionDays": {
+              "type": "int"
+            },
+            "cpuCores": {
+              "type": "string"
+            },
+            "appMemory": {
+              "type": "string"
+            },
+            "execCpuCores": {
+              "type": "string"
+            },
+            "execMemory": {
+              "type": "string"
+            },
+            "useExistingVnet": {
+              "type": "bool"
+            },
+            "existingVnetId": {
+              "type": "string"
+            },
+            "existingSubnetId": {
+              "type": "string"
+            },
+            "enablePrivateEndpoints": {
+              "type": "bool"
+            },
+            "isInternal": {
+              "type": "bool"
+            },
+            "peSubnetId": {
+              "type": "string"
+            },
+            "useExistingDnsZones": {
+              "type": "bool"
+            },
+            "existingDnsZoneResourceGroup": {
+              "type": "string"
+            },
+            "existingDnsZoneSubscriptionId": {
+              "type": "string"
+            },
+            "subscriptionId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "hasRegistryCreds": "[and(not(empty(parameters('registryUsername'))), not(empty(parameters('registryPassword'))))]",
+            "registries": "[if(variables('hasRegistryCreds'), createArray(createObject('server', parameters('registryServer'), 'username', parameters('registryUsername'), 'passwordSecretRef', 'registry-password')), createArray())]",
+            "registrySecrets": "[if(variables('hasRegistryCreds'), createArray(createObject('name', 'registry-password', 'value', parameters('registryPassword'))), createArray())]",
+            "createManagedRedis": "[and(and(parameters('enableRealtime'), equals(parameters('cacheProvider'), 'redis')), equals(parameters('cacheProviderType'), 'managed'))]",
+            "createInternalMongoDB": "[and(and(parameters('enableRealtime'), equals(parameters('cacheProvider'), 'mongodb')), equals(parameters('cacheProviderType'), 'internal'))]",
+            "createInternalRabbitMQ": "[and(and(or(parameters('enableRealtime'), parameters('enableCallback')), equals(parameters('queueProvider'), 'rabbitmq')), equals(parameters('queueProviderType'), 'internal'))]",
+            "createManagedServiceBus": "[and(and(or(parameters('enableRealtime'), parameters('enableCallback')), equals(parameters('queueProvider'), 'servicebus')), equals(parameters('queueProviderType'), 'managed'))]",
+            "createSqlServer": "[and(equals(parameters('databaseType'), 'sqlserver'), not(parameters('useExistingDatabase')))]",
+            "createPostgresServer": "[and(equals(parameters('databaseType'), 'postgresql'), not(parameters('useExistingDatabase')))]",
+            "pulseDatabaseName": "[if(parameters('useExistingDatabase'), parameters('existingPulseDatabaseName'), format('{0}-pulse', parameters('prefix')))]",
+            "pulseLoggingDatabaseName": "[if(parameters('useExistingDatabase'), parameters('existingPulseLoggingDatabaseName'), format('{0}-pulse-logging', parameters('prefix')))]",
+            "mongoPassword": "[format('{0}Rp!1', uniqueString(resourceGroup().id, parameters('prefix'), 'mongodb'))]",
+            "rabbitmqPassword": "[format('{0}Rp!1', uniqueString(resourceGroup().id, parameters('prefix'), 'rabbitmq'))]",
+            "mongoConnectionString": "[format('mongodb://rpi:{0}@{1}-mongodb:27017/RPIRealtimeCache?authSource=admin', variables('mongoPassword'), parameters('prefix'))]",
+            "rabbitmqHostname": "[if(equals(parameters('queueProviderType'), 'internal'), format('{0}-rabbitmq', parameters('prefix')), parameters('externalRabbitMQHostname'))]",
+            "realtimeCacheEnv": "[if(not(parameters('enableRealtime')), createArray(), if(equals(parameters('cacheProvider'), 'mongodb'), createArray(createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Name', 'value', 'mongodb'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly', 'value', 'RedPoint.Resonance.MongoDBCache'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Class', 'value', 'RedPoint.Resonance.MongoDBCache.MongoDBCacheHandler'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key', 'value', 'Database'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value', 'value', 'RPIRealtimeCache'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Key', 'value', 'CollectionName'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Value', 'value', 'RPIRealtimeCache')), if(equals(parameters('cacheProviderType'), 'managed'), createArray(createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Name', 'value', 'azureredis'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly', 'value', 'RedPoint.Azure.Server'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Class', 'value', 'RedPoint.Azure.Server.AzureRedisCache.AzureRedisCacheHandler'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key', 'value', 'Database'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value', 'value', 'RPIRealtimeCache')), createArray(createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Name', 'value', 'redis'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly', 'value', 'RedPoint.Resonance.RedisCache'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Class', 'value', 'RedPoint.Resonance.RedisCache.RedisCacheHandler'), createObject('name', 'RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key', 'value', 'IPAddress')))))]",
+            "realtimeQueueEnv": "[if(equals(parameters('queueProvider'), 'rabbitmq'), createArray(createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly', 'value', 'RedPoint.Resonance.RabbitMQAccess'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type', 'value', 'RedPoint.Resonance.RabbitMQAccess.RabbitMQFactory'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Key', 'value', 'Hostname'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Value', 'value', variables('rabbitmqHostname')), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key', 'value', 'VirtualHost'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value', 'value', '/'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Key', 'value', 'Username'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Value', 'value', 'rpi'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Key', 'value', 'Password'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly', 'value', 'RedPoint.Resonance.RabbitMQAccess'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type', 'value', 'RedPoint.Resonance.RabbitMQAccess.RabbitMQFactory'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Key', 'value', 'Hostname'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Value', 'value', variables('rabbitmqHostname')), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Key', 'value', 'VirtualHost'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value', 'value', '/'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Key', 'value', 'Username'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Value', 'value', 'rpi'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Key', 'value', 'Password')), createArray(createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly', 'value', 'RedPoint.Azure.Server'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type', 'value', 'RedPoint.Azure.Server.AzureQueue.AzureServiceBusQueueFactory'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Key', 'value', 'QueueType'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Value', 'value', 'ServiceBus'), createObject('name', 'RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key', 'value', 'ConnectionString'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly', 'value', 'RedPoint.Azure.Server'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type', 'value', 'RedPoint.Azure.Server.AzureQueue.AzureServiceBusQueueFactory'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Key', 'value', 'QueueType'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Value', 'value', 'ServiceBus'), createObject('name', 'RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Key', 'value', 'ConnectionString')))]",
+            "callbackQueueEnv": "[if(equals(parameters('queueProvider'), 'rabbitmq'), createArray(createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly', 'value', 'RedPoint.Resonance.RabbitMQAccess'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type', 'value', 'RedPoint.Resonance.RabbitMQAccess.RabbitMQFactory'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key', 'value', 'Hostname'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Value', 'value', variables('rabbitmqHostname')), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key', 'value', 'VirtualHost'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Value', 'value', '/'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Key', 'value', 'Username'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__2__Value', 'value', 'rpi'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__3__Key', 'value', 'Password')), createArray(createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Assembly', 'value', 'RedPoint.Azure.Server'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Type', 'value', 'RedPoint.Azure.Server.AzureQueue.AzureServiceBusQueueFactory'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Key', 'value', 'QueueType'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__0__Value', 'value', 'ServiceBus'), createObject('name', 'CallbackServiceConfig__QueueProvider__CallbackServiceQueueSettings__Settings__1__Key', 'value', 'ConnectionString')))]",
+            "defaultImageNames": {
+              "rediscache": "rediscache",
+              "rabbitmq": "rabbitmq",
+              "mongodb": "mongodb",
+              "interactionapi": "rpi-interactionapi",
+              "deploymentapi": "rpi-deploymentapi",
+              "executionservice": "rpi-executionservice",
+              "nodemanager": "rpi-nodemanager",
+              "integrationapi": "rpi-integrationapi",
+              "realtimeapi": "rpi-realtimeapi",
+              "callbackapi": "rpi-callbackapi",
+              "queuereader": "rpi-queuereader"
+            },
+            "imgNames": "[union(variables('defaultImageNames'), parameters('imageNameOverrides'))]",
+            "images": {
+              "rediscache": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').rediscache, parameters('imageTag'))]",
+              "rabbitmq": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').rabbitmq, parameters('imageTag'))]",
+              "mongodb": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').mongodb, parameters('imageTag'))]",
+              "interactionapi": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').interactionapi, parameters('imageTag'))]",
+              "deploymentapi": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').deploymentapi, parameters('imageTag'))]",
+              "executionservice": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').executionservice, parameters('imageTag'))]",
+              "nodemanager": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').nodemanager, parameters('imageTag'))]",
+              "integrationapi": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').integrationapi, parameters('imageTag'))]",
+              "realtimeapi": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').realtimeapi, parameters('imageTag'))]",
+              "callbackapi": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').callbackapi, parameters('imageTag'))]",
+              "queuereader": "[format('{0}/{1}:{2}', parameters('imageRegistry'), variables('imgNames').queuereader, parameters('imageTag'))]"
+            },
+            "hasCert": "[and(and(not(empty(parameters('ingressDomain'))), not(empty(parameters('certificateKeyVaultName')))), not(empty(parameters('certificateName'))))]",
+            "certificateKeyVaultUrl": "[if(variables('hasCert'), format('https://{0}{1}/secrets/{2}', parameters('certificateKeyVaultName'), environment().suffixes.keyvaultDns, parameters('certificateName')), '')]",
+            "databaseTypeValue": "[if(equals(parameters('databaseType'), 'sqlserver'), 'AzureSQLDatabase', 'PostgreSQL')]",
+            "sharedEnv": [
+              {
+                "name": "Logging__LogLevel__Default",
+                "value": "Information"
+              },
+              {
+                "name": "Logging__Database__LogLevel__Default",
+                "value": "Information"
+              },
+              {
+                "name": "Logging__Database__RPITrace",
+                "value": "Information"
+              },
+              {
+                "name": "Logging__Database__RPIError",
+                "value": "Information"
+              },
+              {
+                "name": "Logging__Console__LogLevel__Default",
+                "value": "Error"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__DatabaseType",
+                "value": "[variables('databaseTypeValue')]"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__IsUsingCredentials",
+                "value": "true"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__DatabaseSchema",
+                "value": "dbo"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__SQLServerSettings__Encrypt",
+                "value": "true"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__SQLServerSettings__TrustServerCertificate",
+                "value": "true"
+              },
+              {
+                "name": "CloudIdentity__Azure__CredentialType",
+                "value": "AzureIdentity"
+              },
+              {
+                "name": "AZURE_CLIENT_ID",
+                "value": "[parameters('managedIdentityClientId')]"
+              }
+            ],
+            "postgresEnv": "[if(equals(parameters('databaseType'), 'postgresql'), createArray(createObject('name', 'ClusterEnvironment__OperationalDatabase__ConnectionSettings__Port', 'value', '5432')), createArray())]",
+            "sharedSecretEnv": [
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__PulseDatabaseName",
+                "secretRef": "db-pulse-name"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__LoggingDatabaseName",
+                "secretRef": "db-logging-name"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__Server",
+                "secretRef": "db-server-host"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__Username",
+                "secretRef": "db-username"
+              },
+              {
+                "name": "ClusterEnvironment__OperationalDatabase__ConnectionSettings__Password",
+                "secretRef": "db-password"
+              }
+            ],
+            "existingDnsRg": "[parameters('existingDnsZoneResourceGroup')]",
+            "dnsZoneIdKv": "[if(parameters('useExistingDnsZones'), resourceId(parameters('existingDnsZoneSubscriptionId'), variables('existingDnsRg'), 'Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net'), '')]",
+            "dnsZoneIdStorage": "[if(parameters('useExistingDnsZones'), resourceId(parameters('existingDnsZoneSubscriptionId'), variables('existingDnsRg'), 'Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage)), '')]",
+            "dnsZoneIdSql": "[if(parameters('useExistingDnsZones'), resourceId(parameters('existingDnsZoneSubscriptionId'), variables('existingDnsRg'), 'Microsoft.Network/privateDnsZones', format('privatelink{0}', environment().suffixes.sqlServerHostname)), '')]",
+            "dnsZoneIdPg": "[if(parameters('useExistingDnsZones'), resourceId(parameters('existingDnsZoneSubscriptionId'), variables('existingDnsRg'), 'Microsoft.Network/privateDnsZones', 'privatelink.postgres.database.azure.com'), '')]",
+            "dnsZoneIdRedis": "[if(parameters('useExistingDnsZones'), resourceId(parameters('existingDnsZoneSubscriptionId'), variables('existingDnsRg'), 'Microsoft.Network/privateDnsZones', 'privatelink.redis.cache.windows.net'), '')]",
+            "dnsZoneIdServiceBus": "[if(parameters('useExistingDnsZones'), resourceId(parameters('existingDnsZoneSubscriptionId'), variables('existingDnsRg'), 'Microsoft.Network/privateDnsZones', 'privatelink.servicebus.windows.net'), '')]"
+          },
+          "resources": [
+            {
+              "condition": "[not(parameters('useExistingLogAnalytics'))]",
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[format('{0}-logs', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": "[parameters('logRetentionDays')]"
+              }
+            },
+            {
+              "condition": "[not(parameters('useExistingVnet'))]",
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-vnet', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/16"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "container-apps",
+                    "properties": {
+                      "addressPrefix": "10.0.0.0/23",
+                      "delegations": [
+                        {
+                          "name": "Microsoft.App.environments",
+                          "properties": {
+                            "serviceName": "Microsoft.App/environments"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "private-endpoints",
+                    "properties": {
+                      "addressPrefix": "10.0.2.0/24"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}-kv', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "tenantId": "[subscription().tenantId]",
+                "enableRbacAuthorization": true,
+                "enableSoftDelete": true,
+                "softDeleteRetentionInDays": 7,
+                "publicNetworkAccess": "[if(parameters('enablePrivateEndpoints'), 'Disabled', 'Enabled')]",
+                "networkAcls": "[if(parameters('enablePrivateEndpoints'), createObject('defaultAction', 'Deny', 'bypass', 'AzureServices'), createObject('defaultAction', 'Allow'))]"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), parameters('managedIdentityId'), 'KeyVaultSecretsOfficer')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
+                "principalId": "[parameters('managedIdentityPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'ConnectionString-Operations-Database')]",
+              "properties": {
+                "value": "[if(equals(parameters('databaseType'), 'sqlserver'), format('Server=tcp:{0},1433;Initial Catalog={1};User ID={2};Password={3};Encrypt=True;TrustServerCertificate=True;', if(parameters('useExistingDatabase'), parameters('existingDatabaseServerFQDN'), reference(resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix'))), '2023-08-01-preview').fullyQualifiedDomainName), variables('pulseDatabaseName'), parameters('databaseUsername'), parameters('databasePassword')), format('Host={0};Port=5432;Database={1};Username={2};Password={3};SSL Mode=Require;Trust Server Certificate=true;', if(parameters('useExistingDatabase'), parameters('existingDatabaseServerFQDN'), reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix'))), '2023-12-01-preview').fullyQualifiedDomainName), variables('pulseDatabaseName'), parameters('databaseUsername'), parameters('databasePassword')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]",
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'ConnectionString-Logging-Database')]",
+              "properties": {
+                "value": "[if(equals(parameters('databaseType'), 'sqlserver'), format('Server=tcp:{0},1433;Initial Catalog={1};User ID={2};Password={3};Encrypt=True;TrustServerCertificate=True;', if(parameters('useExistingDatabase'), parameters('existingDatabaseServerFQDN'), reference(resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix'))), '2023-08-01-preview').fullyQualifiedDomainName), variables('pulseLoggingDatabaseName'), parameters('databaseUsername'), parameters('databasePassword')), format('Host={0};Port=5432;Database={1};Username={2};Password={3};SSL Mode=Require;Trust Server Certificate=true;', if(parameters('useExistingDatabase'), parameters('existingDatabaseServerFQDN'), reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix'))), '2023-12-01-preview').fullyQualifiedDomainName), variables('pulseLoggingDatabaseName'), parameters('databaseUsername'), parameters('databasePassword')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]",
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'Operations-Database-Server-Password')]",
+              "properties": {
+                "value": "[parameters('databasePassword')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'Operations-Database-Server-Username')]",
+              "properties": {
+                "value": "[parameters('databaseUsername')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'Operations-Database-ServerHost')]",
+              "properties": {
+                "value": "[if(parameters('useExistingDatabase'), parameters('existingDatabaseServerFQDN'), if(equals(parameters('databaseType'), 'sqlserver'), reference(resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix'))), '2023-08-01-preview').fullyQualifiedDomainName, reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix'))), '2023-12-01-preview').fullyQualifiedDomainName))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]",
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'Operations-Database-Pulse-Database-Name')]",
+              "properties": {
+                "value": "[variables('pulseDatabaseName')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'Operations-Database-Pulse-Logging-Database-Name')]",
+              "properties": {
+                "value": "[variables('pulseLoggingDatabaseName')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createSqlServer')]",
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}-sql', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "administratorLogin": "[parameters('databaseUsername')]",
+                "administratorLoginPassword": "[parameters('databasePassword')]",
+                "version": "12.0",
+                "minimalTlsVersion": "1.2"
+              }
+            },
+            {
+              "condition": "[variables('createSqlServer')]",
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-sql', parameters('prefix')), format('{0}-pulse', parameters('prefix')))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "S2",
+                "tier": "Standard"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createSqlServer')]",
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-sql', parameters('prefix')), format('{0}-pulse-logging', parameters('prefix')))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "S0",
+                "tier": "Standard"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createSqlServer')]",
+              "type": "Microsoft.Sql/servers/firewallRules",
+              "apiVersion": "2023-08-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-sql', parameters('prefix')), 'AllowAzureServices')]",
+              "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "0.0.0.0"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createPostgresServer')]",
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+              "apiVersion": "2023-12-01-preview",
+              "name": "[format('{0}-pg', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_B2ms",
+                "tier": "Burstable"
+              },
+              "properties": {
+                "version": "16",
+                "administratorLogin": "[parameters('databaseUsername')]",
+                "administratorLoginPassword": "[parameters('databasePassword')]",
+                "storage": {
+                  "storageSizeGB": 32
+                },
+                "backup": {
+                  "backupRetentionDays": 7
+                }
+              }
+            },
+            {
+              "condition": "[variables('createPostgresServer')]",
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+              "apiVersion": "2023-12-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-pg', parameters('prefix')), format('{0}-pulse', parameters('prefix')))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createPostgresServer')]",
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+              "apiVersion": "2023-12-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-pg', parameters('prefix')), format('{0}-pulse-logging', parameters('prefix')))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createPostgresServer')]",
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+              "apiVersion": "2023-12-01-preview",
+              "name": "[format('{0}/{1}', format('{0}-pg', parameters('prefix')), 'AllowAzureServices')]",
+              "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "0.0.0.0"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[replace(format('{0}files', parameters('prefix')), '-', '')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "allowBlobPublicAccess": false,
+                "minimumTlsVersion": "TLS1_2",
+                "publicNetworkAccess": "[if(parameters('enablePrivateEndpoints'), 'Disabled', 'Enabled')]",
+                "networkAcls": "[if(parameters('enablePrivateEndpoints'), createObject('defaultAction', 'Deny', 'bypass', 'AzureServices'), createObject('defaultAction', 'Allow'))]"
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', replace(format('{0}files', parameters('prefix')), '-', ''), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}files', parameters('prefix')), '-', ''))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}files', parameters('prefix')), '-', ''), 'default', 'rpifileoutput')]",
+              "properties": {
+                "shareQuota": 50
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', replace(format('{0}files', parameters('prefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedRedis')]",
+              "type": "Microsoft.Cache/redis",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-redis', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "Basic",
+                  "family": "C",
+                  "capacity": 1
+                },
+                "enableNonSslPort": false,
+                "minimumTlsVersion": "1.2",
+                "publicNetworkAccess": "[if(parameters('enablePrivateEndpoints'), 'Disabled', 'Enabled')]"
+              }
+            },
+            {
+              "condition": "[variables('createManagedRedis')]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'RealtimeAPI-RedisCache-ConnectionString')]",
+              "properties": {
+                "value": "[format('{0}:{1},password={2},ssl=True,abortConnect=False', reference(resourceId('Microsoft.Cache/redis', format('{0}-redis', parameters('prefix'))), '2024-03-01').hostName, reference(resourceId('Microsoft.Cache/redis', format('{0}-redis', parameters('prefix'))), '2024-03-01').sslPort, listKeys(resourceId('Microsoft.Cache/redis', format('{0}-redis', parameters('prefix'))), '2024-03-01').primaryKey)]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                "[resourceId('Microsoft.Cache/redis', format('{0}-redis', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createInternalMongoDB')]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'RealtimeAPI-MongoCache-ConnectionString')]",
+              "properties": {
+                "value": "[variables('mongoConnectionString')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enableRealtime'), equals(parameters('cacheProviderType'), 'external'))]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), if(equals(parameters('cacheProvider'), 'mongodb'), 'RealtimeAPI-MongoCache-ConnectionString', 'RealtimeAPI-RedisCache-ConnectionString'))]",
+              "properties": {
+                "value": "[parameters('externalCacheConnectionString')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-servicebus', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": "[if(parameters('enablePrivateEndpoints'), createObject('name', 'Premium', 'tier', 'Premium', 'capacity', 1), createObject('name', 'Basic', 'tier', 'Basic'))]"
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/queues",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'RPIWebFormSubmission')]",
+              "properties": {
+                "maxDeliveryCount": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/queues",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'RPIWebEvents')]",
+              "properties": {
+                "maxDeliveryCount": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/queues",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'RPIWebCacheData')]",
+              "properties": {
+                "maxDeliveryCount": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/queues",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'RPIWebRecommendations')]",
+              "properties": {
+                "maxDeliveryCount": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/queues",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'RPIQueueListener')]",
+              "properties": {
+                "maxDeliveryCount": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/queues",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'RPICallbackApiQueue')]",
+              "properties": {
+                "maxDeliveryCount": 10
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-servicebus', parameters('prefix')), 'rpi-send-listen')]",
+              "properties": {
+                "rights": [
+                  "Send",
+                  "Listen"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createManagedServiceBus')]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'RealtimeAPI-ServiceBus-ConnectionString')]",
+              "properties": {
+                "value": "[listKeys(resourceId('Microsoft.ServiceBus/namespaces/AuthorizationRules', format('{0}-servicebus', parameters('prefix')), 'rpi-send-listen'), '2024-01-01').primaryConnectionString]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                "[resourceId('Microsoft.ServiceBus/namespaces/AuthorizationRules', format('{0}-servicebus', parameters('prefix')), 'rpi-send-listen')]"
+              ]
+            },
+            {
+              "condition": "[variables('createInternalRabbitMQ')]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'RealtimeAPI-RabbitMQ-Password')]",
+              "properties": {
+                "value": "[variables('rabbitmqPassword')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(and(or(parameters('enableRealtime'), parameters('enableCallback')), equals(parameters('queueProvider'), 'rabbitmq')), equals(parameters('queueProviderType'), 'external'))]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'RealtimeAPI-RabbitMQ-Password')]",
+              "properties": {
+                "value": "[parameters('externalRabbitMQPassword')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(and(or(parameters('enableRealtime'), parameters('enableCallback')), equals(parameters('queueProvider'), 'servicebus')), equals(parameters('queueProviderType'), 'external'))]",
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', parameters('prefix')), 'RealtimeAPI-ServiceBus-ConnectionString')]",
+              "properties": {
+                "value": "[parameters('externalQueueConnectionString')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2024-02-02-preview",
+              "name": "[format('{0}-env', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[if(parameters('useExistingLogAnalytics'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('existingLogAnalyticsResourceGroup')), 'Microsoft.OperationalInsights/workspaces', last(split(parameters('existingLogAnalyticsWorkspaceId'), '/'))), '2023-09-01').customerId, reference(resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs', parameters('prefix'))), '2023-09-01').customerId)]",
+                    "sharedKey": "[if(parameters('useExistingLogAnalytics'), listKeys(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('existingLogAnalyticsResourceGroup')), 'Microsoft.OperationalInsights/workspaces', last(split(parameters('existingLogAnalyticsWorkspaceId'), '/'))), '2023-09-01').primarySharedKey, listKeys(resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs', parameters('prefix'))), '2023-09-01').primarySharedKey)]"
+                  }
+                },
+                "vnetConfiguration": {
+                  "infrastructureSubnetId": "[if(parameters('useExistingVnet'), parameters('existingSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[0].id)]",
+                  "internal": "[parameters('isInternal')]"
+                },
+                "customDomainConfiguration": "[if(variables('hasCert'), createObject('dnsSuffix', parameters('ingressDomain'), 'certificateKeyVaultProperties', createObject('keyVaultUrl', variables('certificateKeyVaultUrl'), 'identity', parameters('managedIdentityId'))), null())]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs', parameters('prefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/managedEnvironments/storages",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}/{1}', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+              "properties": {
+                "azureFile": {
+                  "accountName": "[replace(format('{0}files', parameters('prefix')), '-', '')]",
+                  "accountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}files', parameters('prefix')), '-', '')), '2023-05-01').keys[0].value]",
+                  "shareName": "rpifileoutput",
+                  "accessMode": "ReadWrite"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', replace(format('{0}files', parameters('prefix')), '-', ''), 'default', 'rpifileoutput')]",
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}files', parameters('prefix')), '-', ''))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-deploymentapi', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "http"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "deploymentapi",
+                      "image": "[variables('images').deploymentapi]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'))]",
+                      "volumeMounts": [
+                        {
+                          "volumeName": "rpifiles",
+                          "mountPath": "/rpifileoutputdir"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  },
+                  "volumes": [
+                    {
+                      "name": "rpifiles",
+                      "storageName": "rpifiles",
+                      "storageType": "AzureFile"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-interactionapi', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "http"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "interactionapi",
+                      "image": "[variables('images').interactionapi]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'), createArray(createObject('name', 'Authentication__RPIAuthentication__Enabled', 'value', 'true'), createObject('name', 'Authentication__RPIAuthentication__AuthorizationHost', 'value', format('http://{0}-deploymentapi', parameters('prefix')))))]",
+                      "volumeMounts": [
+                        {
+                          "volumeName": "rpifiles",
+                          "mountPath": "/rpifileoutputdir"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 5
+                  },
+                  "volumes": [
+                    {
+                      "name": "rpifiles",
+                      "storageName": "rpifiles",
+                      "storageType": "AzureFile"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-executionservice', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "executionservice",
+                      "image": "[variables('images').executionservice]",
+                      "resources": {
+                        "cpu": "[json(parameters('execCpuCores'))]",
+                        "memory": "[parameters('execMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'), createArray(createObject('name', 'Authentication__RPIAuthentication__Enabled', 'value', 'true'), createObject('name', 'Authentication__RPIAuthentication__AuthorizationHost', 'value', format('http://{0}-deploymentapi', parameters('prefix'))), createObject('name', 'ExecutionService__InternalCache__Provider', 'value', 'filesystem'), createObject('name', 'ExecutionService__InternalCache__BackupToOpsDBInterval', 'value', '00:00:20')))]",
+                      "volumeMounts": [
+                        {
+                          "volumeName": "rpifiles",
+                          "mountPath": "/rpifileoutputdir"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 8
+                  },
+                  "volumes": [
+                    {
+                      "name": "rpifiles",
+                      "storageName": "rpifiles",
+                      "storageType": "AzureFile"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-nodemanager', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "nodemanager",
+                      "image": "[variables('images').nodemanager]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'), createArray(createObject('name', 'Authentication__RPIAuthentication__Enabled', 'value', 'true'), createObject('name', 'Authentication__RPIAuthentication__AuthorizationHost', 'value', format('http://{0}-deploymentapi', parameters('prefix')))))]",
+                      "volumeMounts": [
+                        {
+                          "volumeName": "rpifiles",
+                          "mountPath": "/rpifileoutputdir"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  },
+                  "volumes": [
+                    {
+                      "name": "rpifiles",
+                      "storageName": "rpifiles",
+                      "storageType": "AzureFile"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-integrationapi', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "http"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "integrationapi",
+                      "image": "[variables('images').integrationapi]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'), createArray(createObject('name', 'Authentication__RPIAuthentication__Enabled', 'value', 'true'), createObject('name', 'Authentication__RPIAuthentication__AuthorizationHost', 'value', format('http://{0}-deploymentapi', parameters('prefix')))))]",
+                      "volumeMounts": [
+                        {
+                          "volumeName": "rpifiles",
+                          "mountPath": "/rpifileoutputdir"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  },
+                  "volumes": [
+                    {
+                      "name": "rpifiles",
+                      "storageName": "rpifiles",
+                      "storageType": "AzureFile"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createInternalMongoDB')]",
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-mongodb', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'mongodb-password', 'value', variables('mongoPassword'))))]",
+                  "ingress": {
+                    "external": false,
+                    "targetPort": 27017,
+                    "transport": "tcp"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "mongodb",
+                      "image": "[variables('images').mongodb]",
+                      "resources": {
+                        "cpu": "[json('1')]",
+                        "memory": "2Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "MONGO_INITDB_ROOT_USERNAME",
+                          "value": "rpi"
+                        },
+                        {
+                          "name": "MONGO_INITDB_ROOT_PASSWORD",
+                          "secretRef": "mongodb-password"
+                        },
+                        {
+                          "name": "MONGO_INITDB_DATABASE",
+                          "value": "RPIRealtimeCache"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[variables('createInternalRabbitMQ')]",
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-rabbitmq', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'rabbitmq-password', 'value', variables('rabbitmqPassword'))))]",
+                  "ingress": {
+                    "external": false,
+                    "targetPort": 5672,
+                    "transport": "tcp"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "rabbitmq",
+                      "image": "[variables('images').rabbitmq]",
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "RABBITMQ_DEFAULT_USER",
+                          "value": "rpi"
+                        },
+                        {
+                          "name": "RABBITMQ_DEFAULT_PASS",
+                          "secretRef": "rabbitmq-password"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableRealtime')]",
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-realtimeapi', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "http"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "realtimeapi",
+                      "image": "[variables('images').realtimeapi]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'), variables('realtimeCacheEnv'), variables('realtimeQueueEnv'))]"
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 5
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableCallback')]",
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-callbackapi', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "http"
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "callbackapi",
+                      "image": "[variables('images').callbackapi]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'), variables('callbackQueueEnv'))]"
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enableQueueReader')]",
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}-queuereader', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('managedIdentityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "registries": "[variables('registries')]",
+                  "secrets": "[concat(variables('registrySecrets'), createArray(createObject('name', 'db-pulse-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-logging-name', 'keyVaultUrl', format('{0}/Operations-Database-Pulse-Logging-Database-Name', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-server-host', 'keyVaultUrl', format('{0}/Operations-Database-ServerHost', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-username', 'keyVaultUrl', format('{0}/Operations-Database-Server-Username', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId')), createObject('name', 'db-password', 'keyVaultUrl', format('{0}/Operations-Database-Server-Password', format('{0}secrets', reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri)), 'identity', parameters('managedIdentityId'))))]"
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "queuereader",
+                      "image": "[variables('images').queuereader]",
+                      "resources": {
+                        "cpu": "[json(parameters('cpuCores'))]",
+                        "memory": "[parameters('appMemory')]"
+                      },
+                      "env": "[concat(variables('sharedEnv'), variables('sharedSecretEnv'), variables('postgresEnv'))]",
+                      "volumeMounts": [
+                        {
+                          "volumeName": "rpifiles",
+                          "mountPath": "/rpifileoutputdir"
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 5
+                  },
+                  "volumes": [
+                    {
+                      "name": "rpifiles",
+                      "storageName": "rpifiles",
+                      "storageType": "AzureFile"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('prefix')), 'rpifiles')]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones')))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.vaultcore.azure.net",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones')))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.vaultcore.azure.net', format('{0}-kv-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[if(parameters('useExistingVnet'), parameters('existingVnetId'), resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones')))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "[format('privatelink.file.{0}', environment().suffixes.storage)]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones')))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', format('privatelink.file.{0}', environment().suffixes.storage), format('{0}-storage-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[if(parameters('useExistingVnet'), parameters('existingVnetId'), resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createSqlServer'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "[format('privatelink{0}', environment().suffixes.sqlServerHostname)]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createSqlServer'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', format('privatelink{0}', environment().suffixes.sqlServerHostname), format('{0}-sql-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[if(parameters('useExistingVnet'), parameters('existingVnetId'), resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink{0}', environment().suffixes.sqlServerHostname))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createPostgresServer'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.postgres.database.azure.com",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createPostgresServer'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.postgres.database.azure.com', format('{0}-pg-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[if(parameters('useExistingVnet'), parameters('existingVnetId'), resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.postgres.database.azure.com')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createManagedRedis'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.redis.cache.windows.net",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createManagedRedis'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.redis.cache.windows.net', format('{0}-redis-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[if(parameters('useExistingVnet'), parameters('existingVnetId'), resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.redis.cache.windows.net')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createManagedServiceBus'))]",
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.servicebus.windows.net",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[and(and(parameters('enablePrivateEndpoints'), not(parameters('useExistingDnsZones'))), variables('createManagedServiceBus'))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.servicebus.windows.net', format('{0}-servicebus-link', parameters('prefix')))]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[if(parameters('useExistingVnet'), parameters('existingVnetId'), resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))))]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.servicebus.windows.net')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enablePrivateEndpoints')]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-pe-kv', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[if(parameters('enablePrivateEndpoints'), if(parameters('useExistingVnet'), parameters('peSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[1].id), '')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pe-kv', parameters('prefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                      "groupIds": [
+                        "vault"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enablePrivateEndpoints')]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-pe-kv', parameters('prefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[if(parameters('useExistingDnsZones'), variables('dnsZoneIdKv'), resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-kv', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enablePrivateEndpoints')]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-pe-storage', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[if(parameters('enablePrivateEndpoints'), if(parameters('useExistingVnet'), parameters('peSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[1].id), '')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pe-storage', parameters('prefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}files', parameters('prefix')), '-', ''))]",
+                      "groupIds": [
+                        "file"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}files', parameters('prefix')), '-', ''))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('enablePrivateEndpoints')]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-pe-storage', parameters('prefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[if(parameters('useExistingDnsZones'), variables('dnsZoneIdStorage'), resourceId('Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage)))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink.file.{0}', environment().suffixes.storage))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-storage', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createSqlServer'))]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-pe-sql', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[if(parameters('enablePrivateEndpoints'), if(parameters('useExistingVnet'), parameters('peSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[1].id), '')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pe-sql', parameters('prefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]",
+                      "groupIds": [
+                        "sqlServer"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createSqlServer'))]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-pe-sql', parameters('prefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[if(parameters('useExistingDnsZones'), variables('dnsZoneIdSql'), resourceId('Microsoft.Network/privateDnsZones', format('privatelink{0}', environment().suffixes.sqlServerHostname)))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', format('privatelink{0}', environment().suffixes.sqlServerHostname))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-sql', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createPostgresServer'))]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-pe-pg', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[if(parameters('enablePrivateEndpoints'), if(parameters('useExistingVnet'), parameters('peSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[1].id), '')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pe-pg', parameters('prefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]",
+                      "groupIds": [
+                        "postgresqlServer"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createPostgresServer'))]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-pe-pg', parameters('prefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[if(parameters('useExistingDnsZones'), variables('dnsZoneIdPg'), resourceId('Microsoft.Network/privateDnsZones', 'privatelink.postgres.database.azure.com'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.postgres.database.azure.com')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-pg', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createManagedRedis'))]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-pe-redis', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[if(parameters('enablePrivateEndpoints'), if(parameters('useExistingVnet'), parameters('peSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[1].id), '')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pe-redis', parameters('prefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.Cache/redis', format('{0}-redis', parameters('prefix')))]",
+                      "groupIds": [
+                        "redisCache"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cache/redis', format('{0}-redis', parameters('prefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createManagedRedis'))]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-pe-redis', parameters('prefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[if(parameters('useExistingDnsZones'), variables('dnsZoneIdRedis'), resourceId('Microsoft.Network/privateDnsZones', 'privatelink.redis.cache.windows.net'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.redis.cache.windows.net')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-redis', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createManagedServiceBus'))]",
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}-pe-servicebus', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[if(parameters('enablePrivateEndpoints'), if(parameters('useExistingVnet'), parameters('peSubnetId'), reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix'))), '2024-01-01').subnets[1].id), '')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('{0}-pe-servicebus', parameters('prefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]",
+                      "groupIds": [
+                        "namespace"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces', format('{0}-servicebus', parameters('prefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet', parameters('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('enablePrivateEndpoints'), variables('createManagedServiceBus'))]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('{0}-pe-servicebus', parameters('prefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[if(parameters('useExistingDnsZones'), variables('dnsZoneIdServiceBus'), resourceId('Microsoft.Network/privateDnsZones', 'privatelink.servicebus.windows.net'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.servicebus.windows.net')]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-servicebus', parameters('prefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "interactionApiUrl": {
+              "type": "string",
+              "value": "[if(not(empty(parameters('ingressDomain'))), format('https://{0}-interactionapi.{1}', parameters('prefix'), parameters('ingressDomain')), format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-interactionapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn))]"
+            },
+            "deploymentApiUrl": {
+              "type": "string",
+              "value": "[if(not(empty(parameters('ingressDomain'))), format('https://{0}-deploymentapi.{1}', parameters('prefix'), parameters('ingressDomain')), format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-deploymentapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn))]"
+            },
+            "integrationApiUrl": {
+              "type": "string",
+              "value": "[if(not(empty(parameters('ingressDomain'))), format('https://{0}-integrationapi.{1}', parameters('prefix'), parameters('ingressDomain')), format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-integrationapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn))]"
+            },
+            "realtimeApiUrl": {
+              "type": "string",
+              "value": "[if(parameters('enableRealtime'), if(not(empty(parameters('ingressDomain'))), format('https://{0}-realtimeapi.{1}', parameters('prefix'), parameters('ingressDomain')), format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-realtimeapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn)), 'not deployed')]"
+            },
+            "callbackApiUrl": {
+              "type": "string",
+              "value": "[if(parameters('enableCallback'), format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-callbackapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn), 'not deployed')]"
+            },
+            "keyVaultName": {
+              "type": "string",
+              "value": "[format('{0}-kv', parameters('prefix'))]"
+            },
+            "keyVaultUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', parameters('prefix'))), '2023-07-01').vaultUri]"
+            },
+            "managedIdentityClientId": {
+              "type": "string",
+              "value": "[parameters('managedIdentityClientId')]"
+            },
+            "managedIdentityPrincipalId": {
+              "type": "string",
+              "value": "[parameters('managedIdentityPrincipalId')]"
+            },
+            "managedIdentityId": {
+              "type": "string",
+              "value": "[parameters('managedIdentityId')]"
+            },
+            "databaseServer": {
+              "type": "string",
+              "value": "[if(parameters('useExistingDatabase'), parameters('existingDatabaseServerFQDN'), if(equals(parameters('databaseType'), 'sqlserver'), reference(resourceId('Microsoft.Sql/servers', format('{0}-sql', parameters('prefix'))), '2023-08-01-preview').fullyQualifiedDomainName, reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', format('{0}-pg', parameters('prefix'))), '2023-12-01-preview').fullyQualifiedDomainName))]"
+            },
+            "environmentStaticIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('prefix'))), '2024-02-02-preview').staticIp]"
+            },
+            "deploymentApiName": {
+              "type": "string",
+              "value": "[format('{0}-deploymentapi', parameters('prefix'))]"
+            },
+            "deploymentApiFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-deploymentapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "interactionApiName": {
+              "type": "string",
+              "value": "[format('{0}-interactionapi', parameters('prefix'))]"
+            },
+            "interactionApiFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-interactionapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "integrationApiName": {
+              "type": "string",
+              "value": "[format('{0}-integrationapi', parameters('prefix'))]"
+            },
+            "integrationApiFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-integrationapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "realtimeApiName": {
+              "type": "string",
+              "value": "[if(parameters('enableRealtime'), format('{0}-realtimeapi', parameters('prefix')), '')]"
+            },
+            "realtimeApiFqdn": {
+              "type": "string",
+              "value": "[if(parameters('enableRealtime'), reference(resourceId('Microsoft.App/containerApps', format('{0}-realtimeapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn, '')]"
+            },
+            "callbackApiName": {
+              "type": "string",
+              "value": "[if(parameters('enableCallback'), format('{0}-callbackapi', parameters('prefix')), '')]"
+            },
+            "callbackApiFqdn": {
+              "type": "string",
+              "value": "[if(parameters('enableCallback'), reference(resourceId('Microsoft.App/containerApps', format('{0}-callbackapi', parameters('prefix'))), '2024-03-01').configuration.ingress.fqdn, '')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', parameters('certificateKeyVaultSubscriptionId'), parameters('certificateKeyVaultResourceGroup')), 'Microsoft.Resources/deployments', format('cert-kv-access-{0}', variables('uniqueSuffix')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-identity-{0}', variables('uniqueSuffix')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', variables('prefix')))]"
+      ]
+    },
+    {
+      "condition": "[variables('createDnsRecords')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('dns-records-{0}', variables('uniqueSuffix'))]",
+      "subscriptionId": "[parameters('existingDnsZoneSubscriptionId')]",
+      "resourceGroup": "[parameters('existingDnsZoneResourceGroup')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "dnsZoneName": {
+            "value": "[parameters('ingressDomain')]"
+          },
+          "isPrivate": {
+            "value": "[variables('isInternal')]"
+          },
+          "staticIp": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.environmentStaticIp.value]"
+          },
+          "appNames": {
+            "value": "[concat(createArray(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.deploymentApiName.value, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.interactionApiName.value, reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.integrationApiName.value), if(parameters('enableRealtime'), createArray(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.realtimeApiName.value), createArray()), if(parameters('enableCallback'), createArray(reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.callbackApiName.value), createArray()))]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "2879791672937375048"
+            }
+          },
+          "parameters": {
+            "dnsZoneName": {
+              "type": "string"
+            },
+            "isPrivate": {
+              "type": "bool"
+            },
+            "staticIp": {
+              "type": "string"
+            },
+            "appNames": {
+              "type": "array"
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "privateARecords",
+                "count": "[length(parameters('appNames'))]"
+              },
+              "condition": "[parameters('isPrivate')]",
+              "type": "Microsoft.Network/privateDnsZones/A",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', parameters('dnsZoneName'), parameters('appNames')[copyIndex()])]",
+              "properties": {
+                "ttl": 300,
+                "aRecords": [
+                  {
+                    "ipv4Address": "[parameters('staticIp')]"
+                  }
+                ]
+              }
+            },
+            {
+              "copy": {
+                "name": "publicARecords",
+                "count": "[length(parameters('appNames'))]"
+              },
+              "condition": "[not(parameters('isPrivate'))]",
+              "type": "Microsoft.Network/dnsZones/A",
+              "apiVersion": "2023-07-01-preview",
+              "name": "[format('{0}/{1}', parameters('dnsZoneName'), parameters('appNames')[copyIndex()])]",
+              "properties": {
+                "TTL": 300,
+                "ARecords": [
+                  {
+                    "ipv4Address": "[parameters('staticIp')]"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[format('rg-{0}', variables('prefix'))]"
+    },
+    "environmentId": {
+      "type": "string",
+      "value": "[variables('uniqueSuffix')]"
+    },
+    "interactionApiUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.interactionApiUrl.value]"
+    },
+    "deploymentApiUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.deploymentApiUrl.value]"
+    },
+    "integrationApiUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.integrationApiUrl.value]"
+    },
+    "realtimeApiUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.realtimeApiUrl.value]"
+    },
+    "callbackApiUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.callbackApiUrl.value]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.keyVaultName.value]"
+    },
+    "keyVaultUri": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.keyVaultUri.value]"
+    },
+    "managedIdentityClientId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.managedIdentityClientId.value]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.managedIdentityPrincipalId.value]"
+    },
+    "databaseServer": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}', variables('prefix'))), 'Microsoft.Resources/deployments', format('rpi-resources-{0}', variables('uniqueSuffix'))), '2025-04-01').outputs.databaseServer.value]"
+    }
+  }
+}

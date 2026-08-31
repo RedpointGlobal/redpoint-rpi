@@ -1,10 +1,11 @@
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $rtQueueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $QueueReaderMQ := "rpi-queuereader-rabbitmq" -}}
 {{- $RealtimeapiMQ := "rpi-realtimeapi-rabbitmq" -}}
 
-{{- if $qrCfg.podDisruptionBudget.enabled }}
+{{- if and $qrCfg.realtimeConfiguration.isDistributed $qrCfg.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -13,7 +14,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $QueueReaderMQ "component" "messaging") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $qrCfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $qrCfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $QueueReaderMQ }}
@@ -22,8 +23,6 @@ spec:
 ---
 {{- if $qrCfg.enabled }}
 {{- if $qrCfg.realtimeConfiguration.isDistributed }}
-{{- if eq $qrCfg.internalQueues.provider "rabbitmq" }}
-{{- if eq $qrCfg.internalQueues.type "internal" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -33,7 +32,6 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $QueueReaderMQ "component" "messaging") | nindent 4 }}
 data:
   rabbitmq.conf: |
-    # Default RabbitMQ configuration
     listeners.tcp.default = 5672
     management.listener.port = 15672
     loopback_users.guest = false
@@ -157,8 +155,18 @@ spec:
             {{- end }}
           {{- end }}
           env:
+            # Boot rabbit under its per-pod FQDN so .NET clients can
+            # resolve the cluster nodename it advertises.
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: RABBITMQ_USE_LONGNAME
+              value: "true"
+            - name: RABBITMQ_NODENAME
+              value: "rabbit@$(POD_NAME).{{ $QueueReaderMQ }}.$(POD_NAMESPACE).svc.cluster.local"
             - name: RABBITMQ_DEFAULT_USER
-              value: {{ $qrCfg.internalQueues.rabbitmqSettings.username | quote }}
+              value: {{ include "rpi.queuereader.internalQueueUsername" . | quote }}
             - name: RABBITMQ_DEFAULT_PASS
               valueFrom:
                 secretKeyRef:
@@ -214,11 +222,9 @@ spec:
   {{- end }}
 {{- end }}
 {{- end }}
-{{- end }}
-{{- end }}
 
 ---
-{{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+{{- if eq $rtQueueProvider "rabbitmq" }}
 {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
 {{- if $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
@@ -229,7 +235,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $RealtimeapiMQ  "component" "messaging") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $rtCfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $RealtimeapiMQ }}
@@ -239,7 +245,7 @@ spec:
 
 ---
 {{- if $rtCfg.enabled }}
-{{- if eq $rtCfg.queueProvider.provider "rabbitmq" }}
+{{- if eq $rtQueueProvider "rabbitmq" }}
 {{- if eq $rtCfg.queueProvider.rabbitmq.type "internal" }}
 apiVersion: v1
 kind: ConfigMap
@@ -250,7 +256,6 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $RealtimeapiMQ  "component" "messaging") | nindent 4 }}
 data:
   rabbitmq.conf: |
-    # Default RabbitMQ configuration
     listeners.tcp.default = 5672
     management.listener.port = 15672
     loopback_users.guest = false
@@ -374,8 +379,18 @@ spec:
             {{- end }}
           {{- end }}
           env:
+            # Boot rabbit under its per-pod FQDN so .NET clients can
+            # resolve the cluster nodename it advertises.
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: RABBITMQ_USE_LONGNAME
+              value: "true"
+            - name: RABBITMQ_NODENAME
+              value: "rabbit@$(POD_NAME).{{ $RealtimeapiMQ }}.$(POD_NAMESPACE).svc.cluster.local"
             - name: RABBITMQ_DEFAULT_USER
-              value: {{ $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+              value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
             - name: RABBITMQ_DEFAULT_PASS
               valueFrom:
                 secretKeyRef:

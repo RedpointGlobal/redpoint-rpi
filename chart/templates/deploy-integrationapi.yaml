@@ -22,7 +22,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -163,6 +163,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
       containers:
       - env:
         {{- if .Values.global.deployment.podTimezone }}
@@ -239,6 +243,7 @@ spec:
         - name: Authentication__RPIAuthentication__EnableTransportSecurityRequirement
           value: "false"
         {{- end }}
+        {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
         - name: EnableSwagger
           value: {{ $cfg.enableSwagger | quote }}
         {{- with (include "rpi.secrets.sdk.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
@@ -251,12 +256,16 @@ spec:
           value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
         {{- end }}
         {{- end }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: ODBCINI
+          value: /odbc-config/odbc.ini
+        {{- end }}
         {{- if .Values.OpenIdProviders.enabled }}
         {{- if eq .Values.OpenIdProviders.name "keycloak" }}
         - name: RPI__UserManagement__UseExternalUserManagement
           value: 'true'
         - name: RPI__UserManagement__Keycloak__Address
-          value: "http://cdp-keycloak/auth"
+          value: "http://cdp-keycloak/auth/"
         - name: RPI__UserManagement__Keycloak__Realm
           value: redpoint-mercury
         - name: RPI__UserManagement__Keycloak__ClientId
@@ -282,14 +291,12 @@ spec:
           value: {{ .Values.OpenIdProviders.validateIssuer | quote }}
         - name: Authentication__OpenIdProviders__0__ValidateAudience
           value: {{ .Values.OpenIdProviders.validateAudience | quote }}
+        - name: Authentication__OpenIdProviders__0__SupportsUserManagement
+          value: {{ .Values.OpenIdProviders.supportsUserManagement | quote }}
         - name: Authentication__OpenIdProviders__0__LogoutIdTokenParameter
           value: {{ .Values.OpenIdProviders.logoutIdTokenParameter | quote }}
         - name: Authentication__OpenIdProviders__0__MetadataHost
-          value: "http://keycloak/auth/realms/redpoint-mercury"
-#        {{- range $index, $scope := .Values.OpenIdProviders.customScopes }}
-#        - name: Authentication__OpenIdProviders__0__CustomScopes__{{ $index }}
-#          value: {{ $scope | quote }}
-        {{- end }}
+          value: "http://cdp-keycloak/auth/realms/redpoint-mercury"
         {{- end }}
         {{- end }}
         {{- if .Values.OpenIdProviders.enabled }}
@@ -339,11 +346,8 @@ spec:
             secretKeyRef:
               key: ConnectionString_Operations_Database
               name: {{ include "rpi.secrets.secretName" . | quote }}
-        {{- end }} 
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        - name: RPI_OperationalDatabaseType
-          value: "PostgreSQL"
         {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
         - name: RPI__FileOutput__Directory
           value: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
@@ -368,7 +372,6 @@ spec:
         {{- end }}
         {{- end }}
         {{- if .Values.redpointAI.enabled }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiBase
           value: {{ .Values.redpointAI.naturalLanguage.ApiBase | quote }} 
         - name: RPI__NLP__ApiVersion
@@ -387,7 +390,8 @@ spec:
           value: {{ .Values.redpointAI.modelStorage.ContainerName | quote }}
         - name: RPI__NLP__Model__BlobFolder
           value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
-        {{- end }}
+        - name: RPI__NLP__EnableTrace
+          value: {{ .Values.redpointAI.logging.enableTrace | quote }}
         {{- end }}
         image: {{ include "rpi.image" (dict "root" . "name" $name) }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
@@ -398,6 +402,15 @@ spec:
           name: web-port
           protocol: TCP
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+        {{- end }}
         {{- if $cfg.resources.enabled }}
         resources:
           {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
@@ -423,11 +436,16 @@ spec:
           - name: tempstore
             mountPath: /tmp
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          - name: odbc-config
+            mountPath: /app/odbc-config/odbc2.ini
+            subPath: odbc2.ini
+          - name: odbcini
+            mountPath: /odbc-config
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ .configMapName | quote }}
-            mountPath: {{ .ConfigMapFilePath }}/{{ .keyName }}
-            subPath: {{ .keyName }}
+          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -455,11 +473,17 @@ spec:
         - name: tempstore
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: odbc-config
+          configMap:
+            name: odbc-config
+            defaultMode: 0777
+        - name: odbcini
+          emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
         {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ .configMapName | quote }}
+        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
           configMap:
-            name: {{ .configMapName | quote }}
+            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}

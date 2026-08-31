@@ -1,11 +1,4 @@
 {{/*
-Expand the name of the chart.
-*/}}
-{{- define "redpoint-rpi.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
 Create a default fully qualified app name.
 */}}
 {{- define "redpoint-rpi.fullname" -}}
@@ -22,61 +15,67 @@ Create a default fully qualified app name.
 {{- end }}
 
 {{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "redpoint-rpi.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
+Common component labels for an RPI resource.
+Usage: {{ include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") }}
 
-{{/*
-Common labels
-*/}}
-{{- define "redpoint-rpi.labels" -}}
-helm.sh/chart: {{ include "redpoint-rpi.chart" . }}
-{{ include "redpoint-rpi.selectorLabels" . }}
-app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: rpi
-{{- end }}
-
-{{/*
-Selector labels
-*/}}
-{{- define "redpoint-rpi.selectorLabels" -}}
-app.kubernetes.io/name: {{ .name }}
-app.kubernetes.io/instance: {{ .root.Release.Name }}
-{{- end }}
-
-{{/*
-Common labels.
-Usage:
-{{ include "redpoint-rpi.componentLabels" (dict "root" . "component" "api") }}
+Contract:
+  required:
+    .root       -- chart root context
+    .component  -- component label (e.g. "api", "worker", "intelligence",
+                   "database", "messaging", "storage",
+                   "networkutils", "controller", "node-provisioning",
+                   "datawarehouse"). Identifier
+                   label; missing values silently drift in Argo CD
+                   because the API server strips empty-string labels.
+  optional:
+    .name       -- service identifier. Defaults to the chart's
+                   fullname when omitted (only the root chart itself
+                   uses the default; per-service templates always
+                   pass .name).
 */}}
 {{- define "redpoint-rpi.componentLabels" -}}
-app.kubernetes.io/name: {{ .name | default (include "redpoint-rpi.fullname" .root) }}
-app.kubernetes.io/instance: {{ .root.Release.Name }}
+{{- $root := required "redpoint-rpi.componentLabels: .root is required" .root -}}
+{{- $component := required "redpoint-rpi.componentLabels: .component is required" .component -}}
+app.kubernetes.io/name: {{ .name | default (include "redpoint-rpi.fullname" $root) }}
+app.kubernetes.io/instance: {{ $root.Release.Name }}
 app.kubernetes.io/part-of: rpi
-app.kubernetes.io/component: {{ .component }}
+app.kubernetes.io/component: {{ $component }}
 {{- end }}
 
 {{/*
-Common labels.
-Usage:
-{{ include "smartactivation.componentLabels" (dict "root" . "component" "api") }}
+Common component labels for a Smart Activation resource.
+Usage: {{ include "smartactivation.componentLabels" (dict "root" . "name" $name) }}
+
+Contract:
+  required:
+    .root  -- chart root context
+  optional:
+    .name  -- service identifier. Defaults to the chart's fullname.
 */}}
 {{- define "smartactivation.componentLabels" -}}
-app.kubernetes.io/name: {{ .name | default (include "redpoint-rpi.fullname" .root) }}
-app.kubernetes.io/instance: {{ .root.Release.Name }}
+{{- $root := required "smartactivation.componentLabels: .root is required" .root -}}
+app.kubernetes.io/name: {{ .name | default (include "redpoint-rpi.fullname" $root) }}
+app.kubernetes.io/instance: {{ $root.Release.Name }}
 app.kubernetes.io/part-of: smartactivation
 {{- end }}
 
 {{/*
 Pod-level security context.
 Usage: {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
-Options: set "noFsGroup" true or "noSupplementalGroups" true for services that need a minimal context.
+
+Contract:
+  required:
+    .sc  -- merged security context dict from rpi.merged.securityContext
+  optional:
+    .noFsGroup            -- bool. When true, suppress the fsGroup field
+                             (used by services that mount volumes which
+                             must not inherit a group ownership change,
+                             e.g. RabbitMQ StatefulSets on the rabbit
+                             image's reserved UID).
+    .noSupplementalGroups -- bool. When true, suppress supplementalGroups.
 */}}
 {{- define "rpi.pod.securityContext" -}}
-{{- $sc := .sc -}}
+{{- $sc := required "rpi.pod.securityContext: .sc is required" .sc -}}
 {{- if $sc.enabled -}}
 securityContext:
   runAsUser: {{ $sc.runAsUser }}
@@ -97,9 +96,13 @@ securityContext:
 {{/*
 Container-level security context.
 Usage: {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+
+Contract:
+  required:
+    .sc  -- merged security context dict from rpi.merged.securityContext
 */}}
 {{- define "rpi.container.securityContext" -}}
-{{- $sc := .sc -}}
+{{- $sc := required "rpi.container.securityContext: .sc is required" .sc -}}
 {{- if $sc.enabled -}}
 securityContext:
   privileged: {{ $sc.privileged }}
@@ -118,11 +121,18 @@ securityContext:
 {{- end -}}
 
 {{/*
-Topology spread constraints
-Usage: {{ include "redpoint-rpi.topologySpreadConstraints" (dict "name" "rpi-realtimeapi" "root" .) }}
+Topology spread constraints.
+Usage: {{ include "redpoint-rpi.topologySpreadConstraints" (dict "root" . "name" "rpi-realtimeapi") }}
+
+Contract:
+  required:
+    .root  -- chart root context (for the merged topologySpreadConstraints)
+    .name  -- service identifier emitted in the matchLabels selector
 */}}
 {{- define "redpoint-rpi.topologySpreadConstraints" -}}
-{{- $tsc := fromYaml (include "rpi.merged.topologySpreadConstraints" .) -}}
+{{- $root := required "redpoint-rpi.topologySpreadConstraints: .root is required" .root -}}
+{{- $name := required "redpoint-rpi.topologySpreadConstraints: .name is required" .name -}}
+{{- $tsc := fromYaml (include "rpi.merged.topologySpreadConstraints" $root) -}}
 {{- if $tsc.enabled }}
 topologySpreadConstraints:
   - maxSkew: {{ $tsc.maxSkew | default 1 }}
@@ -130,26 +140,28 @@ topologySpreadConstraints:
     whenUnsatisfiable: {{ $tsc.whenUnsatisfiable | default "ScheduleAnyway" }}
     labelSelector:
       matchLabels:
-        app.kubernetes.io/name: {{ .name }}
+        app.kubernetes.io/name: {{ $name }}
 {{- end }}
-{{- end }}
-
-{{/*
-PreStop lifecycle hook for graceful shutdown
-*/}}
-{{- define "redpoint-rpi.preStopHook" -}}
-lifecycle:
-  preStop:
-    exec:
-      command: ["/bin/sh", "-c", "sleep 10"]
 {{- end }}
 
 {{/*
 Container probes (liveness, readiness, startup) from merged config.
 Usage: {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" true) | nindent 8 }}
-Pass "enabled" false to disable all probes for a service (e.g., deploymentapi.enableProbes: false).
+
+Contract:
+  required:
+    .liveness   -- merged liveness probe dict from rpi.merged.livenessProbe
+    .readiness  -- merged readiness probe dict from rpi.merged.readinessProbe
+    .startup    -- merged startup probe dict from rpi.merged.startupProbe
+  optional:
+    .enabled    -- bool. When omitted or true, render the probe block.
+                   Pass false to suppress all probes for a service
+                   (e.g. deploymentapi.enableProbes: false).
 */}}
 {{- define "rpi.block.probes" -}}
+{{- $_ := required "rpi.block.probes: .liveness is required"  .liveness  -}}
+{{- $_ := required "rpi.block.probes: .readiness is required" .readiness -}}
+{{- $_ := required "rpi.block.probes: .startup is required"   .startup   -}}
 {{- $probesEnabled := true -}}
 {{- if hasKey . "enabled" -}}
   {{- if not (kindIs "invalid" .enabled) -}}
@@ -194,16 +206,6 @@ startupProbe:
 {{- end -}}
 
 {{/*
-Image pull secrets
-*/}}
-{{- define "redpoint-rpi.imagePullSecrets" -}}
-{{- if .Values.global.deployment.images.imagePullSecret.enabled }}
-imagePullSecrets:
-  - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
-{{- end }}
-{{- end }}
-
-{{/*
 Node selector
 */}}
 {{- define "redpoint-rpi.nodeSelector" -}}
@@ -230,7 +232,6 @@ tolerations:
 {{- define "redpoint.DatawarehouseProviders" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- $bigquery := $dw.bigquery | default dict -}}
-
 {{- if ($bigquery.enabled | default false) -}}
 true
 {{- else -}}
@@ -253,38 +254,62 @@ false
 */}}
 
 {{/*
-Merge a service's config: chart defaults + global resources + user overrides.
+Resolve a service's merged config: per-service defaults from _defaults.tpl,
+overlaid with chart-wide resources, overlaid with operator overrides.
 Usage: {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+
+Contract:
+  required:
+    .root  -- chart root context
+    .name  -- service key (matches a top-level .Values.<name> block and a
+              "rpi.defaults.<name>" defines block in _defaults.tpl)
 */}}
 {{- define "rpi.merged.service" -}}
-{{- $d := fromYaml (include (printf "rpi.defaults.%s" .name) .root) -}}
-{{- $g := .root.Values.resources | default dict -}}
+{{- $root := required "rpi.merged.service: .root is required" .root -}}
+{{- $name := required "rpi.merged.service: .name is required" .name -}}
+{{- $d := fromYaml (include (printf "rpi.defaults.%s" $name) $root) -}}
+{{- $g := $root.Values.resources | default dict -}}
 {{- if $g -}}
 {{- $_ := set $d "resources" (mustMergeOverwrite ($d.resources | default dict) $g) -}}
 {{- end -}}
-{{- $u := index .root.Values .name | default dict -}}
+{{- $u := index $root.Values $name | default dict -}}
 {{- toYaml (mustMergeOverwrite $d $u) -}}
 {{- end -}}
 
 {{/* --- Shared resource blocks (reduces duplication across deploy-*.yaml files) --- */}}
 
 {{/*
-ServiceAccount for per-service mode.
+ServiceAccount block for per-service mode. Renders nothing when the
+chart is in shared-SA mode or when the service / SA is disabled.
 Usage: {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
+
+Contract:
+  required:
+    .root       -- chart root context
+    .name       -- ServiceAccount metadata.name
+    .component  -- component label propagated to componentLabels
+                   (empty values silently drift in Argo CD because the
+                   Kubernetes API server strips empty-string labels)
+    .cfg        -- merged service config dict (provides .serviceAccount.enabled,
+                   .enabled)
 */}}
 {{- define "rpi.block.serviceAccount" -}}
-{{- if .cfg.serviceAccount.enabled }}
-{{- if .cfg.enabled }}
-{{- if ne (.root.Values.cloudIdentity.serviceAccount.mode | default "per-service") "shared" }}
+{{- $root := required "rpi.block.serviceAccount: .root is required" .root -}}
+{{- $name := required "rpi.block.serviceAccount: .name is required" .name -}}
+{{- $component := required "rpi.block.serviceAccount: .component is required" .component -}}
+{{- $cfg := required "rpi.block.serviceAccount: .cfg is required" .cfg -}}
+{{- if $cfg.serviceAccount.enabled }}
+{{- if $cfg.enabled }}
+{{- if ne ($root.Values.cloudIdentity.serviceAccount.mode | default "per-service") "shared" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .name }}
-  namespace: {{ .root.Release.Namespace }}
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" .root "name" .name "component" .component) | nindent 4 }}
-  {{- $saAnnotations := include "rpi.mergedAnnotations" (dict "root" .root "type" "serviceAccount") | trim }}
-  {{- $ciAnnotations := include "rpi.cloudidentity.saAnnotations" (dict "root" .root) | trim }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $root "name" $name "component" $component) | nindent 4 }}
+  {{- $saAnnotations := include "rpi.mergedAnnotations" (dict "root" $root "type" "serviceAccount") | trim }}
+  {{- $ciAnnotations := include "rpi.cloudidentity.saAnnotations" (dict "root" $root) | trim }}
   {{- if or $saAnnotations $ciAnnotations }}
   annotations:
     {{- if $saAnnotations }}
@@ -300,69 +325,92 @@ metadata:
 {{- end -}}
 
 {{/*
-PodDisruptionBudget.
+PodDisruptionBudget block.
 Usage: {{- include "rpi.block.pdb" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
+
+Contract:
+  required:
+    .root       -- chart root context
+    .name       -- PDB metadata.name + selector matchLabels identifier
+    .component  -- component label propagated to componentLabels
+    .cfg        -- merged service config dict (provides
+                   .podDisruptionBudget.enabled, .podDisruptionBudget.minAvailable)
 */}}
 {{- define "rpi.block.pdb" -}}
-{{- if .cfg.podDisruptionBudget.enabled }}
+{{- $root := required "rpi.block.pdb: .root is required" .root -}}
+{{- $name := required "rpi.block.pdb: .name is required" .name -}}
+{{- $component := required "rpi.block.pdb: .component is required" .component -}}
+{{- $cfg := required "rpi.block.pdb: .cfg is required" .cfg -}}
+{{- if $cfg.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ .name }}
-  namespace: {{ .root.Release.Namespace }}
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" .root "name" .name "component" .component) | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" $root "name" $name "component" $component) | nindent 4 }}
 spec:
-  maxUnavailable: {{ .cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/name: {{ $name }}
 {{- end }}
 {{- end -}}
 
 {{/*
-Pod scheduling: nodeSelector, tolerations, topology spread, anti-affinity.
-Usage: {{- include "rpi.block.scheduling" (dict "root" . "name" $name "cfg" $cfg "topo" $topo) | nindent 6 }}
+Pod scheduling block: nodeSelector, tolerations, anti-affinity, topology spread.
+Usage: {{- include "rpi.block.scheduling" (dict "root" . "name" $name "topo" $topo) | nindent 6 }}
+
+Contract:
+  required:
+    .root  -- chart root context (provides .Values.nodeSelector,
+              .Values.tolerations, .Values.podAntiAffinity)
+    .name  -- service identifier emitted in pod-anti-affinity +
+              topology-spread matchLabels selectors
+    .topo  -- merged topologySpreadConstraints dict
 */}}
 {{- define "rpi.block.scheduling" -}}
-{{- if .root.Values.nodeSelector.enabled }}
+{{- $root := required "rpi.block.scheduling: .root is required" .root -}}
+{{- $name := required "rpi.block.scheduling: .name is required" .name -}}
+{{- $topo := required "rpi.block.scheduling: .topo is required" .topo -}}
+{{- if $root.Values.nodeSelector.enabled }}
 nodeSelector:
-  {{ .root.Values.nodeSelector.key }}: {{ .root.Values.nodeSelector.value }}
+  {{ $root.Values.nodeSelector.key }}: {{ $root.Values.nodeSelector.value }}
 {{- end }}
-{{- if .root.Values.tolerations.enabled }}
+{{- if $root.Values.tolerations.enabled }}
 tolerations:
   - effect: NoSchedule
-    key: {{ .root.Values.nodeSelector.key }}
+    key: {{ $root.Values.nodeSelector.key }}
     operator: Equal
-    value: {{ .root.Values.nodeSelector.value }}
+    value: {{ $root.Values.nodeSelector.value }}
 {{- end }}
-{{- if .root.Values.podAntiAffinity.enabled }}
+{{- if $root.Values.podAntiAffinity.enabled }}
 affinity:
   podAntiAffinity:
-    {{- if eq .root.Values.podAntiAffinity.type "preferred" }}
+    {{- if eq $root.Values.podAntiAffinity.type "preferred" }}
     preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: {{ .root.Values.podAntiAffinity.weight | default 100 }}
+    - weight: {{ $root.Values.podAntiAffinity.weight | default 100 }}
       podAffinityTerm:
         labelSelector:
           matchLabels:
-            app.kubernetes.io/name: {{ .name }}
-        topologyKey: {{ .root.Values.podAntiAffinity.topologyKey | default "kubernetes.io/hostname" }}
+            app.kubernetes.io/name: {{ $name }}
+        topologyKey: {{ $root.Values.podAntiAffinity.topologyKey | default "kubernetes.io/hostname" }}
     {{- else }}
     requiredDuringSchedulingIgnoredDuringExecution:
     - labelSelector:
         matchLabels:
-          app.kubernetes.io/name: {{ .name }}
-      topologyKey: {{ .root.Values.podAntiAffinity.topologyKey | default "kubernetes.io/hostname" }}
+          app.kubernetes.io/name: {{ $name }}
+      topologyKey: {{ $root.Values.podAntiAffinity.topologyKey | default "kubernetes.io/hostname" }}
     {{- end }}
 {{- end }}
-{{- if .topo.enabled }}
+{{- if $topo.enabled }}
 topologySpreadConstraints:
-- maxSkew: {{ .topo.maxSkew | default 1 }}
-  topologyKey: {{ .topo.topologyKey | default "kubernetes.io/hostname" }}
-  whenUnsatisfiable: {{ .topo.whenUnsatisfiable | default "ScheduleAnyway" }}
+- maxSkew: {{ $topo.maxSkew | default 1 }}
+  topologyKey: {{ $topo.topologyKey | default "kubernetes.io/hostname" }}
+  whenUnsatisfiable: {{ $topo.whenUnsatisfiable | default "ScheduleAnyway" }}
   labelSelector:
     matchLabels:
-      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/name: {{ $name }}
 {{- end }}
 {{- end -}}
 
@@ -435,12 +483,6 @@ nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 {{- toYaml (mustMergeOverwrite $d $u) -}}
 {{- end -}}
 
-{{- define "rpi.merged.postInstall" -}}
-{{- $d := fromYaml (include "rpi.defaults.postInstall" .) -}}
-{{- $u := .Values.postInstall | default dict -}}
-{{- toYaml (mustMergeOverwrite $d $u) -}}
-{{- end -}}
-
 {{- define "rpi.merged.databaseUpgrade" -}}
 {{- $d := fromYaml (include "rpi.defaults.databaseUpgrade" .) -}}
 {{- $u := .Values.databaseUpgrade | default dict -}}
@@ -488,8 +530,7 @@ Per-service opt-out: set serviceMesh: false on the service to skip mesh annotati
 Usage: {{- include "rpi.serviceMesh.podAnnotations" (dict "root" . "svcServiceMesh" ($cfg.serviceMesh | default true)) | nindent 8 }}
 */}}
 {{- define "rpi.serviceMesh.podAnnotations" -}}
-{{- $root := . -}}
-{{- if hasKey . "root" }}{{- $root = .root -}}{{- end -}}
+{{- $root := .root -}}
 {{- $svcMesh := true -}}
 {{- if hasKey . "svcServiceMesh" }}
 {{- if not (kindIs "invalid" .svcServiceMesh) }}{{- $svcMesh = .svcServiceMesh -}}{{- end -}}
@@ -531,8 +572,7 @@ Usage (shared mode or backward compat): {{- include "rpi.cloudidentity.podLabels
 Usage (per-service):  {{- include "rpi.cloudidentity.podLabels" (dict "root" . "svcCloudIdentity" $cfg.cloudIdentity) | nindent 8 }}
 */}}
 {{- define "rpi.cloudidentity.podLabels" -}}
-{{- $root := . -}}
-{{- if hasKey . "root" }}{{- $root = .root -}}{{- end -}}
+{{- $root := .root -}}
 {{- if $root.Values.cloudIdentity.enabled -}}
 {{- if eq $root.Values.global.deployment.platform "azure" }}
 azure.workload.identity/use: "true"
@@ -588,12 +628,51 @@ Usage: {{- include "rpi.cloudidentity.awsAccessKeyEnvvars" . | nindent 10 }}
 {{- end -}}
 
 {{/*
-SDK vault env vars — only when secretsManagement.provider == "sdk".
+RPI native-auth account policy env vars (password policy + account lockout),
+shared by the Interaction and Integration APIs (one user store, one policy;
+the Interaction API is the identity provider). Password-policy defaults
+mirror the application's own; lockout settings emit only when set, so the
+application defaults apply otherwise. Operators override under
+interactionapi.passwordPolicy / interactionapi.accountLockout.
+Usage: {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
+*/}}
+{{- define "rpi.auth.accountPolicy.envvars" -}}
+{{- $ia := .Values.interactionapi | default dict -}}
+{{- $pp := $ia.passwordPolicy | default dict -}}
+{{- $lo := $ia.accountLockout | default dict -}}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequiredLength
+  value: {{ ternary $pp.requiredLength 6 (hasKey $pp "requiredLength") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequiredUniqueChars
+  value: {{ ternary $pp.requiredUniqueChars 1 (hasKey $pp "requiredUniqueChars") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireDigit
+  value: {{ ternary $pp.requireDigit true (hasKey $pp "requireDigit") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireNonAlphanumeric
+  value: {{ ternary $pp.requireNonAlphanumeric true (hasKey $pp "requireNonAlphanumeric") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireLowercase
+  value: {{ ternary $pp.requireLowercase true (hasKey $pp "requireLowercase") | quote }}
+- name: Authentication__RPIAuthentication__PasswordPolicy__RequireUppercase
+  value: {{ ternary $pp.requireUppercase true (hasKey $pp "requireUppercase") | quote }}
+{{- if hasKey $lo "maxFailedAccessAttempts" }}
+- name: Authentication__RPIAuthentication__MaxFailedAccessAttempts
+  value: {{ $lo.maxFailedAccessAttempts | quote }}
+{{- end }}
+{{- if hasKey $lo "lockoutTimeSpan" }}
+- name: Authentication__RPIAuthentication__LockoutTimeSpan
+  value: {{ $lo.lockoutTimeSpan | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+SDK vault env vars. Only when secretsManagement.provider == "sdk".
 Configures the app to read secrets from the cloud vault at runtime.
 Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 */}}
 {{- define "rpi.secrets.sdk.envvars" -}}
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
+{{- $sdk := .Values.secretsManagement.sdk | default dict -}}
+{{- $useForAppSettings := ternary $sdk.useForAppSettings true (hasKey $sdk "useForAppSettings") -}}
+{{- $configPwDefault := ternary false true (eq .Values.global.deployment.platform "google") -}}
+{{- $useForConfigPasswords := ternary $sdk.useForConfigPasswords $configPwDefault (hasKey $sdk "useForConfigPasswords") -}}
 {{- if eq .Values.global.deployment.platform "azure" }}
 - name: CloudIdentity__Azure__CredentialType
   value: "AzureIdentity"
@@ -602,9 +681,9 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 - name: KeyVault__Provider
   value: "Azure"
 - name: KeyVault__UseForAppSettings
-  value: "true"
+  value: {{ $useForAppSettings | quote }}
 - name: KeyVault__UseForConfigPasswords
-  value: "true"
+  value: {{ $useForConfigPasswords | quote }}
 - name: KeyVault__AzureSettings__VaultURI
   value: {{ .Values.secretsManagement.sdk.azure.vaultUri | quote }}
 - name: KeyVault__AzureSettings__AppSettingsVaultURI
@@ -615,16 +694,16 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 - name: KeyVault__Provider
   value: "Google"
 - name: KeyVault__UseForAppSettings
-  value: "true"
+  value: {{ $useForAppSettings | quote }}
 - name: KeyVault__UseForConfigPasswords
-  value: "true"
+  value: {{ $useForConfigPasswords | quote }}
 {{- else if eq .Values.global.deployment.platform "amazon" }}
 - name: KeyVault__Provider
   value: "Amazon"
 - name: KeyVault__UseForAppSettings
-  value: {{ .Values.secretsManagement.sdk.amazon.useForAppSettings | default "true" | quote }}
+  value: {{ $useForAppSettings | quote }}
 - name: KeyVault__UseForConfigPasswords
-  value: {{ .Values.secretsManagement.sdk.amazon.useForConfigPasswords | default "true" | quote }}
+  value: {{ $useForConfigPasswords | quote }}
 - name: KeyVault__AmazonSettings__AppSettingsTag
   value: {{ .Values.secretsManagement.sdk.amazon.secretTagKey | quote }}
 - name: AWS_REGION
@@ -634,13 +713,18 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 {{- end -}}
 
 {{/*
-Resolve the K8s secret name — works for kubernetes and csi modes.
+Resolve the K8s secret name. Each provider reads from its own
+secretName field so customers can keep distinct names per mode.
 Usage: {{ include "rpi.secrets.secretName" . }}
 */}}
 {{- define "rpi.secrets.secretName" -}}
-{{- if eq .Values.secretsManagement.provider "csi" -}}
+{{- $provider := .Values.secretsManagement.provider | default "kubernetes" -}}
+{{- if eq $provider "csi" -}}
 {{ .Values.secretsManagement.csi.secretName | default "redpoint-rpi-secrets" }}
 {{- else -}}
+{{- /* kubernetes, plus sdk or unknown: secretKeyRef bindings are gated off
+       in SDK mode so that branch is rarely consumed; it falls back to the
+       kubernetes name to keep manifests renderable. */ -}}
 {{ .Values.secretsManagement.kubernetes.secretName | default "redpoint-rpi-secrets" }}
 {{- end -}}
 {{- end -}}
@@ -706,25 +790,34 @@ Usage: {{- include "rpi.snowflake.volumeMount" . | nindent 10 }}
 {{- end -}}
 
 {{/*
-Resolve which ServiceAccount name a pod should use.
+Resolve the ServiceAccount name a pod should mount.
 Usage: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
-  - root: the top-level context (.)
-  - name: the per-service SA name (e.g., "rpi-realtimeapi")
-  - cfg:  the merged service config (optional)
-Priority:
-  1. Per-service override: cfg.serviceAccountName (if set)
-  2. Mode=shared: uses the shared SA name
-  3. Mode=per-service or both: uses the per-service SA name
+
+Resolution order:
+  1. Per-service override (cfg.serviceAccountName) when set
+  2. Shared SA name (cloudIdentity.serviceAccount.name) when mode=shared
+  3. The service's own name (per-service mode default)
+
+Contract:
+  required:
+    .root  -- chart root context (for cloudIdentity.serviceAccount config)
+    .name  -- service identifier used as the per-service SA name when
+              mode=per-service
+  optional:
+    .cfg   -- merged service config dict. When provided and it carries
+              a .serviceAccountName field, that wins over chart-wide mode.
 */}}
 {{- define "rpi.serviceAccountName" -}}
+{{- $root := required "rpi.serviceAccountName: .root is required" .root -}}
+{{- $name := required "rpi.serviceAccountName: .name is required" .name -}}
 {{- if and .cfg (hasKey .cfg "serviceAccountName") .cfg.serviceAccountName -}}
 {{ .cfg.serviceAccountName }}
 {{- else -}}
-{{- $mode := .root.Values.cloudIdentity.serviceAccount.mode | default "per-service" -}}
+{{- $mode := $root.Values.cloudIdentity.serviceAccount.mode | default "per-service" -}}
 {{- if eq $mode "shared" -}}
-{{ .root.Values.cloudIdentity.serviceAccount.name | default "redpoint-rpi" }}
+{{ $root.Values.cloudIdentity.serviceAccount.name | default "redpoint-rpi" }}
 {{- else -}}
-{{ .name }}
+{{ $name }}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -762,56 +855,52 @@ Usage: {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
 {{- end -}}
 
 {{/*
-Platform-specific database connection env var name.
-Usage: {{- include "rpi.platform.dbProviderEnvvar" . | nindent 10 }}
-*/}}
-{{- define "rpi.platform.dbProviderEnvvar" -}}
-{{- if eq .Values.global.deployment.platform "azure" }}
-- name: RPI__CloudEnvironment
-  value: "Azure"
-{{- else if eq .Values.global.deployment.platform "amazon" }}
-- name: RPI__CloudEnvironment
-  value: "Amazon"
-{{- else if eq .Values.global.deployment.platform "google" }}
-- name: RPI__CloudEnvironment
-  value: "Google"
-{{- else }}
-- name: RPI__CloudEnvironment
-  value: "SelfHosted"
-{{- end }}
-{{- end -}}
-
-{{/*
 Resolve the container image for a service.
 Priority:
   1. overrides.<name>: full URI used verbatim (no tag appended)
   2. nameOverrides.<name>: constructs {registry}/{nameOverride}:{tag}
   3. default: constructs {registry}/{name}:{tag}
 Usage: {{ include "rpi.image" (dict "root" . "name" $name) }}
+
+Contract:
+  required:
+    .root  -- chart root context (for global.deployment.images config)
+    .name  -- service key used to look up overrides / nameOverrides /
+              default image name
 */}}
 {{- define "rpi.image" -}}
-{{- $overrides := .root.Values.global.deployment.images.overrides | default dict -}}
-{{- $nameOverrides := .root.Values.global.deployment.images.nameOverrides | default dict -}}
-{{- $defaultNames := dict "rpi-redis" "rediscache" "rpi-rabbitmq" "rabbitmq" -}}
-{{- if hasKey $overrides .name -}}
-{{ index $overrides .name }}
-{{- else if hasKey $nameOverrides .name -}}
-{{ .root.Values.global.deployment.images.registry }}/{{ index $nameOverrides .name }}:{{ .root.Values.global.deployment.images.tag }}
+{{- $root := required "rpi.image: .root is required" .root -}}
+{{- $name := required "rpi.image: .name is required" .name -}}
+{{- $overrides := $root.Values.global.deployment.images.overrides | default dict -}}
+{{- $nameOverrides := $root.Values.global.deployment.images.nameOverrides | default dict -}}
+{{- if hasKey $overrides $name -}}
+{{ index $overrides $name }}
+{{- else if hasKey $nameOverrides $name -}}
+{{ $root.Values.global.deployment.images.registry }}/{{ index $nameOverrides $name }}:{{ $root.Values.global.deployment.images.tag }}
 {{- else -}}
-{{- $imageName := .name -}}
-{{- if hasKey $defaultNames .name -}}
-{{- $imageName = index $defaultNames .name -}}
+{{- $imageName := $name -}}
+{{- if eq $name "rpi-redis" -}}
+{{- $imageName = "rediscache" -}}
+{{- else if eq $name "rpi-rabbitmq" -}}
+{{- $imageName = "rabbitmq" -}}
 {{- end -}}
-{{ .root.Values.global.deployment.images.registry }}/{{ $imageName }}:{{ .root.Values.global.deployment.images.tag }}
+{{ $root.Values.global.deployment.images.registry }}/{{ $imageName }}:{{ $root.Values.global.deployment.images.tag }}
 {{- end -}}
 {{- end -}}
 
 {{/*
 Pod anti-affinity block. Renders the full affinity: stanza.
 Usage: {{- include "rpi.podAntiAffinity" (dict "root" . "name" $name) | nindent 6 }}
+
+Contract:
+  required:
+    .root  -- chart root context (for chart-wide podAntiAffinity config)
+    .name  -- service identifier emitted in the matchLabels selector
 */}}
 {{- define "rpi.podAntiAffinity" -}}
-{{- $aa := .root.Values.podAntiAffinity | default dict -}}
+{{- $root := required "rpi.podAntiAffinity: .root is required" .root -}}
+{{- $name := required "rpi.podAntiAffinity: .name is required" .name -}}
+{{- $aa := $root.Values.podAntiAffinity | default dict -}}
 {{- $enabled := ternary $aa.enabled true (hasKey $aa "enabled") -}}
 {{- if $enabled }}
 affinity:
@@ -820,7 +909,7 @@ affinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       - labelSelector:
           matchLabels:
-            app.kubernetes.io/name: {{ .name }}
+            app.kubernetes.io/name: {{ $name }}
         topologyKey: {{ $aa.topologyKey | default "kubernetes.io/hostname" }}
     {{- else }}
     preferredDuringSchedulingIgnoredDuringExecution:
@@ -828,7 +917,7 @@ affinity:
         podAffinityTerm:
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: {{ .name }}
+              app.kubernetes.io/name: {{ $name }}
           topologyKey: {{ $aa.topologyKey | default "kubernetes.io/hostname" }}
     {{- end }}
 {{- end }}
@@ -865,6 +954,8 @@ Usage: {{- include "rpi.customCACerts.volume" . | nindent 8 }}
 - name: custom-ca-certs
   secret:
     secretName: {{ .Values.customCACerts.name }}
+{{- else }}
+{{- fail "customCACerts.enabled=true requires customCACerts.name (the Secret containing the CA bundle) or customCACerts.secretProviderClassName." }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -882,16 +973,25 @@ Usage: {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
 
 {{/*
 Render merged annotations for a specific resource type.
+Merges commonAnnotations + type-specific overrides (serviceAccountAnnotations,
+serviceAnnotations) and emits the YAML map.
 Usage: {{- include "rpi.mergedAnnotations" (dict "root" . "type" "serviceAccount") }}
-Merges commonAnnotations + type-specific overrides (serviceAccountAnnotations, serviceAnnotations).
+
+Contract:
+  required:
+    .root  -- chart root context
+    .type  -- "serviceAccount" or "service". An unknown type emits only
+              the common annotations (no per-type overlay).
 */}}
 {{- define "rpi.mergedAnnotations" -}}
-{{- $common := .root.Values.commonAnnotations | default dict -}}
+{{- $root := required "rpi.mergedAnnotations: .root is required" .root -}}
+{{- $type := required "rpi.mergedAnnotations: .type is required" .type -}}
+{{- $common := $root.Values.commonAnnotations | default dict -}}
 {{- $extra := dict -}}
-{{- if eq .type "serviceAccount" -}}
-{{- $extra = .root.Values.serviceAccountAnnotations | default dict -}}
-{{- else if eq .type "service" -}}
-{{- $extra = .root.Values.serviceAnnotations | default dict -}}
+{{- if eq $type "serviceAccount" -}}
+{{- $extra = $root.Values.serviceAccountAnnotations | default dict -}}
+{{- else if eq $type "service" -}}
+{{- $extra = $root.Values.serviceAnnotations | default dict -}}
 {{- end -}}
 {{- $merged := mustMergeOverwrite (dict) $common $extra -}}
 {{- if $merged -}}
@@ -914,5 +1014,199 @@ Usage: {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
 - name: KEY_VAULT_NAME
   value: {{ $name | quote }}
 {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Cloud SQL Auth Proxy (GKE / PostgreSQL only).
+Sidecar + env-var override activate only when all of:
+  - global.deployment.platform equals "google"
+  - databases.operational.cloudSqlProxy.enabled equals true
+  - databases.operational.provider equals "postgresql"
+Otherwise every helper in this family renders empty and the sidecar is inert.
+*/}}
+
+{{- define "rpi.cloudSqlProxy.enabled" -}}
+{{- $cfg := (.Values.databases.operational.cloudSqlProxy | default dict) -}}
+{{- $provider := .Values.databases.operational.provider | default "" -}}
+{{- $secretsProvider := .Values.secretsManagement.provider | default "" -}}
+{{- if and (eq (.Values.global.deployment.platform | default "") "google") ($cfg.enabled | default false) (or (eq $provider "postgresql") (eq $provider "sqlserver")) -}}
+{{- if ne $secretsProvider "sdk" -}}
+{{- fail "databases.operational.cloudSqlProxy.enabled=true requires secretsManagement.provider=sdk. The Cloud SQL Auth Proxy assumes the same cloud-native security realm as the SDK secret provider (vault-backed, IAM-bound). It is not supported with secretsManagement.provider=kubernetes." -}}
+{{- end -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Native K8s sidecar container spec for Cloud SQL Auth Proxy. Emitted as an
+element of initContainers[] with restartPolicy: Always (K8s >= 1.29 native
+sidecar pattern with clean startup/shutdown ordering relative to the main app).
+Usage: {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 6 }}
+*/}}
+{{- define "rpi.block.cloudSqlProxy.sidecar" -}}
+{{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" -}}
+{{- $cfg := .Values.databases.operational.cloudSqlProxy -}}
+{{- $provider := .Values.databases.operational.provider -}}
+{{- $port := $cfg.port | default (eq $provider "sqlserver" | ternary 1433 5432) -}}
+{{- $useGoogleSaKey := and .Values.cloudIdentity.enabled (eq .Values.global.deployment.platform "google") (.Values.cloudIdentity.google.configMapName | toString | ne "") -}}
+{{- $googleSaKey := .Values.cloudIdentity.google.keyName -}}
+{{- $googleSaPath := printf "%s/%s" (.Values.cloudIdentity.google.configMapFilePath | default "/app/google-creds") ($googleSaKey | default "service_account.json") -}}
+- name: cloud-sql-proxy
+  image: {{ $cfg.image | quote }}
+  imagePullPolicy: IfNotPresent
+  restartPolicy: Always
+  args:
+  - "--port={{ $port }}"
+  {{- if $cfg.privateIp | default false }}
+  - "--private-ip"
+  {{- end }}
+  {{- if $cfg.autoIamAuthn | default false }}
+  - "--auto-iam-authn"
+  {{- end }}
+  {{- if $useGoogleSaKey }}
+  - "--credentials-file={{ $googleSaPath }}"
+  {{- end }}
+  - "--max-sigterm-delay={{ $cfg.terminationGracePeriod | default "30s" }}"
+  {{- range $cfg.additionalArgs | default (list) }}
+  - {{ . | quote }}
+  {{- end }}
+  - {{ required "databases.operational.cloudSqlProxy.connectionName is required when cloudSqlProxy.enabled=true" $cfg.connectionName | quote }}
+  ports:
+  - name: cloudsql
+    containerPort: {{ $port }}
+    protocol: TCP
+  resources:
+    {{- toYaml ($cfg.resources | default dict) | nindent 4 }}
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  {{- if $useGoogleSaKey }}
+  volumeMounts:
+  - name: {{ .Values.cloudIdentity.google.configMapName | quote }}
+    mountPath: {{ $googleSaPath | quote }}
+    subPath: {{ $googleSaKey | default "service_account.json" | quote }}
+    readOnly: true
+  {{- end }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Operational database type consumed by the RPI services. SQL Server is the
+product default and emits nothing. PostgreSQL emits PostgreSQL, or
+GoogleCloudSQLPostgreSQL when databases.operational.googleWorkloadIdentity
+selects Cloud SQL authentication via GKE Workload Identity (Application
+Default Credentials). The Workload Identity path requires platform=google,
+cloudIdentity enabled, and no Cloud SQL Auth Proxy: the proxy and native
+ADC authentication are alternative ways to reach the same instance.
+*/}}
+{{- define "rpi.operationalDatabaseType.envvar" -}}
+{{- $db := .Values.databases.operational -}}
+{{- $wi := default false $db.googleWorkloadIdentity -}}
+{{- if $wi -}}
+{{- if ne $db.provider "postgresql" -}}
+{{- fail "databases.operational.googleWorkloadIdentity requires databases.operational.provider=postgresql" -}}
+{{- end -}}
+{{- if ne .Values.global.deployment.platform "google" -}}
+{{- fail "databases.operational.googleWorkloadIdentity requires global.deployment.platform=google" -}}
+{{- end -}}
+{{- if not .Values.cloudIdentity.enabled -}}
+{{- fail "databases.operational.googleWorkloadIdentity requires cloudIdentity.enabled=true (the pods authenticate with Application Default Credentials)" -}}
+{{- end -}}
+{{- if ($db.cloudSqlProxy).enabled -}}
+{{- fail "databases.operational.googleWorkloadIdentity cannot be combined with databases.operational.cloudSqlProxy.enabled - use the proxy or native Workload Identity authentication, not both" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $db.provider "postgresql" }}
+- name: RPI__OperationalDatabaseType
+  value: {{ $wi | ternary "GoogleCloudSQLPostgreSQL" "PostgreSQL" | quote }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Effective RabbitMQ username for the Realtime queue provider. The
+operator-set realtimeapi.queueProvider.rabbitmq.rabbitmqSettings.username
+wins; otherwise the release namespace applies (matching the generated
+internal-services credential convention).
+*/}}
+{{- define "rpi.realtime.rabbitmqUsername" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $rtCfg.queueProvider.rabbitmq.rabbitmqSettings.username | default .Release.Namespace -}}
+{{- end -}}
+
+{{/*
+Effective internal-queue (RabbitMQ) username for the queue reader. The
+operator-set queuereader.internalQueues.rabbitmqSettings.username wins;
+otherwise the release namespace applies (matching the generated
+internal-services credential convention).
+*/}}
+{{- define "rpi.queuereader.internalQueueUsername" -}}
+{{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
+{{- $qrCfg.internalQueues.rabbitmqSettings.username | default .Release.Namespace -}}
+{{- end -}}
+
+{{/*
+Effective Realtime cache provider. The operator-set
+realtimeapi.cacheProvider.provider wins; when unset, the platform default
+applies (google: googlebigtable; azure, amazon, selfhosted: mongodb).
+Every template that branches on the cache provider consumes this helper,
+so a DataMap cache always resolves to a concrete provider.
+*/}}
+{{- define "rpi.realtime.cacheProvider" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- if $rtCfg.cacheProvider.provider -}}
+{{- $rtCfg.cacheProvider.provider -}}
+{{- else if eq .Values.global.deployment.platform "google" -}}
+googlebigtable
+{{- else -}}
+mongodb
+{{- end -}}
+{{- end -}}
+
+{{/*
+Effective Realtime queue provider. The operator-set
+realtimeapi.queueProvider.provider wins; when unset, the platform default
+applies (azure: azureservicebus; amazon: amazonsqs; google: googlepubsub;
+selfhosted: rabbitmq).
+*/}}
+{{- define "rpi.realtime.queueProvider" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- if $rtCfg.queueProvider.provider -}}
+{{- $rtCfg.queueProvider.provider -}}
+{{- else if eq .Values.global.deployment.platform "azure" -}}
+azureservicebus
+{{- else if eq .Values.global.deployment.platform "amazon" -}}
+amazonsqs
+{{- else if eq .Values.global.deployment.platform "google" -}}
+googlepubsub
+{{- else -}}
+rabbitmq
+{{- end -}}
+{{- end -}}
+
+{{/*
+Per-client Realtime API address overrides (RealtimeAPIClientOverrides__<n>__*),
+consumed by the Interaction API and Execution Service. Each entry routes one
+client (tenant) GUID to a specific Realtime API base address. Only meaningful
+when multiple Realtime API instances exist, so emission requires
+realtimeapi.multitenant=true; a populated list on a single-tenant deployment
+fails at render rather than being silently ignored. Empty list emits nothing.
+*/}}
+{{- define "rpi.realtime.clientOverrides" -}}
+{{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $overrides := default (list) .Values.realtimeapi.clientAddressOverrides -}}
+{{- if and $overrides (not $rtCfg.multitenant) -}}
+{{- fail "realtimeapi.clientAddressOverrides requires realtimeapi.multitenant=true - per-client addresses only apply when multiple Realtime API instances exist" -}}
+{{- end -}}
+{{- if $rtCfg.multitenant -}}
+{{- range $i, $o := $overrides }}
+- name: RealtimeAPIClientOverrides__{{ $i }}__ClientID
+  value: {{ required "realtimeapi.clientAddressOverrides entries require clientId" $o.clientId | quote }}
+- name: RealtimeAPIClientOverrides__{{ $i }}__Address
+  value: {{ required "realtimeapi.clientAddressOverrides entries require address" $o.address | quote }}
+{{- end }}
 {{- end -}}
 {{- end -}}

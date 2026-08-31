@@ -1,0 +1,39 @@
+{{/*
+ODBC ini for the BigQuery Simba driver. Rendered when bigquery.enabled
+is true. One DSN section per entry in databases.datawarehouse.bigquery.connections.
+*/}}
+{{- $bq := .Values.databases.datawarehouse.bigquery | default dict -}}
+{{- if ($bq.enabled | default false) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odbc-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "odbc-config" "component" "datawarehouse") | nindent 4 }}
+data:
+  odbc2.ini: |
+    [ODBC]
+    Trace=no
+
+    [ODBC Data Sources]
+    {{- range $bq.connections }}
+    {{ .name }}=Simba ODBC Driver for Google BigQuery 64-bit
+    {{- end }}
+    {{- range $bq.connections }}
+
+    [{{ .name }}]
+    Description=Simba ODBC Driver for Google BigQuery (64-bit) DSN
+    Driver=/app/odbc-lib/bigquery/SimbaODBCDriverforGoogleBigQuery64/lib/libgooglebigqueryodbc_sb64.so
+    Catalog={{ .projectId }}
+    SQLDialect={{ if hasKey . "sqlDialect" }}{{ .sqlDialect }}{{ else }}1{{ end }}
+    AllowLargeResults={{ if hasKey . "allowLargeResults" }}{{ .allowLargeResults }}{{ else }}0{{ end }}
+    OAuthMechanism={{ if hasKey . "OAuthMechanism" }}{{ .OAuthMechanism }}{{ else }}0{{ end }}
+    LargeResultsDataSetId={{ .largeResultsDataSetId | default "_bqodbc_temp_tables" }}
+    LargeResultsTempTableExpirationTime={{ .largeResultsTempTableExpirationTime | default "3600000" }}
+    {{- if eq .credentialsType "serviceAccount" }}
+    Email={{ .serviceAccountEmail }}
+    KeyFilePath={{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+    {{- end }}
+    {{- end }}
+{{- end }}

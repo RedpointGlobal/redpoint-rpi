@@ -1,4 +1,6 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $cacheProvider := include "rpi.realtime.cacheProvider" . -}}
+{{- $queueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
 {{- $readiness := fromYaml (include "rpi.merged.readinessProbe" .) -}}
@@ -8,8 +10,10 @@
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
 {{- $name := $cfg.name -}}
 {{- $cacheName := "rpi-realtimeapi-cache" -}}
+{{- $geo := $cfg.geolocation | default dict -}}
+{{- $geoip := $geo.ipLookup | default dict -}}
+{{- $ident := $cfg.identitySettings | default dict -}}
 
-{{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
 {{- if $cfg.serviceAccount.enabled }}
 {{- if $cfg.enabled }}
@@ -53,7 +57,7 @@ metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
 spec:
-  maxUnavailable: {{ $cfg.podDisruptionBudget.maxUnavailable }}
+  minAvailable: {{ $cfg.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -124,7 +128,7 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
     {{- with .Values.customLabels }}
-    {{- toYaml . | nindent 4 }} 
+    {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- with .Values.customAnnotations }}
   annotations:
@@ -193,6 +197,10 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ $name }}
                     {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 10 }}
@@ -203,6 +211,15 @@ spec:
             name: web-port
             protocol: TCP
           {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 10 }}
+          {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - cat /app/odbc-config/odbc2.ini > /odbc-config/odbc.ini
+          {{- end }}
           {{- if $cfg.resources.enabled }}
           resources:
             {{- if and $cfg.resources.limits (ne $cfg.resources.limits.enabled false) }}
@@ -251,8 +268,53 @@ spec:
             value: {{ $cfg.logging.realtimeapi.default | quote }}
           - name: Logging__RPIRealtime__ConsoleLogging
             value: {{ $cfg.logging.realtimeapi.console | quote }}
+          - name: Logging__RPIRealtime__NLogTarget
+            value: {{ $cfg.logging.realtimeapi.nlogTarget | quote }}
+          - name: Logging__LogLevel__Microsoft
+            value: {{ $cfg.logging.realtimeagent.microsoft | quote }}
+          - name: Logging__LogLevel__Microsoft.Hosting.Lifetime
+            value: {{ $cfg.logging.realtimeagent.microsoftHostingLifetime | quote }}
           - name: RPI__DateTimeSource
             value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
+          {{- if $cfg.serviceHost.enabled }}
+          - name: RPI__ServiceHostName
+            value: {{ $cfg.serviceHost.name | quote }}
+          - name: RPI__ServiceHostPortNumber
+            value: {{ $cfg.serviceHost.portNumber | quote }}
+          {{- end }}
+          {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
+          - name: RPI__FileOutput__Directory
+            value: {{ .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
+          {{- end }}
+          - name: RPI__FileOutput__AllowClientOverrides
+            value: {{ $cfg.fileOutput.allowClientOverrides | quote }}
+          - name: RPI__FileOutput__AllowAllServerLocations
+            value: {{ $cfg.fileOutput.allowAllServerLocations | quote }}
+          - name: RPI__SMTP__EmailSenderAddress
+            value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
+          - name: RPI__SMTP__Address
+            value: {{ .Values.SMTPSettings.SMTP_Address | quote }}
+          - name: RPI__SMTP__Port
+            value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
+          - name: RPI__SMTP__EnableSSL
+            value: {{ .Values.SMTPSettings.EnableSSL | quote }}
+          - name: RPI__SMTP__UseCredentials
+            value: {{ .Values.SMTPSettings.UseCredentials | quote }}
+          {{- if .Values.SMTPSettings.UseCredentials }}
+          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          - name: RPI__SMTP__Username
+            value: {{ .Values.SMTPSettings.SMTP_Username | quote }}
+          - name: RPI__SMTP__Password
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.secretName" . | quote }}
+                key: SMTP_Password
+          {{- end }}
+          {{- end }}
+          - name: AgentConfig__TraceLogEnabled
+            value: {{ $cfg.agentConfig.traceLogEnabled | quote }}
+          - name: AgentConfig__CachedSelectionRuleExpiry
+            value: {{ $cfg.agentConfig.cachedSelectionRuleExpiry | quote }}
           {{- if $diag.copytoAzureBlob.enabled }}
           - name: RPI__Diagnostics__CopyToAzure__IsEnabled
             value: "true"
@@ -291,7 +353,7 @@ spec:
           {{- end }}
           {{- if $diag.dotNetTools.enabled }}
           - name: DOTNET_BUNDLE_EXTRACT_BASE_DIR
-            value: {{ $diag.dotNetTools.extractionBaseDir | quote }} 
+            value: {{ $diag.dotNetTools.extractionBaseDir | quote }}
           - name: RPI__Diagnostics__UseDotNetTools__Path
             value: {{  $diag.dotNetTools.path  | quote }}
           - name: RPI__Diagnostics__UseDotNetTools__UseCounters
@@ -317,6 +379,10 @@ spec:
             value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
           {{- end }}
           {{- end }}
+          {{- if (($dw.bigquery | default dict).enabled | default false) }}
+          - name: ODBCINI
+            value: /odbc-config/odbc.ini
+          {{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: CONNECTIONSTRINGS__LOGGINGDATABASE
             valueFrom:
@@ -328,11 +394,8 @@ spec:
               secretKeyRef:
                 key: ConnectionString_Operations_Database
                 name: {{ include "rpi.secrets.secretName" . | quote }}
-          {{- end }} 
-          {{- if eq .Values.databases.operational.provider "postgresql" }}
-          - name: RPI_OperationalDatabaseType
-            value: "PostgreSQL"
           {{- end }}
+          {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 10 }}{{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if eq $cfg.authentication.type "basic" }}
           - name: RealtimeAPIConfiguration__AppSettings__RPIAuthToken
@@ -395,7 +458,7 @@ spec:
             value: "PostgreSQL"
           {{- end }}
           {{- end }}
-          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }} 
+          {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}
           - name: RealtimeAPIConfiguration__AppSettings__PluginAssemblyPath
             value: {{ .Values.storage.persistentVolumeClaims.Plugins.mountPath | quote }}
           {{- end }}
@@ -433,8 +496,12 @@ spec:
             value: {{ $cfg.RealtimeServerCookieName | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__RealtimeServerCookieExpires
             value: {{ $cfg.RealtimeServerCookieExpires | quote }}
+          {{- /* Optional: unset leaves the cookie host-only (variable omitted,
+               application default applies). */}}
+          {{- with $cfg.RealtimeServerCookieDomain }}
           - name: RealtimeAPIConfiguration__AppSettings__RealtimeServerCookieDomain
-            value: {{ $cfg.RealtimeServerCookieDomain | quote }}
+            value: {{ . | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__AppSettings__RealtimeAgentInProcessEnabled
             value: "true"
           - name: RealtimeAPIConfiguration__AppSettings__NoDaysPersistWebEvents
@@ -445,8 +512,11 @@ spec:
             value: {{ $cfg.CacheWebFormData | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__EnableHelpPages
             value: {{ $cfg.enableHelpPages | quote }}
-          - name: RealtimeAPIConfiguration__AppSettings__CORSOrigins
-            value: {{ $cfg.CORSOrigins | quote }}
+          {{- /* string[] in the application: the array binder reads indexed keys only. */}}
+          {{- range $i, $origin := $cfg.CORSOrigins }}
+          - name: RealtimeAPIConfiguration__AppSettings__CORSOrigins__{{ $i }}
+            value: {{ $origin | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__AppSettings__DecisionCacheDuration
             value: {{ $cfg.decisionCacheDuration | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__RPIClientID
@@ -455,31 +525,166 @@ spec:
             value: {{ $cfg.enableAuditMetricsInHeaders | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__EnableEventListening
             value: {{ $cfg.enableEventListening | quote }}
-          {{- if eq .Values.global.deployment.platform "azure" }}
-          - name: RealtimeAPIConfiguration__Queues__FormQueuePath
-            value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.eventsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__CacheOutputQueuePath
-            value: {{ $cfg.queueProvider.queueNames.cacheOutputQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__RecommendationsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.recommendationsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
-            value: {{ $cfg.queueProvider.queueNames.listenerQueuePath | quote }}
+          - name: RealtimeAPIConfiguration__RPIVersion
+            value: {{ $cfg.RPIVersion | quote }}
+          {{- with $cfg.RealtimeAgentAddress }}
+          - name: RealtimeAPIConfiguration__AppSettings__RealtimeAgentAddress
+            value: {{ . | quote }}
           {{- end }}
-          {{- if eq .Values.global.deployment.platform "amazon" }}
-          - name: RealtimeAPIConfiguration__Queues__FormQueuePath
-            value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.eventsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__CacheOutputQueuePath
-            value: {{ $cfg.queueProvider.queueNames.cacheOutputQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__RecommendationsQueuePath
-            value: {{ $cfg.queueProvider.queueNames.recommendationsQueuePath | quote }}
-          - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
-            value: {{ $cfg.queueProvider.queueNames.listenerQueuePath | quote }}
+          {{- with $cfg.RealtimeAgentInProcessPath }}
+          - name: RealtimeAPIConfiguration__AppSettings__RealtimeAgentInProcessPath
+            value: {{ . | quote }}
           {{- end }}
-          {{- if eq .Values.global.deployment.platform "google" }}
+          - name: RealtimeAPIConfiguration__AppSettings__SaveProfilePostDecisionResponse
+            value: {{ $cfg.SaveProfilePostDecisionResponse | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__CachedAttributeLoadTimeoutMS
+            value: {{ $cfg.CachedAttributeLoadTimeoutMS | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MessageHistoryProfileRecordLimit
+            value: {{ $cfg.MessageHistoryProfileRecordLimit | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MessageHistoryDaysInProfile
+            value: {{ $cfg.MessageHistoryDaysInProfile | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MaxNoEventMetadataInstances
+            value: {{ $cfg.MaxNoEventMetadataInstances | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__NoMinsCacheSelectionResults
+            value: {{ $cfg.NoMinsCacheSelectionResults | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__NoMinsCacheRecommendResults
+            value: {{ $cfg.NoMinsCacheRecommendResults | quote }}
+          {{- with $cfg.RedPointMLServiceAddress }}
+          - name: RealtimeAPIConfiguration__AppSettings__RedPointMLServiceAddress
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $cfg.RedPointMLClientID }}
+          - name: RealtimeAPIConfiguration__AppSettings__RedPointMLClientID
+            value: {{ . | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__AppSettings__EnableProfileMergeEvents
+            value: {{ $cfg.EnableProfileMergeEvents | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__TrackProfileMergeInSourceProfile
+            value: {{ $cfg.TrackProfileMergeInSourceProfile | quote }}
+          {{- with $cfg.RegionLanguageCodeParameter }}
+          - name: RealtimeAPIConfiguration__AppSettings__RegionLanguageCodeParameter
+            value: {{ . | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__AppSettings__WebVisitorCacheDuration
+            value: {{ $cfg.WebVisitorCacheDuration | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__MaxNoVisitorDevicesAllowed
+            value: {{ $cfg.MaxNoVisitorDevicesAllowed | quote }}
+          {{- range $i, $x := $cfg.CacheOutputExclusions }}
+          - name: RealtimeAPIConfiguration__AppSettings__CacheOutputExclusions__{{ $i }}
+            value: {{ $x | quote }}
+          {{- end }}
+          {{- range $i, $m := $cfg.parameterToDataMappings }}
+          - name: RealtimeAPIConfiguration__AppSettings__ParameterToDataMappings__{{ $i }}__ParameterName
+            value: {{ $m.parameterName | quote }}
+          - name: RealtimeAPIConfiguration__AppSettings__ParameterToDataMappings__{{ $i }}__CALName
+            value: {{ $m.calName | quote }}
+          {{- end }}
+          {{- range $i, $v := $cfg.visitorViews }}
+          - name: RealtimeAPIConfiguration__VisitorViews__{{ $i }}__Name
+            value: {{ $v.name | quote }}
+          {{- range $j, $p := ($v.parameterNames | default list) }}
+          - name: RealtimeAPIConfiguration__VisitorViews__{{ $i }}__ParameterNames__{{ $j }}
+            value: {{ $p | quote }}
+          {{- end }}
+          {{- range $j, $d := ($v.databaseFieldNames | default list) }}
+          - name: RealtimeAPIConfiguration__VisitorViews__{{ $i }}__DatabaseFieldNames__{{ $j }}
+            value: {{ $d | quote }}
+          {{- end }}
+          {{- end }}
+          {{- range $i, $q := $cfg.queueListenerConfiguration }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__Name
+            value: {{ $q.name | quote }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__SendAddressParameter
+            value: {{ $q.sendAddressParameter | quote }}
+          {{- range $j, $p := ($q.parameters | default list) }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__Parameters__{{ $j }}
+            value: {{ $p | quote }}
+          {{- end }}
+          {{- range $j, $r := ($q.repeaterParameters | default list) }}
+          - name: RealtimeAPIConfiguration__QueueListenerConfiguration__{{ $i }}__RepeaterParameters__{{ $j }}
+            value: {{ $r | quote }}
+          {{- end }}
+          {{- end }}
+          {{- if $geo.enabled }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__Provider
+            value: {{ $geo.provider | default "Azure" | quote }}
+          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          # Required while geolocation is enabled: if the operator enabled the
+          # feature but did not add RealtimeAPI_Geolocation_APIKey to the shared
+          # Secret, the pod fails fast rather than running mis-configured.
+          - name: RealtimeAPIConfiguration__GeolocationSettings__APIKey
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.secretName" . | quote }}
+                key: RealtimeAPI_Geolocation_APIKey
+          {{- end }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__WeatherUnits
+            value: {{ $geo.weatherUnits | default "imperial" | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__CoordsCacheTimespanMinutes
+            value: {{ $geo.coordsCacheTimespanMinutes | default 10 | quote }}
+          {{- with $geo.pluginAssembly }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginAssembly
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $geo.pluginType }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginType
+            value: {{ . | quote }}
+          {{- end }}
+          {{- range $i, $s := ($geo.pluginSettings | default list) }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginSettings__{{ $i }}__Key
+            value: {{ $s.key | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__PluginSettings__{{ $i }}__Value
+            value: {{ $s.value | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__EnableGeoIPLookup
+            value: {{ $geoip.enableGeoIPLookup | default false | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__CoordsCacheTimespanMinutesIPLookup
+            value: {{ $geoip.coordsCacheTimespanMinutesIPLookup | default 30 | quote }}
+          {{- with $geoip.pluginAssembly }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginAssembly
+            value: {{ . | quote }}
+          {{- end }}
+          {{- with $geoip.pluginType }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginType
+            value: {{ . | quote }}
+          {{- end }}
+          {{- range $i, $s := ($geoip.pluginSettings | default list) }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginSettings__{{ $i }}__Key
+            value: {{ $s.key | quote }}
+          - name: RealtimeAPIConfiguration__GeolocationSettings__IPLookupPlugin__PluginSettings__{{ $i }}__Value
+            value: {{ $s.value | quote }}
+          {{- end }}
+          {{- end }}
+          {{- /* Optional: unset keeps the visitor keyed on the RPI-assigned GUID
+               (variable omitted, application default applies). */}}
+          {{- with $ident.masterKeyName }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MasterKeyName
+            value: {{ . | quote }}
+          {{- end }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MergeParameters
+            value: {{ $ident.mergeParameters | quote }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MergeCALAttributes
+            value: {{ $ident.mergeCALAttributes | quote }}
+          {{- range $i, $v := ($ident.masterKeyAliases | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__MasterKeyAliases__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- range $i, $v := ($ident.alternativeKeys | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__AlternativeKeys__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- range $i, $v := ($ident.parameterMergeExclusions | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__ParameterMergeExclusions__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- range $i, $v := ($ident.calMergeExclusions | default list) }}
+          - name: RealtimeAPIConfiguration__IdentitySettings__CALMergeExclusions__{{ $i }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- /* Google Pub/Sub addresses queues as topic/subscription pairs; every other
+               provider takes the queue name verbatim. The format follows the QUEUE
+               PROVIDER, not the platform - rabbitmq on GKE uses plain names. */}}
+          {{- if eq $queueProvider "googlepubsub" }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath
             value: "{{ $cfg.queueProvider.queueNames.formQueuePath }}/{{ $cfg.queueProvider.queueNames.formQueuePath }}"
           - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
@@ -490,8 +695,7 @@ spec:
             value: "{{ $cfg.queueProvider.queueNames.recommendationsQueuePath }}/{{ $cfg.queueProvider.queueNames.recommendationsQueuePath }}"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
             value: "{{ $cfg.queueProvider.queueNames.listenerQueuePath }}/{{ $cfg.queueProvider.queueNames.listenerQueuePath }}"
-          {{- end }}
-          {{- if eq .Values.global.deployment.platform "selfhosted" }}
+          {{- else }}
           - name: RealtimeAPIConfiguration__Queues__FormQueuePath
             value: {{ $cfg.queueProvider.queueNames.formQueuePath | quote }}
           - name: RealtimeAPIConfiguration__Queues__EventsQueuePath
@@ -503,14 +707,13 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueuePath
             value: {{ $cfg.queueProvider.queueNames.listenerQueuePath | quote }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
+          {{- if eq $queueProvider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
             value: "RedPoint.Amazon.Server"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type
             value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Key
             value: "AccessKey"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Value
@@ -520,10 +723,8 @@ spec:
                 key: AWS_Access_Key_ID
           {{- end }}
           {{- end }}
-          {{- end }}
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Key
             value: "SecretKey"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
@@ -531,7 +732,6 @@ spec:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Key
@@ -544,7 +744,6 @@ spec:
             value: "RedPoint.Amazon.Server.AWSQueue.SQSQueueFactory"
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Key
             value: "AccessKey"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Value
@@ -554,10 +753,8 @@ spec:
                 key: AWS_Access_Key_ID
           {{- end }}
           {{- end }}
-          {{- end }}
           {{- if eq $cfg.queueProvider.amazonsqs.credentialsType "accessKey" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonsqs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key
             value: "SecretKey"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
@@ -567,13 +764,12 @@ spec:
                 key: AWS_Secret_Access_Key
           {{- end }}
           {{- end }}
-          {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Key
             value: "RegionEndpoint"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Value
             value: {{ .Values.cloudIdentity.amazon.region | quote }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "azureservicebus" }}
+          {{- if eq $queueProvider "azureservicebus" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type
@@ -595,17 +791,13 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key
             value: "ConnectionString"
           {{- end }}
+          {{- if eq $queueProvider "azureservicebus" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "azureservicebus" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: RealtimeAPI_ServiceBus_ConnectionString
-          {{- end }}
-          {{- end }}
-          {{- if eq $cfg.queueProvider.provider "azureservicebus" }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
@@ -613,7 +805,7 @@ spec:
                 key: RealtimeAPI_ServiceBus_ConnectionString
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "googlepubsub" }}
+          {{- if eq $queueProvider "googlepubsub" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Google.Server"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -635,10 +827,10 @@ spec:
             value: {{ $cfg.queueProvider.googlepubsub.projectId | quote }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "mongodb" }}
+          {{- if eq $cacheProvider "mongodb" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Resonance.MongoDBCache"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -650,32 +842,22 @@ spec:
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Key
             value: "ConnectionString"
-          {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.cacheProvider.provider "mongodb" }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__1__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: RealtimeAPI_MongoCache_ConnectionString
           {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "mongodb" }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__2__Key
             value: "CollectionName"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__2__Value
             value: {{ $cfg.cacheProvider.mongodb.collectionName | quote }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "googlebigtable" }}
+          {{- if eq $cacheProvider "googlebigtable" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Google.Server"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -690,21 +872,17 @@ spec:
             value: {{ $cfg.cacheProvider.googlebigtable.instanceId | quote }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "inMemorySql" }}
+          {{- if eq $cacheProvider "inMemorySql" }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Resonance.Web.Shared"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
             value: "RedPoint.Resonance.Web.Shared.Cache.SQLServerCache"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key
             value: "ConnectionString"
-          {{- end }}
-          {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "inMemorySql" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
               secretKeyRef:
@@ -714,7 +892,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- if  $cfg.queueProvider.enabled }}
-          {{- if eq $cfg.queueProvider.provider "azurestorage" }}
+          {{- if eq $queueProvider "azurestorage" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Type
@@ -781,7 +959,7 @@ spec:
           {{- end }}
           {{- if .Values.cloudIdentity.enabled }}
           {{- if eq .Values.global.deployment.platform "azure" }}
-          {{- if eq $cfg.queueProvider.provider "azureeventhubs" }}
+          {{- if eq $queueProvider "azureeventhubs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Key
             value: "NamespaceName"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Value
@@ -789,7 +967,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "azureeventhubs" }}
+          {{- if eq $queueProvider "azureeventhubs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -824,7 +1002,7 @@ spec:
             value: "EventHubConnectionString"
           {{- end }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "azureeventhubs" }}
+          {{- if eq $queueProvider "azureeventhubs" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
             valueFrom:
               secretKeyRef:
@@ -837,7 +1015,7 @@ spec:
                 key: RealtimeAPI_EventHub_ConnectionString
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "rabbitmq" }}
+          {{- if eq $queueProvider "rabbitmq" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Resonance.RabbitMQAccess"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -845,7 +1023,11 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Key
             value: "Hostname"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__0__Value
+            {{- if eq $cfg.queueProvider.rabbitmq.type "internal" }}
+            value: {{ printf "rpi-realtimeapi-rabbitmq.%s.svc.cluster.local." .Release.Namespace | quote }}
+            {{- else }}
             value: {{ $cfg.queueProvider.rabbitmq.rabbitmqSettings.hostname | quote }}
+            {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Key
             value: "VirtualHost"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__1__Value
@@ -853,7 +1035,7 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Key
             value: "Username"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__2__Value
-            value: {{ $cfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+            value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Key
             value: "Password"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Assembly
@@ -863,7 +1045,11 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Key
             value: "Hostname"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__0__Value
+            {{- if eq $cfg.queueProvider.rabbitmq.type "internal" }}
+            value: {{ printf "rpi-realtimeapi-rabbitmq.%s.svc.cluster.local." .Release.Namespace | quote }}
+            {{- else }}
             value: {{ $cfg.queueProvider.rabbitmq.rabbitmqSettings.hostname | quote }}
+            {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Key
             value: "VirtualHost"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__1__Value
@@ -871,12 +1057,27 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Key
             value: "Username"
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__2__Value
-            value: {{ $cfg.queueProvider.rabbitmq.rabbitmqSettings.username | quote }}
+            value: {{ include "rpi.realtime.rabbitmqUsername" . | quote }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Key
             value: "Password"
           {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "rabbitmq" }}
+          {{- if eq $queueProvider "rabbitmq" }}
+          {{- if eq $cfg.queueProvider.rabbitmq.type "internal" }}
+          {{- /* The internal broker's password is chart-generated into rpi-internal-services
+               (the same Secret RABBITMQ_DEFAULT_PASS reads) in EVERY secrets mode - it is
+               never customer material. Only an external broker's credential comes from the
+               shared Secret (k8s/csi) or the vault (sdk). */}}
+          - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Value
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                key: RealtimeAPI_RabbitMQ_Password
+          - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__3__Value
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                key: RealtimeAPI_RabbitMQ_Password
+          {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__3__Value
             valueFrom:
               secretKeyRef:
@@ -889,11 +1090,11 @@ spec:
                 key: RealtimeAPI_RabbitMQ_Password
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "redis" }}
-          {{- if  $cfg.cacheProvider.enabled }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+          {{- if and (eq $cacheProvider "redis") $cfg.cacheProvider.enabled }}
+          {{- $redisType := $cfg.cacheProvider.redis.type | default "internal" }}
+          {{- if or (eq $redisType "internal") (not (eq .Values.secretsManagement.provider "sdk")) }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Resonance.RedisCache"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
@@ -901,11 +1102,15 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key
             value: "IPAddress"
           {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.cacheProvider.provider "redis" }}
-          {{- if  $cfg.cacheProvider.enabled }}
+          {{- if eq $redisType "internal" }}
+          {{- /* The internal cache's connection string (host + chart-generated password) is
+               chart-wired from rpi-internal-services in EVERY secrets mode. */}}
+          - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+                key: RealtimeAPI_RedisCache_ConnectionString
+          {{- else if not (eq .Values.secretsManagement.provider "sdk") }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
               secretKeyRef:
@@ -913,24 +1118,17 @@ spec:
                 key: RealtimeAPI_RedisCache_ConnectionString
           {{- end }}
           {{- end }}
-          {{- end }}
-          {{- if eq $cfg.cacheProvider.provider "azureredis" }}
+          {{- if eq $cacheProvider "azureredis" }}
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Name
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Assembly
             value: "RedPoint.Azure.Server"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Class
             value: "RedPoint.Azure.Server.AzureRedisCache.AzureRedisCacheHandler"
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Key
             value: "ConnectionString"
-          {{- end }}
-          {{- end }}
-          {{- end }}
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.cacheProvider.provider "azureredis" }}
-          {{- if  $cfg.cacheProvider.enabled }}
           - name: RealtimeAPIConfiguration__CacheSettings__Caches__0__Settings__0__Value
             valueFrom:
               secretKeyRef:
@@ -939,7 +1137,7 @@ spec:
           {{- end }}
           {{- end }}
           {{- end }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
+          {{- if eq $queueProvider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Assembly
             value: "RedPoint.Resonance.KafkaQueueAccess"
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Type
@@ -975,24 +1173,20 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__7__Key
             value: "AccessKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__7__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Access_Key_ID
           {{- end }}
-          {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__8__Key
             value: "SecretKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__8__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ClientQueueSettings__Settings__9__Key
             value: "RegionEndpoint"
@@ -1033,24 +1227,20 @@ spec:
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__7__Key
             value: "AccessKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__7__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Access_Key_ID
           {{- end }}
-          {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__8__Key
             value: "SecretKey"
           {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-          {{- if eq $cfg.queueProvider.provider "amazonmsk" }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__8__Value
             valueFrom:
               secretKeyRef:
                 name: {{ include "rpi.secrets.secretName" . | quote }}
                 key: AWS_Secret_Access_Key
-          {{- end }}
           {{- end }}
           - name: RealtimeAPIConfiguration__Queues__ListenerQueueSettings__Settings__9__Key
             value: "RegionEndpoint"
@@ -1058,10 +1248,19 @@ spec:
             value: {{ .Values.cloudIdentity.amazon.region | quote }}
           {{- end }}
           {{- if  $cfg.cacheProvider.enabled }}
+          {{- /* DataMaps is an ARRAY: these indices must mirror the application's baked
+               appsettings.json order exactly (0 Visitor Profile, 1 Visitor History,
+               2 Non Visitor Data, 3 Product Recommendations, 4 Visitor Backup,
+               5 Message History, 6 Visitor Readonly Parameters, 7 Offer History).
+               Every map is operator-tunable through realtimeapi.dataMaps. One
+               uniform Cache rule for all eight maps: a per-map
+               dataMaps.<map>.Cache overrides; otherwise every map receives the
+               effective cache provider (rpi.realtime.cacheProvider: the
+               operator-set provider, else the platform default). */}}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Type
             value: "Visitor Profile"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorProfile.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__DaysToPersist
             value: {{ $cfg.dataMaps.visitorProfile.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__0__CompressData
@@ -1069,7 +1268,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__Type
             value: "Visitor History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorHistory.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__DaysToPersist
             value: {{ $cfg.dataMaps.visitorHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__1__CompressData
@@ -1077,7 +1276,7 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__Type
             value: "Non Visitor Data"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.nonVisitorData.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__DaysToPersist
             value: {{ $cfg.dataMaps.nonVisitorData.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__2__CompressData
@@ -1085,26 +1284,44 @@ spec:
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__Type
             value: "Product Recommendations"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.productRecommendation.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__DaysToPersist
             value: {{ $cfg.dataMaps.productRecommendation.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__3__CompressData
             value: {{ $cfg.dataMaps.productRecommendation.CompressData | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Type
-            value: "Message History"
+            value: "Visitor Backup"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.visitorBackup.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__DaysToPersist
-            value: {{ $cfg.dataMaps.messageHistory.DaysToPersist | quote }}
+            value: {{ $cfg.dataMaps.visitorBackup.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__4__CompressData
-            value: {{ $cfg.dataMaps.messageHistory.CompressData | quote }}
+            value: {{ $cfg.dataMaps.visitorBackup.CompressData | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Type
-            value: "Offer History"
+            value: "Message History"
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__Cache
-            value: {{ $cfg.cacheProvider.provider | quote }}
+            value: {{ $cfg.dataMaps.messageHistory.Cache | default $cacheProvider | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__DaysToPersist
-            value: {{ $cfg.dataMaps.offerHistory.DaysToPersist | quote }}
+            value: {{ $cfg.dataMaps.messageHistory.DaysToPersist | quote }}
           - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__5__CompressData
+            value: {{ $cfg.dataMaps.messageHistory.CompressData | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__Type
+            value: "Visitor Readonly Parameters"
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__Cache
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.Cache | default $cacheProvider | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__DaysToPersist
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.DaysToPersist | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__CompressData
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.CompressData | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__6__KeySuffix
+            value: {{ $cfg.dataMaps.visitorReadonlyParameters.KeySuffix | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Type
+            value: "Offer History"
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__Cache
+            value: {{ $cfg.dataMaps.offerHistory.Cache | default $cacheProvider | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__DaysToPersist
+            value: {{ $cfg.dataMaps.offerHistory.DaysToPersist | quote }}
+          - name: RealtimeAPIConfiguration__CacheSettings__DataMaps__7__CompressData
             value: {{ $cfg.dataMaps.offerHistory.CompressData | quote }}
           {{- end }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__EnableVisitorIDValidation
@@ -1117,8 +1334,10 @@ spec:
             value: {{ $cfg.idValidation.visitorID.enableLetters | quote }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__VisitorID__EnableNumbers
             value: {{ $cfg.idValidation.visitorID.enableNumbers | quote }}
-          - name: RealtimeAPIConfiguration__IDValidationSettings__VisitorID__PermittedCharacters
-            value: '{{ toJson $cfg.idValidation.visitorID.permittedCharacters }}'
+          {{- range $i, $ch := $cfg.idValidation.visitorID.permittedCharacters }}
+          - name: RealtimeAPIConfiguration__IDValidationSettings__VisitorID__PermittedCharacters__{{ $i }}
+            value: {{ $ch | quote }}
+          {{- end }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__EnableDeviceIDValidation
             value: {{ $cfg.idValidation.enableDeviceIDValidation | quote }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__MinimumLength
@@ -1129,8 +1348,10 @@ spec:
             value: {{ $cfg.idValidation.deviceID.enableLetters | quote }}
           - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__EnableNumbers
             value: {{ $cfg.idValidation.deviceID.enableNumbers | quote }}
-          - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__PermittedCharacters
-            value: '{{ toJson $cfg.idValidation.deviceID.permittedCharacters }}'
+          {{- range $i, $ch := $cfg.idValidation.deviceID.permittedCharacters }}
+          - name: RealtimeAPIConfiguration__IDValidationSettings__DeviceID__PermittedCharacters__{{ $i }}
+            value: {{ $ch | quote }}
+          {{- end }}
           {{- if $cfg.customPlugins.enabled }}
           {{- range $pIndex, $plugin := $cfg.customPlugins.list }}
           - name: RealtimeAPIConfiguration__Plugins__{{ $pIndex }}__Name
@@ -1166,11 +1387,16 @@ spec:
             - name: tempstore
               mountPath: /tmp
             {{- if (($dw.bigquery | default dict).enabled | default false) }}
+            - name: odbc-config
+              mountPath: /app/odbc-config/odbc2.ini
+              subPath: odbc2.ini
+            - name: odbcini
+              mountPath: /odbc-config
             {{- range .Values.databases.datawarehouse.bigquery.connections }}
             {{- if eq .credentialsType "serviceAccount" }}
-            - name: {{ .configMapName | quote }}
-              mountPath: {{ .ConfigMapFilePath }}/{{ .keyName }}
-              subPath: {{ .keyName }}
+            - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+              mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+              subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
               readOnly: true
             {{- end }}
             {{- end }}
@@ -1180,11 +1406,11 @@ spec:
             {{- include "rpi.snowflake.volumeMount" . | nindent 12 }}
             {{- end }}
             {{- end }}
-            {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}    
+            {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}
             - name: fileoutputdirectory
               mountPath: {{  .Values.storage.persistentVolumeClaims.FileOutputDirectory.mountPath | quote }}
             {{- end }}
-            {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}  
+            {{- if .Values.storage.persistentVolumeClaims.Plugins.enabled }}
             - name: realtimeplugins
               mountPath: {{ .Values.storage.persistentVolumeClaims.Plugins.mountPath }}
             {{- end }}
@@ -1198,11 +1424,17 @@ spec:
         - name: tempstore
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
+        - name: odbc-config
+          configMap:
+            name: odbc-config
+            defaultMode: 0777
+        - name: odbcini
+          emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
         {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ .configMapName | quote }}
+        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
           configMap:
-            name: {{ .configMapName | quote }}
+            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}
@@ -1244,7 +1476,8 @@ spec:
 ---
 {{- if $cfg.enabled }}
 {{- if $cfg.cacheProvider.enabled }}
-{{- if eq $cfg.cacheProvider.provider "redis" }}
+{{- if eq $cacheProvider "redis" }}
+{{- if eq ($cfg.cacheProvider.redis.type | default "internal") "internal" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -1387,15 +1620,7 @@ spec:
           ports:
             - containerPort: 6379
               name: redis
-          {{- if not (eq .Values.secretsManagement.provider "sdk") }}
           command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "$(REDIS_PASSWORD)"]
-          {{- end }}
-          {{- if eq .Values.secretsManagement.provider "sdk" }}
-          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-          {{- end }}
-          {{- if eq .Values.secretsManagement.provider "sdk" }}
-          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-          {{- end }}
           env:
           - name: REDIS_PASSWORD
             valueFrom:
@@ -1403,14 +1628,8 @@ spec:
                 name: {{ include "rpi.secrets.internalSecretName" . | quote }}
                 key: RealtimeAPI_RedisCache_Password
           volumeMounts:
-            {{- if $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.enabled }}
             - name: {{ $cacheName }}-data
               mountPath: /data
-            {{- end }}
-            {{- if not $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.enabled }}
-            - name: {{ $cacheName }}-data
-              mountPath: /data
-            {{- end }}
             - name: {{ $cacheName }}-config
               mountPath: /usr/local/etc/redis
           {{- if $cfg.cacheProvider.redis.redisSettings.resources.enabled }}
@@ -1436,12 +1655,7 @@ spec:
           {{- end }}
           readinessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
               {{- if eq .Values.secretsManagement.provider "sdk" }}
               command: ["sh", "-c", "redis-cli ping | grep PONG"]
               {{- end }}
@@ -1451,12 +1665,7 @@ spec:
             failureThreshold: 6
           livenessProbe:
             exec:
-              {{- if not (eq .Values.secretsManagement.provider "sdk") }}
               command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
-              {{- end }}
-              {{- if eq .Values.secretsManagement.provider "sdk" }}
-              command: ["sh", "-c", "redis-cli ping | grep PONG"]
-              {{- end }}
               {{- if eq .Values.secretsManagement.provider "sdk" }}
               command: ["sh", "-c", "redis-cli ping | grep PONG"]
               {{- end }}
@@ -1468,7 +1677,7 @@ spec:
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
       volumes:
         - name: {{ $cacheName }}-config
-          secret:
+          configMap:
             name: {{ $cacheName }}-config
         {{- if not $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.enabled }}
         - name: {{ $cacheName }}-data
@@ -1484,6 +1693,7 @@ spec:
           requests:
             storage: {{ $cfg.cacheProvider.redis.redisSettings.volumeClaimTemplates.storage | quote }}
   {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

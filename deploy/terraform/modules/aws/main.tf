@@ -116,6 +116,8 @@ resource "aws_db_instance" "rpi" {
   final_snapshot_identifier = "${var.name_prefix}-sqlserver-final"
   backup_retention_period = 7
   deletion_protection     = true
+  # SQL Server Express exposes only the error log (no SQL Agent).
+  enabled_cloudwatch_logs_exports = ["error"]
   tags                    = local.common_tags
 }
 
@@ -123,6 +125,10 @@ resource "aws_db_instance" "rpi" {
 # Secrets Manager (conditional)
 # -------------------------------------------------------
 
+# Encrypted at rest with the AWS-managed aws/secretsmanager KMS key (the
+# service default). A customer-managed key is an operator hardening choice
+# layered on their own key policy, not something this reference module owns.
+# nosemgrep: terraform.aws.security.aws-secretsmanager-secret-unencrypted.aws-secretsmanager-secret-unencrypted
 resource "aws_secretsmanager_secret" "rpi" {
   count       = var.enable_secrets_manager ? 1 : 0
   name        = "${var.name_prefix}/rpi-secrets"

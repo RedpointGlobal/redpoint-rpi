@@ -126,6 +126,14 @@
                 "sqlserveronvm"
               ]
             },
+            "googleWorkloadIdentity": {
+              "type": "boolean",
+              "description": "Authenticate to Cloud SQL for PostgreSQL via GKE Workload Identity (Application Default Credentials). Requires provider=postgresql, global.deployment.platform=google, and cloudIdentity.enabled=true; cannot be combined with cloudSqlProxy.enabled."
+            },
+            "databaseSchema": {
+              "type": "string",
+              "description": "Schema the Deployment API uses within the operational database"
+            },
             "server_host": {
               "type": "string",
               "description": "Database server hostname or IP address"
@@ -149,6 +157,51 @@
             "encrypt": {
               "type": "boolean",
               "description": "Enable TLS encryption for database connections"
+            },
+            "cloudSqlProxy": {
+              "type": "object",
+              "description": "Google Cloud SQL Auth Proxy sidecar (GKE only; activates when platform=google, provider=postgresql, and enabled=true)",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable the Cloud SQL Auth Proxy sidecar"
+                },
+                "connectionName": {
+                  "type": "string",
+                  "description": "Cloud SQL instance connection name in the form 'project:region:instance'"
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cloud SQL Auth Proxy container image (verbatim URI)"
+                },
+                "port": {
+                  "type": "integer",
+                  "description": "Local port the proxy listens on; used as ConnectionSettings__Port"
+                },
+                "privateIp": {
+                  "type": "boolean",
+                  "description": "Connect to the Cloud SQL private IP (requires VPC peering)"
+                },
+                "autoIamAuthn": {
+                  "type": "boolean",
+                  "description": "Use IAM database authentication instead of password auth"
+                },
+                "terminationGracePeriod": {
+                  "type": "string",
+                  "description": "Graceful shutdown window (e.g. '30s')"
+                },
+                "resources": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "additionalArgs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
@@ -171,7 +224,96 @@
                   "description": "List of BigQuery connection configurations",
                   "items": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": true,
+                    "required": [
+                      "name",
+                      "projectId"
+                    ],
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "credentialsType": {
+                              "const": "serviceAccount"
+                            }
+                          },
+                          "required": [
+                            "credentialsType"
+                          ]
+                        },
+                        "then": {
+                          "required": [
+                            "serviceAccountEmail"
+                          ],
+                          "properties": {
+                            "serviceAccountEmail": {
+                              "minLength": 1
+                            }
+                          }
+                        }
+                      }
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Connection name (used as the ODBC DSN name)."
+                      },
+                      "projectId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Google Cloud project ID (BigQuery catalog)."
+                      },
+                      "credentialsType": {
+                        "type": "string",
+                        "enum": [
+                          "serviceAccount",
+                          "workloadIdentity"
+                        ],
+                        "description": "serviceAccount: authenticate with a mounted service account key (provide serviceAccountEmail, configMapName, keyName). workloadIdentity: keyless, using the pod's Workload Identity service account."
+                      },
+                      "OAuthMechanism": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "description": "BigQuery ODBC driver auth mode: 0 for a service account key; the driver's Application Default Credentials value (typically 3) for workloadIdentity."
+                      },
+                      "sqlDialect": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ]
+                      },
+                      "serviceAccountEmail": {
+                        "type": "string",
+                        "description": "Service account email. Used only with credentialsType=serviceAccount."
+                      },
+                      "configMapName": {
+                        "type": "string",
+                        "description": "ConfigMap holding the service account key. Used only with credentialsType=serviceAccount."
+                      },
+                      "keyName": {
+                        "type": "string",
+                        "description": "Key filename inside the ConfigMap. Used only with credentialsType=serviceAccount."
+                      },
+                      "ConfigMapFilePath": {
+                        "type": "string",
+                        "description": "Mount path for the key file. Used only with credentialsType=serviceAccount."
+                      },
+                      "allowLargeResults": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ]
+                      },
+                      "largeResultsDataSetId": {
+                        "type": "string"
+                      },
+                      "largeResultsTempTableExpirationTime": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               }
@@ -236,7 +378,10 @@
           "properties": {
             "mode": {
               "type": "string",
-              "enum": ["shared", "per-service"],
+              "enum": [
+                "shared",
+                "per-service"
+              ],
               "description": "shared: one SA for all pods. per-service: each service gets its own SA."
             },
             "name": {
@@ -338,6 +483,14 @@
           "description": "SDK settings \u2014 app reads from cloud vault directly (provider: sdk)",
           "additionalProperties": true,
           "properties": {
+            "useForAppSettings": {
+              "type": "boolean",
+              "description": "Read app settings (including the database connection) from the cloud vault. Keep true in SDK mode (all clouds)."
+            },
+            "useForConfigPasswords": {
+              "type": "boolean",
+              "description": "Store RPI config passwords in the cloud vault. Set false to keep them in the operational database instead (some vaults reject empty secret values)."
+            },
             "azure": {
               "type": "object",
               "description": "Azure Key Vault SDK settings",
@@ -365,17 +518,6 @@
                 "secretTagKey": {
                   "type": "string",
                   "description": "Tag key used to filter secrets in AWS Secrets Manager"
-                }
-              }
-            },
-            "google": {
-              "type": "object",
-              "description": "Google Secret Manager SDK settings",
-              "additionalProperties": true,
-              "properties": {
-                "projectId": {
-                  "type": "string",
-                  "description": "Google Cloud project ID for Secret Manager"
                 }
               }
             }
@@ -428,7 +570,10 @@
             "reclaimPolicy": {
               "type": "string",
               "description": "Reclaim policy",
-              "enum": ["Delete", "Retain"],
+              "enum": [
+                "Delete",
+                "Retain"
+              ],
               "default": "Delete"
             },
             "parameters": {
@@ -532,6 +677,177 @@
           "type": "string",
           "description": "RPI Client ID (GUID) for this realtime instance"
         },
+        "clientAddressOverrides": {
+          "type": "array",
+          "description": "Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true (only meaningful with multiple Realtime API instances); render fails if set on a single-tenant deployment. Clients not listed use the cluster-wide address.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "clientId",
+              "address"
+            ],
+            "properties": {
+              "clientId": {
+                "type": "string",
+                "description": "Client (tenant) GUID this override applies to"
+              },
+              "address": {
+                "type": "string",
+                "description": "Realtime API base address for that client"
+              }
+            }
+          }
+        },
+        "geolocation": {
+          "type": "object",
+          "description": "Realtime geolocation settings (weather / location enrichment). Defaults use the native Azure provider; a custom provider can be supplied via the plugin fields. The provider APIKey is not set here - it is supplied via the shared RPI Secret key RealtimeAPI_Geolocation_APIKey (kubernetes/csi) or the cloud vault (sdk).",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable geolocation config injection. When false (default) no geolocation env vars are emitted and no APIKey secret is referenced. When true, the settings below apply and RealtimeAPI_Geolocation_APIKey becomes a required secret key (kubernetes/csi)."
+            },
+            "provider": {
+              "type": "string",
+              "description": "Geolocation provider. Native value is Azure; any other value denotes a custom provider configured via the plugin fields."
+            },
+            "weatherUnits": {
+              "type": "string",
+              "description": "Units for weather enrichment",
+              "enum": [
+                "imperial",
+                "metric"
+              ]
+            },
+            "coordsCacheTimespanMinutes": {
+              "type": "integer",
+              "description": "Minutes to cache resolved coordinates",
+              "minimum": 0
+            },
+            "pluginAssembly": {
+              "type": "string",
+              "description": "Assembly name of a custom geolocation provider plugin (blank uses the native provider)"
+            },
+            "pluginType": {
+              "type": "string",
+              "description": "Fully qualified type of the custom geolocation provider plugin"
+            },
+            "pluginSettings": {
+              "type": "array",
+              "description": "Key/value settings passed to the custom geolocation provider plugin",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "key",
+                  "value"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "ipLookup": {
+              "type": "object",
+              "description": "Optional IP-address-based geolocation lookup",
+              "additionalProperties": true,
+              "properties": {
+                "enableGeoIPLookup": {
+                  "type": "boolean",
+                  "description": "Enable IP-based geolocation lookup"
+                },
+                "coordsCacheTimespanMinutesIPLookup": {
+                  "type": "integer",
+                  "description": "Minutes to cache coordinates resolved via IP lookup",
+                  "minimum": 0
+                },
+                "pluginAssembly": {
+                  "type": "string",
+                  "description": "Assembly name of a custom IP-lookup plugin"
+                },
+                "pluginType": {
+                  "type": "string",
+                  "description": "Fully qualified type of the custom IP-lookup plugin"
+                },
+                "pluginSettings": {
+                  "type": "array",
+                  "description": "Key/value settings passed to the custom IP-lookup plugin",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "key",
+                      "value"
+                    ],
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "identitySettings": {
+          "type": "object",
+          "description": "How a known visitor's profile is keyed once they identify themselves (querystring, cached attribute list, or Realtime cache offer).",
+          "additionalProperties": true,
+          "properties": {
+            "masterKeyName": {
+              "type": "string",
+              "description": "Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps the RPI-assigned GUID (the variable is not emitted)."
+            },
+            "masterKeyAliases": {
+              "type": "array",
+              "description": "Alternative names the master key may appear under (e.g. CK for CustomerKey)",
+              "items": {
+                "type": "string"
+              }
+            },
+            "alternativeKeys": {
+              "type": "array",
+              "description": "Additional keys that can also identify a visitor, linked to the master key via a querystring or a populated Realtime cache",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mergeParameters": {
+              "type": "boolean",
+              "description": "Merge querystring parameters into the visitor profile"
+            },
+            "mergeCALAttributes": {
+              "type": "boolean",
+              "description": "Merge cached-attribute-list attributes into the visitor profile"
+            },
+            "parameterMergeExclusions": {
+              "type": "array",
+              "description": "Querystring parameter names to exclude from the merge",
+              "items": {
+                "type": "string"
+              }
+            },
+            "calMergeExclusions": {
+              "type": "array",
+              "description": "Cached-attribute-list attribute names to exclude from the merge",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "authentication": {
           "type": "object",
           "description": "Realtime API authentication configuration",
@@ -573,10 +889,6 @@
               "description": "OAuth authentication settings",
               "additionalProperties": true,
               "properties": {
-                "databaseName": {
-                  "type": "string",
-                  "description": "OAuth database name"
-                },
                 "accessTokenLifetimeSeconds": {
                   "type": "integer",
                   "description": "Access token lifetime in seconds"
@@ -596,6 +908,79 @@
             "type": "string"
           }
         },
+        "dataMaps": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-DataMap overrides. An empty Cache inherits the effective cacheProvider.provider.",
+          "properties": {
+            "visitorProfile": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "visitorHistory": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "nonVisitorData": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "productRecommendation": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "visitorBackup": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "messageHistory": {
+              "$ref": "#/definitions/realtimeDataMap"
+            },
+            "visitorReadonlyParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "Cache": {
+                  "type": "string",
+                  "description": "Cache assignment; empty inherits the effective cacheProvider.provider."
+                },
+                "DaysToPersist": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "CompressData": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ]
+                },
+                "KeySuffix": {
+                  "type": "string"
+                }
+              }
+            },
+            "offerHistory": {
+              "$ref": "#/definitions/realtimeDataMap"
+            }
+          }
+        },
+        "RealtimeServerCookieEnabled": {
+          "type": "boolean",
+          "description": "Enable the Realtime server visitor cookie."
+        },
+        "RealtimeServerCookieName": {
+          "type": "string",
+          "description": "Name of the Realtime server visitor cookie."
+        },
+        "RealtimeServerCookieExpires": {
+          "type": "integer",
+          "description": "Realtime server visitor cookie lifetime in days."
+        },
+        "RealtimeServerCookieHttpOnly": {
+          "type": "boolean",
+          "description": "Mark the Realtime server visitor cookie HttpOnly."
+        },
+        "RealtimeServerCookieDomain": {
+          "type": "string",
+          "description": "Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie host-only (the variable is not emitted)."
+        },
         "cacheProvider": {
           "type": "object",
           "description": "Real-time cache provider configuration",
@@ -607,7 +992,7 @@
             },
             "provider": {
               "type": "string",
-              "description": "Cache provider type",
+              "description": "Cache provider type. Empty resolves to the platform default: google -> googlebigtable, azure/amazon/selfhosted -> mongodb.",
               "enum": [
                 "",
                 "mongodb",
@@ -620,11 +1005,23 @@
             "mongodb": {
               "type": "object",
               "description": "MongoDB cache provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
-                "connectionString": {
+                "authMechanism": {
                   "type": "string",
-                  "description": "MongoDB connection string"
+                  "enum": [
+                    "default",
+                    "iamRole"
+                  ],
+                  "description": "MongoDB authentication: default (connection string from the shared Secret) or iamRole (MONGODB-AWS via IRSA / Pod Identity)."
+                },
+                "roleArn": {
+                  "type": "string",
+                  "description": "IAM role ARN for MONGODB-AWS (authMechanism=iamRole only)."
+                },
+                "region": {
+                  "type": "string",
+                  "description": "AWS region for the STS endpoint (authMechanism=iamRole only)."
                 },
                 "databaseName": {
                   "type": "string",
@@ -639,8 +1036,13 @@
             "redis": {
               "type": "object",
               "description": "Redis cache provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "redisSettings": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Internal cache StatefulSet tuning (resources, volumeClaimTemplates)."
+                },
                 "type": {
                   "type": "string",
                   "description": "Redis deployment type: internal (chart-managed) or external (BYO)",
@@ -648,47 +1050,13 @@
                     "internal",
                     "external"
                   ]
-                },
-                "redisSettings": {
-                  "type": "object",
-                  "description": "Redis connection settings",
-                  "additionalProperties": true,
-                  "properties": {
-                    "connectionString": {
-                      "type": "string",
-                      "description": "Redis connection string (required if type=external)"
-                    }
-                  }
-                }
-              }
-            },
-            "inMemorySql": {
-              "type": "object",
-              "description": "In-memory SQL cache provider settings",
-              "additionalProperties": true,
-              "properties": {
-                "server_host": {
-                  "type": "string",
-                  "description": "Cache database server host"
-                },
-                "database_name": {
-                  "type": "string",
-                  "description": "Cache database name"
-                },
-                "username": {
-                  "type": "string",
-                  "description": "Cache database username"
-                },
-                "password": {
-                  "type": "string",
-                  "description": "Cache database password"
                 }
               }
             },
             "googlebigtable": {
               "type": "object",
               "description": "Google Bigtable cache provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
                 "projectId": {
                   "type": "string",
@@ -713,7 +1081,7 @@
             },
             "provider": {
               "type": "string",
-              "description": "Queue provider type",
+              "description": "Queue provider type. Empty resolves to the platform default: azure -> azureservicebus, amazon -> amazonsqs, google -> googlepubsub, selfhosted -> rabbitmq.",
               "enum": [
                 "",
                 "amazonsqs",
@@ -728,7 +1096,7 @@
             "queueNames": {
               "type": "object",
               "description": "Queue name configuration for each message type",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
                 "formQueuePath": {
                   "type": "string",
@@ -759,33 +1127,39 @@
             "amazonsqs": {
               "type": "object",
               "description": "Amazon SQS queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "visibilityTimeout": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "SQS message visibility timeout in seconds."
+                },
                 "credentialsType": {
                   "type": "string",
                   "description": "SQS credentials type"
                 }
               }
             },
-            "azureservicebus": {
-              "type": "object",
-              "description": "Azure Service Bus queue provider settings",
-              "additionalProperties": true,
-              "properties": {
-                "connectionstring": {
-                  "type": "string",
-                  "description": "Azure Service Bus connection string"
-                }
-              }
-            },
             "azurestorage": {
               "type": "object",
               "description": "Azure Storage queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
-                "connectionString": {
-                  "type": "string",
-                  "description": "Azure Storage connection string"
+                "sendVisibilityTimeout": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Send-side message visibility timeout."
+                },
+                "receiveVisibilityTimeout": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Receive-side message visibility timeout."
                 },
                 "storageAccountName": {
                   "type": "string",
@@ -800,7 +1174,7 @@
             "googlepubsub": {
               "type": "object",
               "description": "Google Pub/Sub queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
                 "projectId": {
                   "type": "string",
@@ -811,11 +1185,21 @@
             "azureeventhubs": {
               "type": "object",
               "description": "Azure Event Hubs queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
-                "connectionstring": {
-                  "type": "string",
-                  "description": "Azure Event Hubs connection string"
+                "SendMessageBatchSize": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Send batch size."
+                },
+                "ReceiveMessageBatchSize": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Receive batch size."
                 },
                 "eventHubName": {
                   "type": "string",
@@ -837,8 +1221,13 @@
             "rabbitmq": {
               "type": "object",
               "description": "RabbitMQ queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
+                "rabbitmqSettings": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "RabbitMQ settings. username defaults to the release namespace; hostname applies to external (BYO) RabbitMQ."
+                },
                 "type": {
                   "type": "string",
                   "description": "RabbitMQ deployment type: internal (chart-managed) or external (BYO)",
@@ -852,19 +1241,40 @@
             "amazonmsk": {
               "type": "object",
               "description": "Amazon MSK queue provider settings",
-              "additionalProperties": true,
+              "additionalProperties": false,
               "properties": {
-                "region": {
+                "Acks": {
                   "type": "string",
-                  "description": "AWS region"
+                  "description": "Kafka producer acks mode."
                 },
-                "accessKeyId": {
+                "CompressionType": {
                   "type": "string",
-                  "description": "AWS IAM access key"
+                  "description": "Kafka compression type."
                 },
-                "secretAccessKey": {
+                "MaxRetryAttempt": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Producer retry attempts."
+                },
+                "BatchSize": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Producer batch size in bytes."
+                },
+                "LingerTime": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Producer linger time."
+                },
+                "UseAwsMsk": {
                   "type": "string",
-                  "description": "AWS IAM secret access key"
+                  "description": "Enable AWS MSK IAM authentication (True/False)."
                 },
                 "bootstrapServers": {
                   "type": "string",
@@ -888,7 +1298,94 @@
               "description": "List of custom plugin configurations",
               "items": {
                 "type": "object",
-                "additionalProperties": true
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "factory"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "factory": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "assembly",
+                      "type"
+                    ],
+                    "properties": {
+                      "assembly": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "type": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "apiContextFilters": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "apiContentFilterOperator": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "settings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "key"
+                      ],
+                      "oneOf": [
+                        {
+                          "required": [
+                            "value"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "values"
+                          ]
+                        }
+                      ],
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "value": {
+                          "type": "string"
+                        },
+                        "values": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -900,6 +1397,190 @@
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "RPIVersion": {
+          "type": "string",
+          "description": "RPI product version reported by the Realtime API."
+        },
+        "RealtimeAgentAddress": {
+          "type": "string",
+          "description": "Address of the Interaction Realtime Agent. Unset leaves the application default."
+        },
+        "RealtimeAgentInProcessPath": {
+          "type": "string",
+          "description": "Path to the in-process Realtime Agent assembly. Unset leaves the application default."
+        },
+        "SaveProfilePostDecisionResponse": {
+          "type": "boolean",
+          "description": "Persist the visitor profile after returning a decision response."
+        },
+        "CachedAttributeLoadTimeoutMS": {
+          "type": "integer",
+          "description": "Timeout in milliseconds for loading cached attribute lists. 0 uses the application default."
+        },
+        "MessageHistoryProfileRecordLimit": {
+          "type": "integer",
+          "description": "Maximum message-history records retained per visitor profile."
+        },
+        "MessageHistoryDaysInProfile": {
+          "type": "integer",
+          "description": "Days of message history retained in the visitor profile."
+        },
+        "MaxNoEventMetadataInstances": {
+          "type": "integer",
+          "description": "Maximum number of event metadata instances retained."
+        },
+        "NoMinsCacheSelectionResults": {
+          "type": "integer",
+          "description": "Minutes to cache selection results."
+        },
+        "NoMinsCacheRecommendResults": {
+          "type": "integer",
+          "description": "Minutes to cache recommendation results."
+        },
+        "RedPointMLServiceAddress": {
+          "type": "string",
+          "description": "RedPoint ML service address. Unset leaves the application default."
+        },
+        "RedPointMLClientID": {
+          "type": "string",
+          "description": "RedPoint ML client identifier. Unset leaves the application default."
+        },
+        "EnableProfileMergeEvents": {
+          "type": "boolean",
+          "description": "Emit events when visitor profiles are merged."
+        },
+        "TrackProfileMergeInSourceProfile": {
+          "type": "boolean",
+          "description": "Record the merge on the source profile when profiles are merged."
+        },
+        "RegionLanguageCodeParameter": {
+          "type": "string",
+          "description": "Parameter name carrying the region language code. Unset leaves the application default."
+        },
+        "WebVisitorCacheDuration": {
+          "type": "integer",
+          "description": "Web visitor cache duration in minutes. 0 uses the application default."
+        },
+        "MaxNoVisitorDevicesAllowed": {
+          "type": "integer",
+          "description": "Maximum number of devices tracked per visitor."
+        },
+        "CacheOutputExclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Cache-output exclusion entries."
+        },
+        "parameterToDataMappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "parameterName": {
+                "type": "string"
+              },
+              "calName": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Mappings from an inbound parameter to a cached attribute list."
+        },
+        "visitorViews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "parameterNames": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "databaseFieldNames": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "description": "Named visitor views."
+        },
+        "queueListenerConfiguration": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "sendAddressParameter": {
+                "type": "string"
+              },
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "repeaterParameters": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "description": "Queue listener configurations."
+        },
+        "fileOutput": {
+          "type": "object",
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean"
+            },
+            "allowAllServerLocations": {
+              "type": "boolean"
+            }
+          },
+          "description": "File output behaviour."
+        },
+        "agentConfig": {
+          "type": "object",
+          "properties": {
+            "traceLogEnabled": {
+              "type": "boolean"
+            },
+            "cachedSelectionRuleExpiry": {
+              "type": "integer"
+            }
+          },
+          "description": "Realtime agent configuration."
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Realtime API's own host and port (used for callbacks).",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Service host name (empty = derived at runtime)."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
+            }
+          }
         }
       }
     },
@@ -992,29 +1673,10 @@
               "type": "string",
               "description": "Cache provider type",
               "enum": [
-                "default",
                 "filesystem",
-                "azureblob"
+                "azureblob",
+                "redis"
               ]
-            },
-            "redisSettings": {
-              "type": "object",
-              "description": "Redis settings for state caching",
-              "additionalProperties": true,
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "description": "Redis deployment type: internal (chart-managed) or external (BYO)",
-                  "enum": [
-                    "internal",
-                    "external"
-                  ]
-                },
-                "connectionString": {
-                  "type": "string",
-                  "description": "Redis connection string (required if type=external)"
-                }
-              }
             },
             "azureStorageSettings": {
               "type": "object",
@@ -1038,6 +1700,41 @@
                   "description": "Use cloud identity for authentication"
                 }
               }
+            },
+            "failOnCacheConnectionError": {
+              "description": "Fail startup if the cache connection cannot be established."
+            },
+            "maxNumberRetries": {
+              "description": "Maximum cache connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "description": "Delay (hh:mm:ss) between cache connection retries."
+            },
+            "redisSettings": {
+              "type": "object",
+              "description": "Redis endpoint settings (when a Redis cache provider is used).",
+              "additionalProperties": true,
+              "properties": {
+                "ipAddress": {
+                  "type": "string",
+                  "description": "Redis server address."
+                }
+              }
+            },
+            "fileSystem": {
+              "type": "object",
+              "description": "Filesystem state-persistence directory override (when provider=filesystem).",
+              "additionalProperties": true,
+              "properties": {
+                "OverrideDirectoryPath": {
+                  "type": "boolean",
+                  "description": "When true, inject the state directory path override env vars; when false (default) they are not injected."
+                },
+                "DirectoryPathOverride": {
+                  "type": "string",
+                  "description": "State directory path used when OverrideDirectoryPath is true."
+                }
+              }
             }
           }
         },
@@ -1046,8 +1743,429 @@
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
-          "$ref": "#/definitions/autoscaling",
-          "description": "Horizontal Pod Autoscaler configuration"
+          "description": "Autoscaling (hpa or keda).",
+          "allOf": [
+            {
+              "$ref": "#/definitions/autoscaling"
+            },
+            {
+              "properties": {
+                "kedaScaledObject": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "KEDA Prometheus trigger settings (autoscaling.type=keda). serverAddress and query are operator-supplied.",
+                  "properties": {
+                    "serverAddress": {
+                      "type": "string",
+                      "description": "Prometheus server URL. Required when autoscaling.type=keda."
+                    },
+                    "useTriggerAuthentication": {
+                      "type": [
+                        "boolean",
+                        "string"
+                      ]
+                    },
+                    "authenticationRef": {
+                      "type": "string"
+                    },
+                    "metricName": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "PromQL query. Required when autoscaling.type=keda."
+                    },
+                    "threshold": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "pollingInterval": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "minReplicaCount": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "maxReplicaCount": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "fallback": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "failureThreshold": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "replicas": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "behavior": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "HPA scaling behavior (scaleUp/scaleDown stabilization and policies)."
+                    },
+                    "terminationGracePeriodSeconds": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "jobExecution": {
+          "type": "object",
+          "description": "Execution Service job and workflow execution tuning.",
+          "additionalProperties": true,
+          "properties": {
+            "maxThreadsPerExecutionService": {
+              "description": "Maximum concurrent worker threads per Execution Service replica."
+            },
+            "taskTimeout": {
+              "description": "Task execution timeout in seconds."
+            },
+            "auditTaskEvents": {
+              "description": "Write task lifecycle events to the audit log."
+            },
+            "persistTaskExecutionDetails": {
+              "type": "boolean",
+              "description": "Persist per-task execution detail records."
+            },
+            "executionShutdownWaitForActivity": {
+              "description": "Grace period (hh:mm:ss) to wait for in-flight activity before shutdown."
+            },
+            "overrideCustomSQLReservedWords": {
+              "description": "Allow custom SQL reserved-word overrides."
+            },
+            "rpdmOApiPrefixUri": {
+              "description": "URI prefix for the RPDM Operational API."
+            },
+            "triggerCheckCriteriaInterval": {
+              "description": "Interval (seconds) between trigger criteria checks."
+            },
+            "triggersMaxDaysInactive": {
+              "description": "Days a trigger may remain inactive before it is skipped."
+            },
+            "defaultMaintenanceModeBufferTime": {
+              "description": "Default maintenance-mode buffer (hh:mm:ss)."
+            },
+            "workflowPrioritization": {
+              "type": "object",
+              "description": "Workflow prioritization queue controls.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "description": "Enable workflow prioritization."
+                },
+                "maxConcurrentWorkflowActivities": {
+                  "description": "Maximum concurrent prioritized workflow activities."
+                },
+                "maximumQueueTime": {
+                  "description": "Maximum time (hh:mm:ss) an activity may wait in the priority queue."
+                }
+              }
+            },
+            "executionFilterRules": {
+              "type": "object",
+              "description": "Restrict which jobs and clients this Execution Service processes (empty = process all).",
+              "additionalProperties": true,
+              "properties": {
+                "jobRules": {
+                  "type": "array",
+                  "description": "Per-job-type allowlist. Each item: {type, jobNames: [ ... ]}.",
+                  "items": {
+                    "type": "object",
+                    "description": "",
+                    "additionalProperties": true,
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "description": "Job type, e.g. Task, Client Job, Audience, Fulfillment, Rollback."
+                      },
+                      "jobNames": {
+                        "type": "array",
+                        "description": "Job names of this type to process.",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "clients": {
+                  "type": "array",
+                  "description": "Client IDs this Execution Service is limited to.",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationalDatabase": {
+          "type": "object",
+          "description": "Operational database resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxRetryCount": {
+              "type": "integer",
+              "description": "Maximum operational-database connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between operational-database retries."
+            }
+          }
+        },
+        "fileOutput": {
+          "type": "object",
+          "description": "Execution Service file-output behavior.",
+          "additionalProperties": true,
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean",
+              "description": "Allow per-client file-output directory overrides."
+            },
+            "allowAllServerLocations": {
+              "type": "boolean",
+              "description": "Allow writing file output to any server location."
+            }
+          }
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Execution Service's externally reachable host and port (used for callbacks).",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Service host name (empty = derived at runtime)."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
+            }
+          }
+        },
+        "userManagement": {
+          "type": "object",
+          "description": "User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.",
+          "additionalProperties": true,
+          "properties": {
+            "useNativeUserManagement": {
+              "type": "boolean",
+              "description": "Use RPI native user management."
+            },
+            "useExternalUserManagement": {
+              "type": "boolean",
+              "description": "Use an external identity provider for user management."
+            }
+          }
+        },
+        "systemVariables": {
+          "type": "array",
+          "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
+          "items": {
+            "type": "object",
+            "description": "",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Variable value."
+              }
+            }
+          }
+        },
+        "internalQueues": {
+          "type": "object",
+          "description": "Internal RabbitMQ broker connection. Disabled by default; set enabled: true and populate Secret key QueueService_RabbitMQ_Password.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the internal RabbitMQ broker connection."
+            },
+            "hostName": {
+              "type": "string",
+              "description": "RabbitMQ host name."
+            },
+            "virtualHost": {
+              "type": "string",
+              "description": "RabbitMQ virtual host."
+            },
+            "username": {
+              "type": "string",
+              "description": "RabbitMQ username."
+            },
+            "port": {
+              "type": "integer",
+              "description": "RabbitMQ port."
+            },
+            "isDurable": {
+              "type": "boolean",
+              "description": "Declare queues as durable."
+            }
+          }
+        },
+        "pubSub": {
+          "type": "object",
+          "description": "Azure Web PubSub. Disabled by default; set enabled: true and populate Secret key PubSub_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Web PubSub."
+            },
+            "provider": {
+              "type": "string",
+              "description": "PubSub provider."
+            },
+            "azureSettings": {
+              "type": "object",
+              "description": "Azure PubSub settings.",
+              "additionalProperties": true,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Azure Web PubSub endpoint URL."
+                }
+              }
+            }
+          }
+        },
+        "mercury": {
+          "type": "object",
+          "description": "Mercury integration. Disabled by default; set enabled: true and populate Secret key Mercury_Password.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Mercury integration."
+            },
+            "address": {
+              "type": "string",
+              "description": "Mercury service address."
+            },
+            "username": {
+              "type": "string",
+              "description": "Mercury username."
+            }
+          }
+        },
+        "logging": {
+          "type": "object",
+          "description": "Execution Service log levels and log-forwarding sinks.",
+          "additionalProperties": true,
+          "properties": {
+            "default": {
+              "description": "Default log level."
+            },
+            "database": {
+              "description": "Database log sink level."
+            },
+            "rpiTrace": {
+              "description": "Database RPITrace level."
+            },
+            "rpiError": {
+              "description": "Database RPIError level."
+            },
+            "Console": {
+              "description": "Console log level."
+            },
+            "microsoft": {
+              "type": "string",
+              "description": "Microsoft namespace log level."
+            },
+            "microsoftHostingLifetime": {
+              "type": "string",
+              "description": "Microsoft.Hosting.Lifetime log level."
+            },
+            "newRelic": {
+              "type": "object",
+              "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable New Relic forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "New Relic log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            },
+            "loggly": {
+              "type": "object",
+              "description": "Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable Loggly forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "Loggly log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1065,6 +2183,52 @@
           "description": "Number of Interaction API pod replicas",
           "minimum": 0
         },
+        "accountLockout": {
+          "type": "object",
+          "description": "Account lockout after repeated failed sign-in attempts (deployment-wide; the Integration API shares the same user store). Keys are optional; unset keys use the application defaults.",
+          "additionalProperties": false,
+          "properties": {
+            "maxFailedAccessAttempts": {
+              "type": "integer",
+              "description": "Failed sign-in attempts before the account is locked (no chart default)"
+            },
+            "lockoutTimeSpan": {
+              "type": "string",
+              "description": "Lockout duration as a .NET TimeSpan, e.g. 00:05:00 (no chart default)"
+            }
+          }
+        },
+        "passwordPolicy": {
+          "type": "object",
+          "description": "Native-auth password policy enforced when users are created or change their password (deployment-wide; the Integration API shares the same user store)",
+          "additionalProperties": false,
+          "properties": {
+            "requiredLength": {
+              "type": "integer",
+              "description": "Minimum password length (default 6)"
+            },
+            "requiredUniqueChars": {
+              "type": "integer",
+              "description": "Minimum number of distinct characters (default 1)"
+            },
+            "requireDigit": {
+              "type": "boolean",
+              "description": "Require at least one digit (default true)"
+            },
+            "requireNonAlphanumeric": {
+              "type": "boolean",
+              "description": "Require at least one non-alphanumeric character (default true)"
+            },
+            "requireLowercase": {
+              "type": "boolean",
+              "description": "Require at least one lowercase letter (default true)"
+            },
+            "requireUppercase": {
+              "type": "boolean",
+              "description": "Require at least one uppercase letter (default true)"
+            }
+          }
+        },
         "enableRPIAuthentication": {
           "type": "boolean",
           "description": "Enable RPI authentication for this service"
@@ -1076,6 +2240,260 @@
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "accessTokenLifetimeSeconds": {
+          "type": "integer",
+          "description": "Native-auth access token lifetime in seconds."
+        },
+        "refreshTokenLifetimeSeconds": {
+          "type": "integer",
+          "description": "Native-auth refresh token lifetime in seconds."
+        },
+        "microsoftForceLogin": {
+          "type": "boolean",
+          "description": "Force interactive login for Microsoft Entra ID authentication."
+        },
+        "operationalDatabase": {
+          "type": "object",
+          "description": "Operational database resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxRetryCount": {
+              "type": "integer",
+              "description": "Maximum operational-database connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between operational-database retries."
+            }
+          }
+        },
+        "fileOutput": {
+          "type": "object",
+          "description": "Interaction API file-output behavior.",
+          "additionalProperties": true,
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean",
+              "description": "Allow per-client file-output directory overrides."
+            },
+            "allowAllServerLocations": {
+              "type": "boolean",
+              "description": "Allow writing file output to any server location."
+            }
+          }
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Interaction API's externally reachable host and port.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Service host name."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
+            }
+          }
+        },
+        "userManagement": {
+          "type": "object",
+          "description": "User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.",
+          "additionalProperties": true,
+          "properties": {
+            "useNativeUserManagement": {
+              "type": "boolean",
+              "description": "Use RPI native user management."
+            },
+            "useExternalUserManagement": {
+              "type": "boolean",
+              "description": "Use an external identity provider for user management."
+            }
+          }
+        },
+        "mapControl": {
+          "type": "object",
+          "description": "RPI Client map control. Set enabled: true and populate Secret key MapControl_ApplicationId.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the map control."
+            },
+            "provider": {
+              "type": "string",
+              "description": "Map provider."
+            }
+          }
+        },
+        "weatherApi": {
+          "type": "object",
+          "description": "RPI Client weather lookup. Set enabled: true and populate Secret key Weather_ApiKey.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable weather lookups."
+            },
+            "address": {
+              "type": "string",
+              "description": "Weather service address."
+            }
+          }
+        },
+        "systemVariables": {
+          "type": "array",
+          "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
+          "items": {
+            "type": "object",
+            "description": "",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Variable value."
+              }
+            }
+          }
+        },
+        "pubSub": {
+          "type": "object",
+          "description": "Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Web PubSub."
+            },
+            "provider": {
+              "type": "string",
+              "description": "PubSub provider."
+            },
+            "azureSettings": {
+              "type": "object",
+              "description": "Azure PubSub settings.",
+              "additionalProperties": true,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Azure Web PubSub endpoint URL."
+                }
+              }
+            }
+          }
+        },
+        "mercury": {
+          "type": "object",
+          "description": "Mercury integration. Set enabled: true and populate Secret key Mercury_Password.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Mercury integration."
+            },
+            "address": {
+              "type": "string",
+              "description": "Mercury service address."
+            },
+            "username": {
+              "type": "string",
+              "description": "Mercury username."
+            }
+          }
+        },
+        "logging": {
+          "type": "object",
+          "description": "Interaction API log levels and log-forwarding sinks.",
+          "additionalProperties": true,
+          "properties": {
+            "default": {
+              "description": "Default log level."
+            },
+            "database": {
+              "description": "Database log sink level."
+            },
+            "rpiTrace": {
+              "description": "Database RPITrace level."
+            },
+            "rpiError": {
+              "description": "Database RPIError level."
+            },
+            "Console": {
+              "description": "Console log level."
+            },
+            "microsoft": {
+              "type": "string",
+              "description": "Microsoft namespace log level."
+            },
+            "microsoftHostingLifetime": {
+              "type": "string",
+              "description": "Microsoft.Hosting.Lifetime log level."
+            },
+            "newRelic": {
+              "type": "object",
+              "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable New Relic forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "New Relic log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            },
+            "loggly": {
+              "type": "object",
+              "description": "Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable Loggly forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "Loggly log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1140,6 +2558,218 @@
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "operationalDatabase": {
+          "type": "object",
+          "description": "Operational database resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxRetryCount": {
+              "type": "integer",
+              "description": "Maximum operational-database connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between operational-database retries."
+            }
+          }
+        },
+        "fileOutput": {
+          "type": "object",
+          "description": "Node Manager file-output behavior.",
+          "additionalProperties": true,
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean",
+              "description": "Allow per-client file-output directory overrides."
+            },
+            "allowAllServerLocations": {
+              "type": "boolean",
+              "description": "Allow writing file output to any server location."
+            }
+          }
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Node Manager's externally reachable host and port.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Service host name."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
+            }
+          }
+        },
+        "userManagement": {
+          "type": "object",
+          "description": "User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.",
+          "additionalProperties": true,
+          "properties": {
+            "useNativeUserManagement": {
+              "type": "boolean",
+              "description": "Use RPI native user management."
+            },
+            "useExternalUserManagement": {
+              "type": "boolean",
+              "description": "Use an external identity provider for user management."
+            }
+          }
+        },
+        "systemVariables": {
+          "type": "array",
+          "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
+          "items": {
+            "type": "object",
+            "description": "",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Variable value."
+              }
+            }
+          }
+        },
+        "pubSub": {
+          "type": "object",
+          "description": "Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Web PubSub."
+            },
+            "provider": {
+              "type": "string",
+              "description": "PubSub provider."
+            },
+            "azureSettings": {
+              "type": "object",
+              "description": "Azure PubSub settings.",
+              "additionalProperties": true,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Azure Web PubSub endpoint URL."
+                }
+              }
+            }
+          }
+        },
+        "mercury": {
+          "type": "object",
+          "description": "Mercury integration. Set enabled: true and populate Secret key Mercury_Password.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Mercury integration."
+            },
+            "address": {
+              "type": "string",
+              "description": "Mercury service address."
+            },
+            "username": {
+              "type": "string",
+              "description": "Mercury username."
+            }
+          }
+        },
+        "logging": {
+          "type": "object",
+          "description": "Node Manager log levels and log-forwarding sinks.",
+          "additionalProperties": true,
+          "properties": {
+            "default": {
+              "description": "Default log level."
+            },
+            "database": {
+              "description": "Database log sink level."
+            },
+            "rpiTrace": {
+              "description": "Database RPITrace level."
+            },
+            "rpiError": {
+              "description": "Database RPIError level."
+            },
+            "Console": {
+              "description": "Console log level."
+            },
+            "microsoft": {
+              "type": "string",
+              "description": "Microsoft namespace log level."
+            },
+            "microsoftHostingLifetime": {
+              "type": "string",
+              "description": "Microsoft.Hosting.Lifetime log level."
+            },
+            "newRelic": {
+              "type": "object",
+              "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable New Relic forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "New Relic log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            },
+            "loggly": {
+              "type": "object",
+              "description": "Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable Loggly forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "Loggly log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1148,6 +2778,33 @@
       "description": "Deployment API service configuration \u2014 manages tenant provisioning and database upgrades",
       "additionalProperties": true,
       "properties": {
+        "authentication": {
+          "type": "object",
+          "description": "OIDC authentication for the Deployment API endpoints (Deployment API only)",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable OIDC authentication (default false). When true, issuer, hostAddress, audience, and clientId are all required."
+            },
+            "issuer": {
+              "type": "string",
+              "description": "OIDC token issuer (required when enabled; no default)"
+            },
+            "hostAddress": {
+              "type": "string",
+              "description": "Host address the Deployment API is reached on (required when enabled; no default)"
+            },
+            "audience": {
+              "type": "string",
+              "description": "Expected token audience (required when enabled; no default)"
+            },
+            "clientId": {
+              "type": "string",
+              "description": "OIDC client ID (required when enabled; no default)"
+            }
+          }
+        },
         "enabled": {
           "type": "boolean",
           "description": "Enable the Deployment API service"
@@ -1205,88 +2862,77 @@
               "type": "boolean",
               "description": "Enable distributed processing for high-volume transactions"
             },
-            "internalCache": {
-              "type": "object",
-              "description": "Internal cache configuration for queue reader",
-              "additionalProperties": true,
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "description": "Cache provider (e.g., redis)"
-                },
-                "type": {
-                  "type": "string",
-                  "description": "Deployment type: internal or external",
-                  "enum": [
-                    "internal",
-                    "external"
-                  ]
-                },
-                "redisSettings": {
-                  "type": "object",
-                  "description": "Redis settings",
-                  "additionalProperties": true,
-                  "properties": {
-                    "connectionString": {
-                      "type": "string",
-                      "description": "Redis connection string (required if type=external)"
-                    }
-                  }
-                }
-              }
-            },
-            "distributedQueue": {
-              "type": "object",
-              "description": "Distributed queue configuration",
-              "additionalProperties": true,
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "description": "Queue provider (e.g., rabbitmq)"
-                },
-                "type": {
-                  "type": "string",
-                  "description": "Deployment type: internal or external",
-                  "enum": [
-                    "internal",
-                    "external"
-                  ]
-                },
-                "rabbitmqSettings": {
-                  "type": "object",
-                  "description": "RabbitMQ settings for distributed queue",
-                  "additionalProperties": true,
-                  "properties": {
-                    "hostname": {
-                      "type": "string",
-                      "description": "RabbitMQ hostname"
-                    },
-                    "username": {
-                      "type": "string",
-                      "description": "RabbitMQ username"
-                    },
-                    "password": {
-                      "type": "string",
-                      "description": "RabbitMQ password"
-                    }
-                  }
-                }
-              }
-            },
             "tenantIds": {
               "type": "array",
-              "description": "RPI client IDs (GUIDs) for this queue reader cluster",
+              "description": "RPI client IDs (GUIDs) this queue reader processes.",
               "items": {
                 "type": "string"
               }
             }
           }
         },
-        "tenantIds": {
-          "type": "array",
-          "description": "RPI client IDs (GUIDs) \u2014 alternative top-level placement",
-          "items": {
-            "type": "string"
+        "internalCache": {
+          "type": "object",
+          "description": "Internal cache used by the queue reader.",
+          "additionalProperties": true,
+          "properties": {
+            "redisSettings": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Internal cache tuning. For type=external the connection string comes from the shared Secret key QueueReader_RedisCache_ConnectionString, never from values."
+            },
+            "maxNumberRetries": {
+              "type": "integer",
+              "description": "Maximum cache connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between cache connection retries."
+            },
+            "failOnCacheConnectionError": {
+              "type": "boolean",
+              "description": "Fail startup if the cache connection cannot be established."
+            },
+            "stateFileSystem": {
+              "type": "object",
+              "description": "Filesystem state-persistence settings (used when the cache runs the FileSystem provider).",
+              "additionalProperties": true,
+              "properties": {
+                "overrideDirectoryPath": {
+                  "type": "boolean",
+                  "description": "Override the default state directory path."
+                },
+                "directoryPathOverride": {
+                  "type": "string",
+                  "description": "State directory path to use when overrideDirectoryPath is true."
+                }
+              }
+            },
+            "statePersistenceProvider": {
+              "type": "string",
+              "description": "State-tracking store provider (StateTrackingStoreProviders enum, e.g. FileSystem). The cache provider itself is set separately."
+            }
+          }
+        },
+        "internalQueues": {
+          "type": "object",
+          "description": "Internal message queue used by the queue reader.",
+          "additionalProperties": true,
+          "properties": {
+            "rabbitmqSettings": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "hostname": {
+                  "type": "string",
+                  "description": "RabbitMQ hostname (external/BYO)."
+                },
+                "username": {
+                  "type": "string",
+                  "description": "RabbitMQ username. Defaults to the release namespace."
+                }
+              }
+            }
           }
         },
         "errorQueuePath": {
@@ -1304,6 +2950,199 @@
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "operationalDatabase": {
+          "type": "object",
+          "description": "Operational database resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxRetryCount": {
+              "type": "integer",
+              "description": "Maximum operational-database connection retry attempts."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between operational-database retries."
+            }
+          }
+        },
+        "fileOutput": {
+          "type": "object",
+          "description": "Queue Reader file-output behavior.",
+          "additionalProperties": true,
+          "properties": {
+            "allowClientOverrides": {
+              "type": "boolean",
+              "description": "Allow per-client file-output directory overrides."
+            },
+            "allowAllServerLocations": {
+              "type": "boolean",
+              "description": "Allow writing file output to any server location."
+            }
+          }
+        },
+        "userManagement": {
+          "type": "object",
+          "description": "User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.",
+          "additionalProperties": true,
+          "properties": {
+            "useNativeUserManagement": {
+              "type": "boolean",
+              "description": "Use RPI native user management."
+            },
+            "useExternalUserManagement": {
+              "type": "boolean",
+              "description": "Use an external identity provider for user management."
+            }
+          }
+        },
+        "systemVariables": {
+          "type": "array",
+          "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
+          "items": {
+            "type": "object",
+            "description": "",
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Variable value."
+              }
+            }
+          }
+        },
+        "pubSub": {
+          "type": "object",
+          "description": "Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Web PubSub."
+            },
+            "provider": {
+              "type": "string",
+              "description": "PubSub provider."
+            },
+            "azureSettings": {
+              "type": "object",
+              "description": "Azure PubSub settings.",
+              "additionalProperties": true,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Azure Web PubSub endpoint URL."
+                }
+              }
+            }
+          }
+        },
+        "logging": {
+          "type": "object",
+          "description": "Queue Reader log levels and log-forwarding sinks.",
+          "additionalProperties": true,
+          "properties": {
+            "default": {
+              "description": "Default log level."
+            },
+            "database": {
+              "description": "Database log sink level."
+            },
+            "rpiTrace": {
+              "description": "Database RPITrace level."
+            },
+            "rpiError": {
+              "description": "Database RPIError level."
+            },
+            "Console": {
+              "description": "Console log level."
+            },
+            "microsoft": {
+              "type": "string",
+              "description": "Microsoft namespace log level."
+            },
+            "microsoftHostingLifetime": {
+              "type": "string",
+              "description": "Microsoft.Hosting.Lifetime log level."
+            },
+            "newRelic": {
+              "type": "object",
+              "description": "New Relic log forwarding. Set enabled: true and populate Secret key NewRelic_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable New Relic forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "New Relic log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            },
+            "loggly": {
+              "type": "object",
+              "description": "Loggly log forwarding. Set enabled: true and populate Secret key Loggly_ApiKey.",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable Loggly forwarding."
+                },
+                "httpsEndpoint": {
+                  "type": "string",
+                  "description": "Loggly log ingest endpoint."
+                },
+                "logLevelDefault": {
+                  "type": "string",
+                  "description": "Default forwarded level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "RPITrace level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "RPIError level."
+                }
+              }
+            }
+          }
+        },
+        "serviceHost": {
+          "type": "object",
+          "description": "This Queue Reader's own host and port (used for callbacks).",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Emit RPI__ServiceHostName / RPI__ServiceHostPortNumber (default false)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Service host name (empty = derived at runtime)."
+            },
+            "portNumber": {
+              "type": "integer",
+              "description": "Service host port."
+            }
+          }
         }
       }
     },
@@ -1320,10 +3159,6 @@
           "type": "string",
           "description": "Rebrandly API key"
         },
-        "secretName": {
-          "type": "string",
-          "description": "Kubernetes secret name for Rebrandly credentials"
-        },
         "redisSettings": {
           "type": "object",
           "description": "Redis settings for Rebrandly caching",
@@ -1339,15 +3174,7 @@
             },
             "hostname": {
               "type": "string",
-              "description": "Redis hostname (if type=external)"
-            },
-            "username": {
-              "type": "string",
-              "description": "Redis username"
-            },
-            "password": {
-              "type": "string",
-              "description": "Redis password"
+              "description": "Redis hostname (if type=external). The external Redis password comes from the shared Secret key Rebrandly_Redis_Password, never from values."
             },
             "useAzureCredentials": {
               "type": "boolean",
@@ -1413,6 +3240,10 @@
             "UseDataLakeStorageGen2": {
               "type": "boolean",
               "description": "Use Azure Data Lake Storage Gen2"
+            },
+            "useAzureIdentityAuthentication": {
+              "type": "boolean",
+              "description": "Use the pod's managed identity instead of the access key"
             }
           }
         },
@@ -1440,6 +3271,10 @@
             "sftpPort": {
               "type": "string",
               "description": "SFTP port"
+            },
+            "useSftp": {
+              "type": "boolean",
+              "description": "Transfer diagnostics over SFTP rather than plain FTP"
             }
           }
         }
@@ -1808,7 +3643,7 @@
     "redpointAI": {
       "type": "object",
       "description": "Redpoint AI configuration for natural language, cognitive search, and model storage",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -1817,7 +3652,7 @@
         "naturalLanguage": {
           "type": "object",
           "description": "Natural language AI settings (OpenAI / Azure OpenAI)",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "properties": {
             "ApiKey": {
               "type": "string",
@@ -1841,10 +3676,21 @@
             }
           }
         },
+        "logging": {
+          "type": "object",
+          "description": "RedpointAI logging settings",
+          "additionalProperties": false,
+          "properties": {
+            "enableTrace": {
+              "type": "boolean",
+              "description": "Verbose NLP request/response tracing for diagnostics (default false)"
+            }
+          }
+        },
         "cognitiveSearch": {
           "type": "object",
           "description": "Azure Cognitive Search settings",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "properties": {
             "SearchEndpoint": {
               "type": "string",
@@ -1853,21 +3699,13 @@
             "SearchKey": {
               "type": "string",
               "description": "Cognitive Search API key"
-            },
-            "VectorSearchProfile": {
-              "type": "string",
-              "description": "Vector search profile name"
-            },
-            "VectorSearchConfig": {
-              "type": "string",
-              "description": "Vector search configuration name"
             }
           }
         },
         "modelStorage": {
           "type": "object",
           "description": "Model storage settings",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "properties": {
             "ConnectionString": {
               "type": "string",
@@ -2184,120 +4022,9 @@
         }
       }
     },
-    "postInstall": {
+    "databaseUpgrade": {
       "type": "object",
-      "description": "Post-install automation: license activation, cluster DB install, and optional tenant creation. Runs as a Helm post-install hook.",
-      "additionalProperties": true,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable post-install automation"
-        },
-        "existingSecret": {
-          "type": "string",
-          "description": "Use an existing K8s secret instead of inline values (keys: activation-key, admin-password, admin-username, admin-email)"
-        },
-        "activationKey": {
-          "type": "string",
-          "description": "RPI license activation key"
-        },
-        "systemName": {
-          "type": "string",
-          "description": "System name for license activation"
-        },
-        "adminUsername": {
-          "type": "string",
-          "description": "Initial admin username"
-        },
-        "adminPassword": {
-          "type": "string",
-          "description": "Initial admin password"
-        },
-        "adminEmail": {
-          "type": "string",
-          "description": "Initial admin email"
-        },
-        "tenant": {
-          "type": "object",
-          "description": "Automatic tenant creation configuration",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable automatic tenant creation"
-            },
-            "name": {
-              "type": "string",
-              "description": "Tenant name"
-            },
-            "existingSecret": {
-              "type": "string",
-              "description": "Existing secret for DW credentials"
-            },
-            "dataWarehouse": {
-              "type": "object",
-              "description": "Data warehouse configuration for the tenant",
-              "additionalProperties": true,
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "description": "Data warehouse provider (e.g., SQLServer)"
-                },
-                "server": {
-                  "type": "string",
-                  "description": "DW server hostname"
-                },
-                "database": {
-                  "type": "string",
-                  "description": "DW database name"
-                },
-                "username": {
-                  "type": "string",
-                  "description": "DW username"
-                },
-                "password": {
-                  "type": "string",
-                  "description": "DW password"
-                }
-              }
-            }
-          }
-        },
-        "waitTimeout": {
-          "type": [
-            "integer",
-            "string"
-          ],
-          "description": "Timeout in seconds to wait for services to be ready"
-        },
-        "backoffLimit": {
-          "type": "integer",
-          "description": "Number of retries before considering the job failed"
-        }
-      }
-    },
-    "preflight": {
-      "type": "object",
-      "description": "Pre-flight validation: checks DNS, DB connectivity, cloud identity, and secrets management before deployment",
-      "additionalProperties": true,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable pre-flight validation"
-        },
-        "mode": {
-          "type": "string",
-          "description": "Preflight mode: test (runs with helm test) or preInstall (blocks install on failure)",
-          "enum": [
-            "test",
-            "preInstall"
-          ]
-        }
-      }
-    },
-"databaseUpgrade": {
-      "type": "object",
-      "description": "Automatic database upgrade job \u2014 calls the upgrade endpoint after an image tag change",
+      "description": "Automatic database upgrade job - calls the upgrade endpoint after an image tag change. The net-utils image resolves through the canonical rpi.image helper; override via global.deployment.images.overrides.net-utils or global.deployment.images.nameOverrides.net-utils.",
       "additionalProperties": true,
       "properties": {
         "enabled": {
@@ -2395,36 +4122,6 @@
       "description": "Global topology spread constraints overrides (merged with defaults from _defaults.tpl)",
       "additionalProperties": true
     },
-    "cdpmessageq": {
-      "type": "object",
-      "description": "CDP Message Queue storage configuration (Smart Activation component)",
-      "additionalProperties": true,
-      "properties": {
-        "existingClaim": {
-          "type": "string",
-          "description": "Use an existing PVC for message queue storage"
-        },
-        "volumeClaimTemplates": {
-          "type": "object",
-          "description": "Dynamic volume provisioning settings",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable dynamic volume provisioning (disable to use existingClaim)"
-            },
-            "storage": {
-              "type": "string",
-              "description": "Storage size (e.g., 100Gi)"
-            },
-            "storageClassName": {
-              "type": "string",
-              "description": "Storage class name"
-            }
-          }
-        }
-      }
-    },
     "resources": {
       "$ref": "#/definitions/resources",
       "description": "Global resource defaults applied to all services. Per-service overrides take priority."
@@ -2442,7 +4139,10 @@
         "type": {
           "type": "string",
           "description": "Anti-affinity type: preferred (soft) or required (hard)",
-          "enum": ["preferred", "required"],
+          "enum": [
+            "preferred",
+            "required"
+          ],
           "default": "preferred"
         },
         "weight": {
@@ -2493,7 +4193,9 @@
         "provider": {
           "type": "string",
           "description": "Node provisioner",
-          "enum": ["karpenter"],
+          "enum": [
+            "karpenter"
+          ],
           "default": "karpenter"
         },
         "karpenter": {
@@ -2516,7 +4218,10 @@
         "source": {
           "type": "string",
           "description": "Source type for CA certificates",
-          "enum": ["configMap", "secret"],
+          "enum": [
+            "configMap",
+            "secret"
+          ],
           "default": "configMap"
         },
         "name": {
@@ -2677,6 +4382,28 @@
     }
   ],
   "definitions": {
+    "realtimeDataMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Cache": {
+          "type": "string",
+          "description": "Cache assignment; empty inherits the effective cacheProvider.provider."
+        },
+        "DaysToPersist": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "CompressData": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        }
+      }
+    },
     "resources": {
       "type": "object",
       "description": "Kubernetes resource requests and limits",

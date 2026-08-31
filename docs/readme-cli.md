@@ -178,7 +178,7 @@ The generated `secrets.yaml` contains a Kubernetes Secret manifest. Apply it bef
 kubectl apply -f secrets.yaml -n my-namespace
 ```
 
-**When to skip:** If using the `sdk` or `csi` secrets provider, secrets come from your cloud vault. The CLI will confirm this and point you to the [Secrets Management Guide](https://github.com/RedPointGlobal/redpoint-rpi/blob/release/v7.7/docs/secrets-management.md) and the [Helm Assistant Automate tab](https://rpi-helm-assistant.redpointcdp.com) for vault setup scripts.
+**When to skip:** If using the `sdk` or `csi` secrets provider, secrets come from your cloud vault. The CLI will confirm this and point you to the [Secrets Management Guide](https://github.com/RedPointGlobal/redpoint-rpi/blob/main/docs/secrets-management.md) and the [Helm Assistant Automate tab](https://rpi-helm-assistant.redpointcdp.com) for vault setup scripts.
 
 **Example output (SDK/CSI provider):**
 
@@ -354,4 +354,4 @@ rpihelmcli/setup.sh troubleshoot [-n namespace] [symptom]
 | `--dry-run` | deploy | Render manifests without deploying |
 
 ---
-<sub>Redpoint Interaction v7.7 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>

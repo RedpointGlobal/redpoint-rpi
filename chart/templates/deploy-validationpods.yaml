@@ -6,8 +6,8 @@
   from chart globals. All other fields are optional per-entry overrides.
 
   Two types:
-    pvc       — Mounts a PersistentVolumeClaim and writes a test file in a loop
-    csiSecret — Mounts a CSI SecretProviderClass volume and sleeps
+    pvc       - Mounts a PersistentVolumeClaim and writes a test file in a loop
+    csiSecret - Mounts a CSI SecretProviderClass volume and sleeps
 
   Enabled via: validationPods.enabled: true
 */}}
