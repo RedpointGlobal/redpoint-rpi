@@ -1682,7 +1682,8 @@
               "description": "Cache provider type",
               "enum": [
                 "filesystem",
-                "azureblob"
+                "azureblob",
+                "redis"
               ]
             },
             "azureStorageSettings": {

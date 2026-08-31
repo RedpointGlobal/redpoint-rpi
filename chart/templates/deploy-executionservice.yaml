@@ -235,8 +235,10 @@ spec:
           value: {{ $cfg.userManagement.useExternalUserManagement | quote }}
         {{- end }}
         {{- if $cfg.internalCache.enabled }}
+        {{- if eq $cfg.internalCache.provider "redis" }}
         - name: InternalCache__RedisSettings__IPAddress
           value: {{ $cfg.internalCache.redisSettings.ipAddress | quote }}
+        {{- end }}
         {{- if eq $cfg.internalCache.provider "filesystem" }}
         - name: InternalCache__Enabled
           value: "true"
