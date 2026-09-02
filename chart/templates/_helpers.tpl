@@ -1029,10 +1029,9 @@ Otherwise every helper in this family renders empty and the sidecar is inert.
 {{- define "rpi.cloudSqlProxy.enabled" -}}
 {{- $cfg := (.Values.databases.operational.cloudSqlProxy | default dict) -}}
 {{- $provider := .Values.databases.operational.provider | default "" -}}
-{{- $secretsProvider := .Values.secretsManagement.provider | default "" -}}
 {{- if and (eq (.Values.global.deployment.platform | default "") "google") ($cfg.enabled | default false) (or (eq $provider "postgresql") (eq $provider "sqlserver")) -}}
-{{- if ne $secretsProvider "sdk" -}}
-{{- fail "databases.operational.cloudSqlProxy.enabled=true requires secretsManagement.provider=sdk. The Cloud SQL Auth Proxy assumes the same cloud-native security realm as the SDK secret provider (vault-backed, IAM-bound). It is not supported with secretsManagement.provider=kubernetes." -}}
+{{- if not .Values.cloudIdentity.enabled -}}
+{{- fail "databases.operational.cloudSqlProxy.enabled=true requires cloudIdentity.enabled=true. The Cloud SQL Auth Proxy authenticates to Cloud SQL with the pod's Google identity (Workload Identity, or a mounted service account key under cloudIdentity.google). The secret provider (kubernetes, csi, or sdk) is independent of the proxy." -}}
 {{- end -}}
 true
 {{- end -}}

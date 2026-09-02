@@ -7,7 +7,7 @@
 
 RPI can run against **Google Cloud SQL for PostgreSQL** using **passwordless IAM database authentication**. RPI connects to the Cloud SQL Auth Proxy on `127.0.0.1`, and the proxy authenticates to the instance using the pod's Google service account (GSA) via Workload Identity. No database password is stored anywhere.
 
-This path is SDK-mode only: the Cloud SQL Auth Proxy assumes the same cloud-native security realm as the SDK secret provider (vault-backed, IAM-bound). The chart fails to render if `cloudSqlProxy.enabled=true` and `secretsManagement.provider` is not `sdk`.
+The Cloud SQL Auth Proxy authenticates to the instance with the pod's Google identity, so it requires `cloudIdentity.enabled=true` (Workload Identity, or a mounted service account key). The chart fails to render if `cloudSqlProxy.enabled=true` and `cloudIdentity.enabled` is not `true`. The secret provider is independent of the proxy: `kubernetes`, `csi`, or `sdk` may all be used. This IAM path is passwordless regardless, so it stores no database password.
 
 ### How it works
 
@@ -59,6 +59,17 @@ Store these in your cloud vault (SDK mode reads them at runtime):
 | `Operations_Database_Server_Password` | leave **empty** - the proxy injects the IAM token; any value here is ignored |
 | `Operations_Database_Pulse_Database_Name` | the Pulse database name (e.g. `Pulse_qa_380160`) |
 | `Operations_Database_Pulse_Logging_Database_Name` | the Pulse Logging database name (e.g. `Pulse_qa_380160_Logging`) |
+
+---
+
+## SQL Server and non-SDK secret providers
+
+The proxy also fronts **Cloud SQL for SQL Server**, and works with any secret provider (`kubernetes`, `csi`, or `sdk`): the proxy's Google identity and the application's database credentials are configured independently. SQL Server uses standard login/password authentication rather than IAM, so set `autoIamAuthn: false` and supply the SQL login and password through your secret provider.
+
+The chart does not rewrite the application's database host, so point the application at the proxy in the operational-database secret:
+
+- Host `127.0.0.1`, port `cloudSqlProxy.port` (default `1433` for SQL Server), using SQL Server comma-port syntax: `Server=tcp:127.0.0.1,1433`.
+- Set `databases.operational.encrypt: false`. The proxy listener is plaintext on loopback, so the default (`true`) makes the SQL client negotiate TLS at pre-login and the connection fails. The proxy-to-Cloud SQL leg is still encrypted.
 
 ---
 
