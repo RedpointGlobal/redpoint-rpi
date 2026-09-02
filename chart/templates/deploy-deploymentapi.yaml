@@ -194,10 +194,8 @@ spec:
           value: "true"
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__DatabaseSchema
           value: {{ .Values.databases.operational.databaseSchema | default "dbo" | quote }}
-        {{- if .Values.databases.operational.encrypt | default false }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__SQLServerSettings__Encrypt
-          value: "true"
-        {{- end }}
+          value: {{ .Values.databases.operational.encrypt | quote }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__SQLServerSettings__TrustServerCertificate
           value: "true"
         {{- with (include "rpi.secrets.sdk.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
