@@ -212,7 +212,7 @@
           "properties": {
             "bigquery": {
               "type": "object",
-              "description": "Google BigQuery data warehouse configuration",
+              "description": "BigQuery data-warehouse configuration independent of the RPI hosting platform (supported on Azure, AWS, and Google). Each connection defines its own authentication configuration, including a service-account key via its own KeyFilePath or the configured workload-identity/ADC mode. BigQuery credentials are configured independently from cloudIdentity.google.",
               "additionalProperties": true,
               "properties": {
                 "enabled": {
@@ -407,7 +407,7 @@
         },
         "google": {
           "type": "object",
-          "description": "Google Cloud Workload Identity settings",
+          "description": "Platform-level Google Cloud identity for the RPI platform. Rendered only when global.deployment.platform is google and used by Google platform services such as Cloud Storage, Secret Manager, Pub/Sub, and Cloud SQL proxy. BigQuery authentication is configured independently under databases.datawarehouse.bigquery.",
           "additionalProperties": true,
           "properties": {
             "serviceAccountEmail": {

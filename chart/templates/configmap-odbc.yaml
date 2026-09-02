@@ -33,7 +33,7 @@ data:
     LargeResultsTempTableExpirationTime={{ .largeResultsTempTableExpirationTime | default "3600000" }}
     {{- if eq .credentialsType "serviceAccount" }}
     Email={{ .serviceAccountEmail }}
-    KeyFilePath={{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+    KeyFilePath={{ .ConfigMapFilePath | default "/app/google-creds" }}/{{ .keyName | default (printf "%s.json" .configMapName) }}
     {{- end }}
     {{- end }}
 {{- end }}
