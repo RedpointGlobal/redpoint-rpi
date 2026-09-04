@@ -291,15 +291,11 @@
                       },
                       "configMapName": {
                         "type": "string",
-                        "description": "ConfigMap holding the service account key. Used only with credentialsType=serviceAccount."
+                        "description": "Kubernetes ConfigMap holding the service account key. Used only with credentialsType=serviceAccount."
                       },
                       "keyName": {
                         "type": "string",
-                        "description": "Key filename inside the ConfigMap. Used only with credentialsType=serviceAccount."
-                      },
-                      "ConfigMapFilePath": {
-                        "type": "string",
-                        "description": "Mount path for the key file. Used only with credentialsType=serviceAccount."
+                        "description": "Data key within the ConfigMap. Used only with credentialsType=serviceAccount. The credential mounts at /app/google-creds/bigquery/<connection name>.json regardless of the key name."
                       },
                       "allowLargeResults": {
                         "type": [

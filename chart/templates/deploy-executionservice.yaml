@@ -237,13 +237,19 @@ spec:
           value: {{ $cfg.userManagement.useExternalUserManagement | quote }}
         {{- end }}
         {{- if $cfg.internalCache.enabled }}
+        - name: InternalCache__IsEnabled
+          value: "true"
+        - name: InternalCache__MaxNumberRetries
+          value: {{ $cfg.internalCache.maxNumberRetries | quote }}
+        - name: InternalCache__MaxRetryDelay
+          value: {{ $cfg.internalCache.maxRetryDelay | quote }}
+        - name: InternalCache__FailOnCacheConnectionError
+          value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
         {{- if eq $cfg.internalCache.provider "redis" }}
         - name: InternalCache__RedisSettings__IPAddress
           value: {{ $cfg.internalCache.redisSettings.ipAddress | quote }}
         {{- end }}
         {{- if eq $cfg.internalCache.provider "filesystem" }}
-        - name: InternalCache__Enabled
-          value: "true"
         - name: InternalCache__StatePersistence__Provider
           value: "FileSystem"
         {{- if $cfg.internalCache.fileSystem.OverrideDirectoryPath }}
@@ -252,16 +258,8 @@ spec:
         - name: InternalCache__StatePersistence__FileSystem__DirectoryPathOverride
           value: {{ $cfg.internalCache.fileSystem.DirectoryPathOverride | quote }}
         {{- end }}
-        - name: InternalCache__MaxNumberRetries
-          value: {{ $cfg.internalCache.maxNumberRetries | quote }}
-        - name: InternalCache__MaxRetryDelay
-          value: {{ $cfg.internalCache.maxRetryDelay | quote }}
-        - name: InternalCache__FailOnCacheConnectionError
-          value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
         {{- end }}
         {{- if eq $cfg.internalCache.provider "azureblob" }}
-        - name: InternalCache__Enabled
-          value: "true"
         - name: InternalCache__StatePersistence__Provider
           value: "AzureBlobStorage"
         - name: InternalCache__StatePersistence__AzureBlobStorage__StorageAccount
@@ -645,7 +643,7 @@ spec:
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
           - name: bigquery-{{ .name }}
-            mountPath: {{ .ConfigMapFilePath | default "/app/google-creds" }}/{{ .keyName | default (printf "%s.json" .configMapName) }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
             subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}

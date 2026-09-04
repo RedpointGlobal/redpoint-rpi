@@ -855,6 +855,18 @@ Usage: {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
 {{- end -}}
 
 {{/*
+BigQuery credential file path for a connection. BigQuery credentials live in
+their own filesystem namespace, isolated from the platform Google credential,
+keyed by the connection name so each connection is unique even when connections
+share a ConfigMap. The ConfigMap and its data key are chosen separately
+(configMapName / keyName); this is only where the credential is mounted.
+Usage: {{ include "rpi.bigquery.credentialPath" . }}   (dot = a bigquery connection)
+*/}}
+{{- define "rpi.bigquery.credentialPath" -}}
+/app/google-creds/bigquery/{{ .name }}.json
+{{- end -}}
+
+{{/*
 Resolve the container image for a service.
 Priority:
   1. overrides.<name>: full URI used verbatim (no tag appended)

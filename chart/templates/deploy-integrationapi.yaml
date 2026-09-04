@@ -203,8 +203,10 @@ spec:
           value: {{ $diag.copytoAzureBlob.blobServiceEndpoint | quote }}
         - name: RPI__Diagnostics__CopyToAzure__EnableCdn
           value: {{ $diag.copytoAzureBlob.enableCdn | quote }}
-        - name: RPI__Diagnostics__CopyToAzure__AzureUseDataLakeStorageGen2
+        - name: RPI__Diagnostics__CopyToAzure__UseDataLakeStorageGen2
           value: {{ $diag.copytoAzureBlob.UseDataLakeStorageGen2 | quote }}
+        - name: RPI__Diagnostics__CopyToAzure__UseAzureIdentityAuthentication
+          value: {{ $diag.copytoAzureBlob.useAzureIdentityAuthentication | quote }}
         {{- end }}
         {{- if $diag.copytoSftp.enabled }}
         - name: RPI__Diagnostics__CopyToSFTP__SecureFTPHost
@@ -216,9 +218,9 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CopyToSFTPSecureFTPPassword
-        - name: RPI__Diagnostics__CopyToSFTP__PortNumberNumber
+        - name: RPI__Diagnostics__CopyToSFTP__PortNumber
           value: {{ $diag.copytoSftp.sftpPort | quote }}
-        - name: RPI__Diagnostics__UseSFTP
+        - name: RPI__Diagnostics__CopyToSFTP__UseSFTP
           value: "true"
         - name: RPI__Diagnostics__CopyToSFTP__IsEnabled
           value: "true"
@@ -438,7 +440,7 @@ spec:
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
           - name: bigquery-{{ .name }}
-            mountPath: {{ .ConfigMapFilePath | default "/app/google-creds" }}/{{ .keyName | default (printf "%s.json" .configMapName) }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
             subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}

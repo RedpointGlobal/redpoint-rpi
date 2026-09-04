@@ -55,6 +55,8 @@ The chart renders an ODBC DSN ConfigMap for the Simba BigQuery driver when `data
 | `serviceAccount` | Service-account key file (`serviceAccountEmail` plus a mounted key) |
 | `workloadIdentity` | Keyless, via the pod's GCP Workload Identity (Application Default Credentials). No key file is mounted. |
 
+For `serviceAccount` connections, `configMapName` names the Kubernetes ConfigMap and `keyName` its data key. The credential mounts at `/app/google-creds/bigquery/<connection name>.json`, a namespace separate from the platform Google credential (`cloudIdentity.google`). The two domains stay independent and may reference the same ConfigMap or different ones.
+
 ```yaml
 databases:
   datawarehouse:

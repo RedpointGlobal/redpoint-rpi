@@ -387,7 +387,7 @@ spec:
         - name: QueueService__PartitionHandler__DeduplicationCacheTTL
           value: {{ $cfg.partitionHandler.deduplicationCacheTTL | quote }}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
-        - name: InternalCache__Enabled
+        - name: InternalCache__IsEnabled
           value: "true"
         - name: InternalCache__MaxNumberRetries
           value: {{ $cfg.internalCache.maxNumberRetries | quote }}
@@ -577,7 +577,7 @@ spec:
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
           - name: bigquery-{{ .name }}
-            mountPath: {{ .ConfigMapFilePath | default "/app/google-creds" }}/{{ .keyName | default (printf "%s.json" .configMapName) }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
             subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}

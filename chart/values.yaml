@@ -190,10 +190,12 @@ databases:
       # authenticates with credentialsType:
       #
       #   serviceAccount  - authenticate with a Google service account key.
-      #     Provide serviceAccountEmail and the key file (configMapName,
-      #     keyName, ConfigMapFilePath). Choose this when the pods cannot use
-      #     Workload Identity, for example when RPI runs on Azure and connects
-      #     to BigQuery on Google Cloud.
+      #     name          BigQuery connection name; also the credential's
+      #                   mounted filename under /app/google-creds/bigquery/.
+      #     configMapName Kubernetes ConfigMap holding the credential.
+      #     keyName       Data key within that ConfigMap.
+      #     Choose this when the pods cannot use Workload Identity, for example
+      #     when RPI runs on Azure and connects to BigQuery on Google Cloud.
       #
       #   workloadIdentity - authenticate with Workload Identity, no key file.
       #     Choose this when running on GKE with Workload Identity configured
@@ -213,7 +215,6 @@ databases:
           serviceAccountEmail: gbq-tenant1@my-project.iam.gserviceaccount.com
           configMapName: gbq-tenant1
           keyName: gbq-tenant1.json
-          ConfigMapFilePath: /app/google-creds
           allowLargeResults: 0
           largeResultsDataSetId: _bqodbc_temp_tables
           largeResultsTempTableExpirationTime: "3600000"

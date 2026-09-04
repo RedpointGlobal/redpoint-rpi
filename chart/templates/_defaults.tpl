@@ -527,6 +527,9 @@ extraEnvs:
   - name: Plugins__SendGrid__EnableSandBoxMode
     enabled: false
     value: "true"
+  - name: Plugins__Marigold__CampaignTriggerSendThreadCount
+    enabled: false
+    value: "16"
   - name: RPI_MPULSE_UPSERT_CONTACT_DEBUG
     enabled: false
     value: "1"

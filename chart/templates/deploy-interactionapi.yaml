@@ -585,7 +585,7 @@ spec:
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
           {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
           - name: bigquery-{{ .name }}
-            mountPath: {{ .ConfigMapFilePath | default "/app/google-creds" }}/{{ .keyName | default (printf "%s.json" .configMapName) }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
             subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}

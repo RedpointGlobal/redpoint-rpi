@@ -77,8 +77,7 @@ databases:
     bigquery:
       # List of BigQuery connection configurations
       connections:
-      - ConfigMapFilePath: /app/google-creds
-        OAuthMechanism: 0
+      - OAuthMechanism: 0
         allowLargeResults: 0
         configMapName: gbq-tenant1
         credentialsType: serviceAccount
