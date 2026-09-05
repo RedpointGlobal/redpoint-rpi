@@ -149,49 +149,34 @@ redpointAI:
 </details>
 
 <details>
-<summary><strong style="font-size:1.25em;">Changed in v7.8</strong></summary>
+<summary><strong style="font-size:1.25em;">Settings changed or removed in v7.8</strong></summary>
 
-### BigQuery service account credentials
+If your `overrides.yaml` sets any of the following, here is what changed and what to do. Each row lists whether leaving the old setting in place blocks the upgrade.
 
-In v7.7 a BigQuery `serviceAccount` connection could set `ConfigMapFilePath` to control where its credential file was placed. In v7.8 the chart manages that location, and `ConfigMapFilePath` no longer applies.
+| Setting in your `overrides.yaml` | 7.8 change | Action | Breaking if left? |
+|:---|:---|:---|:---|
+| `redpointAI.VectorSearchProfile`, `redpointAI.VectorSearchConfig` | Removed; RPI builds the search index at runtime | Remove them | **Yes** - the chart rejects them and the upgrade will not render |
+| `executionservice.internalCache.statePersistenceProvider: DefaultCache` (also `queuereader.internalCache.statePersistenceProvider`) | `DefaultCache` is no longer a supported provider | Change it to `FileSystem` or `AzureBlobStorage` | **Yes** - the Execution Service and Queue Reader fail to start |
+| `executionservice.jobExecution.luxScisendRequestCount` | Renamed to `executionservice.jobExecution.luxSci.maxConcurrentApiRequestsPerAccount` (default 5 in both) | Move your value to the new setting and remove the old one | No - the old setting is ignored |
+| `executionservice.internalCache.backupToOpsDBInterval`, `executionservice.internalCache.failOnPrimaryDataLoss` (also Queue Reader) | Removed; OpsDB cache failover removed | Remove them | No - ignored if left |
+| `interactionapi.enableSwagger` | The Interaction API no longer exposes Swagger (`integrationapi.enableSwagger` unchanged) | Remove it | No - ignored if left |
+| `databases.datawarehouse.bigquery.connections[].ConfigMapFilePath` | No longer applies; the chart manages the credential file location | Remove it | No - ignored if left |
 
-- Your connection's `configMapName` and `keyName` are unchanged and still identify the same Kubernetes ConfigMap and data key. Do not recreate or rename your BigQuery ConfigMaps or service accounts.
-- No `overrides.yaml` change is required. `ConfigMapFilePath`, if still set on a connection, is ignored.
-- Platform Google credentials (`cloudIdentity.google`) are unchanged.
-- The credential file the chart mounts for BigQuery moved to a new location. This matters only if a process outside the chart reads that file directly; see the checklist for the path.
+The rows marked **Yes** must be resolved before you upgrade. The rest are cleanup you can do before or after the upgrade: if you leave the old setting in place, the chart ignores it and the upgrade proceeds normally.
 
-</details>
-
-<details>
-<summary><strong style="font-size:1.25em;">Removed in v7.8</strong></summary>
-
-### RedpointAI vector search values
-
-`redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` have been removed. RPI now creates the search index, vector profile, and algorithm at runtime. The chart rejects these keys at render, so remove them from your overrides if present (see the checklist). See [Redpoint AI](https://docs.redpointglobal.com/rpi/admin-basic-selection-rule-ai-integration).
-
-### Internal cache OpsDB failover
-
-OpsDB backed cache failover was removed in 7.8. On the Execution Service and Queue Reader, `internalCache.backupToOpsDBInterval` and `internalCache.failOnPrimaryDataLoss` no longer apply and are ignored if still present in your overrides. No action is required.
-
-### Swagger on the Interaction API
-
-The Interaction API no longer exposes Swagger, so `interactionapi.enableSwagger` has no effect and is ignored if set. `integrationapi.enableSwagger` is unchanged. No action is required.
-
-### LuxSci send cap renamed
-
-The Execution Service LuxSci per-account send cap moved from `executionservice.jobExecution.luxScisendRequestCount` to `executionservice.jobExecution.luxSci.maxConcurrentApiRequestsPerAccount` (default 5 in both). If you left it at the default, no action is required. If you customized the 7.7 value, set your value on the new key to carry it over; the old key is ignored.
+BigQuery `serviceAccount` connections keep working with no credential change: your `configMapName` and `keyName` still point at the same ConfigMap and data key, and `cloudIdentity.google` is unchanged. The chart now manages where the credential file is placed, which matters only if a process outside the chart reads that file directly (see the checklist).
 
 </details>
 
 <details>
 <summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
-1. If your overrides set `redpointAI.VectorSearchProfile` or `redpointAI.VectorSearchConfig`, remove them. The chart rejects them at render (RPI creates the search index at runtime).
-2. If your overrides set `internalCache.statePersistenceProvider: DefaultCache` on the Execution Service or Queue Reader, change it to `FileSystem` or `AzureBlobStorage`. `DefaultCache` is no longer a valid value, and those services fail to start if it is set.
-3. If anything outside the chart reads the old BigQuery credential path `/app/google-creds/<keyName>`, update it to `/app/google-creds/bigquery/<connection name>.json`. The chart and its generated ODBC DSN already use the new path.
-4. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+1. Resolve any breaking rows from the table above that appear in your `overrides.yaml` (the RedpointAI vector search values, and `DefaultCache`).
+2. If a process outside the chart reads the BigQuery credential file directly, update its path to `/app/google-creds/bigquery/<connection name>.json` (v7.7 used `/app/google-creds/<keyName>`). The chart already uses the new path.
+3. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+4. Optionally, complete the non-breaking cleanup from the table above. This can be done before or after the upgrade.
 
-Everything else in v7.8 is handled by the chart. Renamed or removed settings left in your overrides are ignored, not rejected, so no other cleanup is required. New features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput controls) are opt-in and default off.
+New v7.8 features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput controls) are opt-in and default off.
 
 </details>
 
