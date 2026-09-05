@@ -7,7 +7,7 @@
 
 The **Interaction Helm Assistant** is an AI-powered assistant that helps you configure, deploy, and troubleshoot your RPI installation. It provides two ways to interact with the same set of tools:
 
-- **Web UI:** A browser-based interface with form-based tools, AI chat, and file management. No installation required.
+- **Web UI:** A browser based interface with form based tools, AI chat, and file management. No installation required.
 - **Agentic (Claude Code / Claude Desktop):** Connect via the Model Context Protocol to configure, validate, and troubleshoot your installation.
 
 Both interfaces access the same underlying tools and search the official [RPI documentation](https://docs.redpointglobal.com/rpi) and the local chart documentation.
@@ -15,7 +15,7 @@ Both interfaces access the same underlying tools and search the official [RPI do
 <details>
 <summary><strong style="font-size:1.25em;">Option A: Web UI</strong></summary>
 
-Use this option for a browser-based experience with forms, file uploads/downloads, and AI chat. No MCP client required.
+Use this option for a browser based experience with forms, file uploads/downloads, and AI chat. No MCP client required.
 
 ### Access
 
@@ -109,7 +109,7 @@ Both the MCP server and the Web UI expose the same set of tools:
 
 | Tool | Description |
 |------|-------------|
-| `rpi_validate` | Validates a values file against the chart schema and RPI-specific rules |
+| `rpi_validate` | Validates a values file against the chart schema and RPI specific rules |
 | `rpi_generate` | Generates an overrides file for a given platform, identity provider, and feature set |
 | `rpi_explain` | Explains what a setting controls, its valid values, defaults, and related keys |
 | `rpi_template` | Renders Helm templates with a given values file and returns the Kubernetes manifests |

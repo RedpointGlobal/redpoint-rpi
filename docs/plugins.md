@@ -139,7 +139,7 @@ Looks up address, weather, forecasts, and geofence data using coordinates or a s
 
 #### IP to Geolocation
 
-Resolves an IP address to longitude/latitude for geolocation-based decisions.
+Resolves an IP address to longitude/latitude for geolocation based decisions.
 
 | | |
 |:---|:---|
@@ -166,7 +166,7 @@ storage:
       mountPath: /app/plugins
 ```
 
-The chart mounts this volume into the Realtime API container automatically. See the [Storage Guide](storage.md) for platform-specific PV/PVC setup.
+The chart mounts this volume into the Realtime API container automatically. See the [Storage Guide](storage.md) for platform specific PV/PVC setup.
 
 ### 2. Register plugins
 

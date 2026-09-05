@@ -3,7 +3,7 @@
 
 [< Back to Home](../README.md)
 
-[RPI Smart Activation](https://docs.redpointglobal.com/cdp/data-activation-overview-page) adds a web-based UI for building segments, audiences, and data activations on top of RPI. It is disabled by default and deployed only when explicitly enabled.
+[RPI Smart Activation](https://docs.redpointglobal.com/cdp/data-activation-overview-page) adds a web based UI for building segments, audiences, and data activations on top of RPI. It is disabled by default and deployed only when explicitly enabled.
 
 > **Advisory:** We recommend you **do not** enable Smart Activation at this time. Contact your Redpoint representative for further details.
 

@@ -46,7 +46,7 @@ secretsManagement:
   provider: sdk
 ```
 
-`configMapName: ""` is the keyless switch. When it is non-empty the chart mounts a GCP service-account key file and the proxy uses `--credentials-file` instead of Workload Identity. For IAM authentication leave it empty.
+`configMapName: ""` is the keyless switch. When it is non-empty the chart mounts a GCP service account key file and the proxy uses `--credentials-file` instead of Workload Identity. For IAM authentication leave it empty.
 
 ### Vault keys
 

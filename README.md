@@ -23,7 +23,7 @@ This chart deploys RPI on Kubernetes using Helm.
 |:------|:------------|
 | [Secrets&nbsp;Management](docs/secrets-management.md) | Kubernetes, CSI, and SDK providers |
 | [Single Sign-On](docs/single-sign-on.md) | Microsoft Entra ID, Okta, Keycloak |
-| [Ingress](docs/ingress.md) | Chart-managed nginx, BYO controller, AWS ALB, Azure AGC |
+| [Ingress](docs/ingress.md) | Chart managed nginx, BYO controller, AWS ALB, Azure AGC |
 | [Storage](docs/storage.md) | Static and dynamic provisioning - EFS, Azure Files, Filestore |
 | [Google&nbsp;Cloud&nbsp;SQL&nbsp;(IAM)](docs/google-cloud-sql-iam.md) | PostgreSQL with passwordless IAM |
 | [RPI Helm CLI](docs/readme-cli.md) | Pre-flight checks, secrets generation, deployment, troubleshooting |

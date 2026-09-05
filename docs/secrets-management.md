@@ -54,9 +54,9 @@ The CLI automatically:
 - Prompts for Snowflake `.p8` key files per tenant
 - Prompts for the CA certificate bundle if `customCACerts` is enabled
 - Skips sections that aren't enabled in your overrides
-- Identifies feature-specific secret keys from your configuration and prompts for their values; secrets for disabled features are not requested
+- Identifies feature specific secret keys from your configuration and prompts for their values; secrets for disabled features are not requested
 
-The CLI requires access to the Helm CLI and the RPI Helm chart to determine feature-specific secret requirements. Run the command from the chart's parent directory, or specify the chart location with `-c <chart-path>`.
+The CLI requires access to the Helm CLI and the RPI Helm chart to determine feature specific secret requirements. Run the command from the chart's parent directory, or specify the chart location with `-c <chart-path>`.
 
 #### Manual: Create the Secret with kubectl
 
@@ -160,7 +160,7 @@ kubectl apply -f secrets.yaml -n redpoint-rpi
 <details>
 <summary><strong>Provider: kubernetes</strong></summary>
 
-When using the `kubernetes` provider on Azure, the CLI generates all secrets. No Azure-specific prerequisites are needed beyond network access to your Azure SQL or PostgreSQL database. See the [Kubernetes Provider](#kubernetes-provider) section above for details on creating the application secret.
+When using the `kubernetes` provider on Azure, the CLI generates all secrets. No Azure specific prerequisites are needed beyond network access to your Azure SQL or PostgreSQL database. See the [Kubernetes Provider](#kubernetes-provider) section above for details on creating the application secret.
 
 </details>
 
@@ -183,7 +183,7 @@ See [Required Secret Keys](#required-secret-keys) in Common Reference for the fu
 
 #### SecretProviderClass Example: Azure Key Vault
 
-Azure Key Vault uses `--` (double dash) as the separator in secret names since it does not allow underscores. The `objectAlias` maps these to the underscore-based keys the chart expects in the K8s Secret.
+Azure Key Vault uses `--` (double dash) as the separator in secret names since it does not allow underscores. The `objectAlias` maps these to the underscore based keys the chart expects in the K8s Secret.
 
 ```yaml
 secretsManagement:
@@ -254,7 +254,7 @@ Use the [Helm Assistant Web UI](https://rpi-helm-assistant.redpointcdp.com) **Au
 <details>
 <summary><strong>Provider: sdk</strong></summary>
 
-RPI services authenticate to Azure Key Vault using Workload Identity Federation and read application secrets at runtime. The CSI Secrets Store driver with the Azure Key Vault provider works fully with Workload Identity, so file-based secrets can also be pulled from Key Vault.
+RPI services authenticate to Azure Key Vault using Workload Identity Federation and read application secrets at runtime. The CSI Secrets Store driver with the Azure Key Vault provider works fully with Workload Identity, so file based secrets can also be pulled from Key Vault.
 
 | Item | How it's handled |
 |:-----|:----------------|
@@ -664,7 +664,7 @@ Add optional keys to both `jmesPath` and `secretObjects` as needed: `Rebrandly_A
 - `syncService: deploymentapi` - the Deployment API pod mounts the CSI volume on startup, triggering the sync. No validation pods needed.
 - `syncService: none` (default) - use dedicated validation pods to trigger the sync before RPI pods start.
 
-**Additional file-based secrets** (TLS cert, Snowflake keys, CA cert) require separate Secrets Manager secrets and their own SecretProviderClasses. See the sections below.
+**Additional file based secrets** (TLS cert, Snowflake keys, CA cert) require separate Secrets Manager secrets and their own SecretProviderClasses. See the sections below.
 
 </details>
 
@@ -704,7 +704,7 @@ IRSA handles Secrets Manager reads, while access keys provide credentials for se
    - **CSI provider**: Add them to your SecretProviderClass jmesPath/secretObjects mapping
    - **kubernetes provider**: The CLI (`rpihelmcli/setup.sh`) prompts for them and writes them into `secrets.yaml`
 
-3. **Create file-based secrets** before deploying. These cannot be read from Secrets Manager at runtime:
+3. **Create file based secrets** before deploying. These cannot be read from Secrets Manager at runtime:
 
 ```bash
 # Ingress TLS certificate (required)
@@ -723,7 +723,7 @@ kubectl create secret generic custom-ca-cert \
   -n <namespace>
 ```
 
-> **Why K8s Secrets for file-based secrets?** The ingress controller, Snowflake JDBC driver, and CA trust store require secrets mounted as files and cannot call Secrets Manager themselves. These must exist as Kubernetes Secrets before deploying. On Azure, these can be synced from Key Vault via CSI SecretProviderClass instead.
+> **Why K8s Secrets for file based secrets?** The ingress controller, Snowflake JDBC driver, and CA trust store require secrets mounted as files and cannot call Secrets Manager themselves. These must exist as Kubernetes Secrets before deploying. On Azure, these can be synced from Key Vault via CSI SecretProviderClass instead.
 
 ##### Overrides
 
@@ -960,7 +960,7 @@ No validation pod needed. The CSI volume is mounted directly by the RPI pods.
 <details>
 <summary><strong>Provider: kubernetes</strong></summary>
 
-When using the `kubernetes` provider on Google, the CLI generates all secrets. No Google-specific prerequisites are needed beyond network access to your Cloud SQL database. See the [Kubernetes Provider](#kubernetes-provider) section above for details on creating the application secret.
+When using the `kubernetes` provider on Google, the CLI generates all secrets. No Google specific prerequisites are needed beyond network access to your Cloud SQL database. See the [Kubernetes Provider](#kubernetes-provider) section above for details on creating the application secret.
 
 </details>
 
@@ -977,7 +977,7 @@ RPI services authenticate to Google Secret Manager using GKE Workload Identity a
 | Custom CA certificate (if required) | Create manually with `kubectl create secret generic` before deploying |
 | RPI application secrets | Read directly from Google Secret Manager at runtime via SDK (no K8s Secret needed) |
 
-No validation pods needed. File-based secrets (TLS cert, Snowflake key, CA cert) must be created as Kubernetes Secrets since the ingress controller and volume mounts cannot read from Secret Manager directly.
+No validation pods needed. File based secrets (TLS cert, Snowflake key, CA cert) must be created as Kubernetes Secrets since the ingress controller and volume mounts cannot read from Secret Manager directly.
 
 #### Prerequisites
 
@@ -1029,7 +1029,7 @@ For automated setup, use the [Helm Assistant](https://rpi-helm-assistant.redpoin
 
 #### Required Vault Secrets
 
-Google Secret Manager uses `--` (double dash) as the hierarchy separator. The secret names must match exactly. This differs from Azure Key Vault (`--`) and AWS Secrets Manager (tag-based, flat JSON keys).
+Google Secret Manager uses `--` (double dash) as the hierarchy separator. The secret names must match exactly. This differs from Azure Key Vault (`--`) and AWS Secrets Manager (tag based, flat JSON keys).
 
 **Database connections** (always required):
 
@@ -1205,11 +1205,11 @@ A few things specific to SQL Server + cloudSqlProxy that bite people:
 
 #### Authentication modes
 
-Two modes are supported. Workload Identity is recommended for production; the service-account key file mode exists for dev/non-prod scenarios where Workload Identity is impractical.
+Two modes are supported. Workload Identity is recommended for production; the service account key file mode exists for dev/non-prod scenarios where Workload Identity is impractical.
 
 **Workload Identity (default):** the pod's Kubernetes service account is federated to a GCP service account that has `roles/cloudsql.client` on the Cloud SQL instance. The proxy authenticates via the IMDS metadata server. No credentials are ever mounted into the pod.
 
-**Service-account key file:** the proxy reads a JSON key file from the same ConfigMap RPI uses for the rest of the Google SDK stack. Set `cloudIdentity.enabled: true` with `cloudIdentity.google.configMapName`, `cloudIdentity.google.keyName`, and `cloudIdentity.google.configMapFilePath` pointing at the ConfigMap and target path. The chart mounts that ConfigMap into the proxy sidecar at the **same path** the app containers see it (`${configMapFilePath}/${keyName}`, the value of `GOOGLE_APPLICATION_CREDENTIALS`) and passes `--credentials-file=${configMapFilePath}/${keyName}`. No separate Cloud SQL Proxy ConfigMap or path is needed; the platform-wide Google SA JSON is reused.
+**Service account key file:** the proxy reads a JSON key file from the same ConfigMap RPI uses for the rest of the Google SDK stack. Set `cloudIdentity.enabled: true` with `cloudIdentity.google.configMapName`, `cloudIdentity.google.keyName`, and `cloudIdentity.google.configMapFilePath` pointing at the ConfigMap and target path. The chart mounts that ConfigMap into the proxy sidecar at the **same path** the app containers see it (`${configMapFilePath}/${keyName}`, the value of `GOOGLE_APPLICATION_CREDENTIALS`) and passes `--credentials-file=${configMapFilePath}/${keyName}`. No separate Cloud SQL Proxy ConfigMap or path is needed; the platform-wide Google SA JSON is reused.
 
 #### Values schema
 
@@ -1341,7 +1341,7 @@ The chart templates reference specific keys from the `redpoint-rpi-secrets` K8s 
 | `Mercury_Password` | `executionservice.mercury.enabled: true` |
 | `QueueService_RabbitMQ_Password` | `executionservice.internalQueues.enabled: true` (external broker only - internal is auto-generated) |
 
-> **Internal service passwords** (Redis, RabbitMQ, Rebrandly Redis) are auto-generated by the chart into the `rpi-internal-services` K8s Secret regardless of provider. You do NOT need to store these in your vault, CLI, or SecretProviderClass. This includes: `QueueService_RedisCache_Password`, `QueueService_RedisCache_ConnectionString`, `QueueService_RabbitMQ_Password`, `RealtimeAPI_RedisCache_Password`, `RealtimeAPI_RedisCache_ConnectionString`, `RealtimeAPI_RabbitMQ_Password`, `Rebrandly_RedisPassword`. The Queue Reader's `QueueService_*` keys are always internal (the chart-managed Redis and RabbitMQ deployed when `queuereader.realtimeConfiguration.isDistributed: true`), so they are never stored in your vault. The `RealtimeAPI_*` keys belong in your vault only when the Realtime API points at an EXTERNAL Redis/RabbitMQ (`realtimeapi.cacheProvider.redis.type` or `realtimeapi.queueProvider.rabbitmq.type` set to `external`).
+> **Internal service passwords** (Redis, RabbitMQ, Rebrandly Redis) are auto-generated by the chart into the `rpi-internal-services` K8s Secret regardless of provider. You do NOT need to store these in your vault, CLI, or SecretProviderClass. This includes: `QueueService_RedisCache_Password`, `QueueService_RedisCache_ConnectionString`, `QueueService_RabbitMQ_Password`, `RealtimeAPI_RedisCache_Password`, `RealtimeAPI_RedisCache_ConnectionString`, `RealtimeAPI_RabbitMQ_Password`, `Rebrandly_RedisPassword`. The Queue Reader's `QueueService_*` keys are always internal (the chart managed Redis and RabbitMQ deployed when `queuereader.realtimeConfiguration.isDistributed: true`), so they are never stored in your vault. The `RealtimeAPI_*` keys belong in your vault only when the Realtime API points at an EXTERNAL Redis/RabbitMQ (`realtimeapi.cacheProvider.redis.type` or `realtimeapi.queueProvider.rabbitmq.type` set to `external`).
 
 </details>
 
@@ -1362,11 +1362,11 @@ CSI keys are synced into a K8s Secret and consumed via `secretKeyRef` - the alia
 <details>
 <summary><strong>Internal Service Passwords (Redis, RabbitMQ)</strong></summary>
 
-The chart deploys internal Redis and RabbitMQ StatefulSets for several services: the Realtime API's cache and queue broker (when their `type` is `internal`), the Queue Reader's distributed queues (`queuereader.realtimeConfiguration.isDistributed: true`), and Rebrandly. These are chart-managed infrastructure: their credentials come from `rpi-internal-services` in every secrets mode, and the servers always run with authentication regardless of your secrets provider.
+The chart deploys internal Redis and RabbitMQ StatefulSets for several services: the Realtime API's cache and queue broker (when their `type` is `internal`), the Queue Reader's distributed queues (`queuereader.realtimeConfiguration.isDistributed: true`), and Rebrandly. These are chart managed infrastructure: their credentials come from `rpi-internal-services` in every secrets mode, and the servers always run with authentication regardless of your secrets provider.
 
 #### The `rpi-internal-services` Secret
 
-The chart automatically creates a Kubernetes Secret called `rpi-internal-services` with chart-generated passwords for all chart-managed internal services. This is created **regardless of secrets provider** (kubernetes, csi, or sdk) at install time and preserved across upgrades (`helm.sh/resource-policy: keep`).
+The chart automatically creates a Kubernetes Secret called `rpi-internal-services` with chart generated passwords for all chart managed internal services. This is created **regardless of secrets provider** (kubernetes, csi, or sdk) at install time and preserved across upgrades (`helm.sh/resource-policy: keep`).
 
 You do NOT need to store these passwords in your vault, CLI, or SecretProviderClass.
 

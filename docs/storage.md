@@ -3,7 +3,7 @@
 
 [< Back to Home](../README.md)
 
-RPI uses file share storage for storing files such as those exported via interactions or selection rules to a File Output directory, custom plugins, or files shared with Redpoint Data Management (RPDM). The execution service also uses this storage as its filesystem-based cache provider for persisting execution state. In Azure, AWS, or Google Cloud, this storage is backed by their respective managed file share services such as Azure Files, Amazon EFS, and Google Filestore.
+RPI uses file share storage for storing files such as those exported via interactions or selection rules to a File Output directory, custom plugins, or files shared with Redpoint Data Management (RPDM). The execution service also uses this storage as its filesystem based cache provider for persisting execution state. In Azure, AWS, or Google Cloud, this storage is backed by their respective managed file share services such as Azure Files, Amazon EFS, and Google Filestore.
 
 **File share storage is mandatory for a successful deployment.** Without it, file exports and the execution service cache will not function.
 
@@ -113,7 +113,7 @@ No `persistentVolumes` section needed. The CSI driver creates the PV and access 
 <details>
 <summary><strong style="font-size:1.25em;">FileOutputDirectory</strong></summary>
 
-A shared volume mounted by execution service, node manager, and queue reader pods for file-based processing output (CSV exports, reports, data imports).
+A shared volume mounted by execution service, node manager, and queue reader pods for file based processing output (CSV exports, reports, data imports).
 
 | Platform | Recommended driver |
 |:---------|:------------------|
