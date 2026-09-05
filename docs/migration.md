@@ -12,7 +12,7 @@ This guide covers upgrading an existing RPI v7.7 Helm deployment to v7.8. If you
 <details>
 <summary><strong style="font-size:1.25em;">What Changed in the Helm Chart</strong></summary>
 
-v7.8 is designed to preserve existing v7.7 configuration. Most existing overrides require no changes. A small number of settings have changed behavior or been removed; these are identified below. In particular, BigQuery service account credentials continue to use the existing ConfigMap and key, but the chart managed credential mount path is now generated under `/app/google-creds/bigquery/` (see Changed in v7.8 and the checklist below).
+v7.8 is designed to preserve existing v7.7 configuration. Most existing overrides require no changes. A small number of settings have changed behavior or been removed; these are identified below. In particular, BigQuery service account connections continue to use the existing ConfigMap and key (see Changed in v7.8 and the checklist below).
 
 | Area | Change |
 |:---|:---|
@@ -55,7 +55,7 @@ The chart renders an ODBC DSN ConfigMap for the Simba BigQuery driver when `data
 | `serviceAccount` | Service account key file (`serviceAccountEmail` plus a mounted key) |
 | `workloadIdentity` | Keyless, via the pod's GCP Workload Identity (Application Default Credentials). No key file is mounted. |
 
-For `serviceAccount` connections, `configMapName` names the Kubernetes ConfigMap and `keyName` its data key. The credential mounts at `/app/google-creds/bigquery/<connection name>.json`, a namespace separate from the platform Google credential (`cloudIdentity.google`). The two domains stay independent and may reference the same ConfigMap or different ones.
+For `serviceAccount` connections, `configMapName` names the Kubernetes ConfigMap and `keyName` its data key. BigQuery credentials are managed independently of the platform Google credential (`cloudIdentity.google`); a connection and the platform may reference the same ConfigMap or different ones.
 
 ```yaml
 databases:
@@ -138,7 +138,7 @@ executionservice:
 
 ### RPI NLP trace logging
 
-RPI NLP now supports verbose request/response trace logging for diagnostics, emitted as `RPI__NLP__EnableTrace` on every service that uses the NLP integration (Interaction API, Execution Service, Node Manager, Queue Reader, Integration API). Off by default; enable it through the shared RedpointAI logging setting.
+RPI NLP now supports verbose request/response trace logging for diagnostics on the services that use the NLP integration (Interaction API, Execution Service, Node Manager, Queue Reader, Integration API). It is off by default; enable it with `redpointAI.logging.enableTrace`.
 
 ```yaml
 redpointAI:
@@ -151,14 +151,14 @@ redpointAI:
 <details>
 <summary><strong style="font-size:1.25em;">Changed in v7.8</strong></summary>
 
-### BigQuery service account credential mount path
+### BigQuery service account credentials
 
-BigQuery service account credentials are now mounted in a chart managed namespace, isolated from the platform Google credential. The mount path changed from `/app/google-creds/<keyName>` (v7.7) to `/app/google-creds/bigquery/<connection name>.json`, and the generated ODBC DSN `KeyFilePath` points there.
+In v7.7 a BigQuery `serviceAccount` connection could set `ConfigMapFilePath` to control where its credential file was placed. In v7.8 the chart manages that location, and `ConfigMapFilePath` no longer applies.
 
-- Your existing `configMapName` and `keyName` still identify the same Kubernetes ConfigMap and data key. Do not recreate or rename your BigQuery ConfigMaps or service accounts.
-- `ConfigMapFilePath` on a BigQuery connection is no longer used; the namespace is chart managed. Remove it from your overrides (it is ignored if left in place).
-- No action is required unless something outside the chart references the old path directly. In that case, update the reference from `/app/google-creds/<keyName>` to `/app/google-creds/bigquery/<connection name>.json`.
-- Platform Google credentials (`cloudIdentity.google`) are unchanged and remain at `/app/google-creds/<keyName>`. A BigQuery connection and the platform may reference the same ConfigMap; the chart keeps their mount paths separate.
+- Your connection's `configMapName` and `keyName` are unchanged and still identify the same Kubernetes ConfigMap and data key. Do not recreate or rename your BigQuery ConfigMaps or service accounts.
+- No `overrides.yaml` change is required. `ConfigMapFilePath`, if still set on a connection, is ignored.
+- Platform Google credentials (`cloudIdentity.google`) are unchanged.
+- The credential file the chart mounts for BigQuery moved to a new location. This matters only if a process outside the chart reads that file directly; see the checklist for the path.
 
 </details>
 
@@ -167,31 +167,31 @@ BigQuery service account credentials are now mounted in a chart managed namespac
 
 ### RedpointAI vector search values
 
-`redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` have been removed. RPI now creates the search index, vector profile, and algorithm dynamically at runtime, so these values are no longer needed. See [Redpoint AI](https://docs.redpointglobal.com/rpi/admin-basic-selection-rule-ai-integration).
+`redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` have been removed. RPI now creates the search index, vector profile, and algorithm at runtime. The chart rejects these keys at render, so remove them from your overrides if present (see the checklist). See [Redpoint AI](https://docs.redpointglobal.com/rpi/admin-basic-selection-rule-ai-integration).
 
 ### Internal cache OpsDB failover
 
-`InternalCache__BackupToOpsDBInterval` and `InternalCache__FailOnPrimaryDataLoss` have been removed - OpsDB backed cache failover was removed in 7.8. Remove them from your overrides if set (Execution Service and Queue Reader).
+OpsDB backed cache failover was removed in 7.8. On the Execution Service and Queue Reader, `internalCache.backupToOpsDBInterval` and `internalCache.failOnPrimaryDataLoss` no longer apply and are ignored if still present in your overrides. No action is required.
 
 ### Swagger on the Interaction API
 
-The Interaction API no longer emits `EnableSwagger`. The setting remains valid and unchanged for the Integration API.
+The Interaction API no longer exposes Swagger, so `interactionapi.enableSwagger` has no effect and is ignored if set. `integrationapi.enableSwagger` is unchanged. No action is required.
 
-### LuxSci SendRequestCount renamed
+### LuxSci send cap renamed
 
-`Plugins__LuxSci__SendRequestCount` was renamed to `Plugins__LuxSci__MaxConcurrentApiRequestsPerAccount`. The old key binds to nothing and is silently ignored, so update any override that sets it.
+The Execution Service LuxSci per-account send cap moved from `executionservice.jobExecution.luxScisendRequestCount` to `executionservice.jobExecution.luxSci.maxConcurrentApiRequestsPerAccount` (default 5 in both). If you left it at the default, no action is required. If you customized the 7.7 value, set your value on the new key to carry it over; the old key is ignored.
 
 </details>
 
 <details>
 <summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
-1. Remove `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` if present.
-2. Check for silent breaks: rename the LuxSci `SendRequestCount` cap to `maxConcurrentApiRequestsPerAccount`, and stop setting `InternalCache__StatePersistence__Provider: DefaultCache` (removed from the provider enum - use `FileSystem` or `AzureBlobStorage`). Both are ignored rather than rejected if left in place.
-3. BigQuery service account connections: no credential action needed - your ConfigMap and key are unchanged. Remove any `ConfigMapFilePath` from a BigQuery connection (no longer used), and update only references outside the chart to the old `/app/google-creds/<keyName>` path (now `/app/google-creds/bigquery/<connection name>.json`). See Changed in v7.8.
-4. Cloud SQL Auth Proxy now requires `cloudIdentity.enabled: true` rather than a specific secret provider; existing SDK deployments already satisfy this, and `kubernetes` / `csi` / `sdk` are all supported.
-5. Review the new optional features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput) and adopt as needed. All are opt-in and default off; BigQuery Workload Identity is not required for existing BigQuery deployments.
-6. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+1. If your overrides set `redpointAI.VectorSearchProfile` or `redpointAI.VectorSearchConfig`, remove them. The chart rejects them at render (RPI creates the search index at runtime).
+2. If your overrides set `internalCache.statePersistenceProvider: DefaultCache` on the Execution Service or Queue Reader, change it to `FileSystem` or `AzureBlobStorage`. `DefaultCache` is no longer a valid value, and those services fail to start if it is set.
+3. If anything outside the chart reads the old BigQuery credential path `/app/google-creds/<keyName>`, update it to `/app/google-creds/bigquery/<connection name>.json`. The chart and its generated ODBC DSN already use the new path.
+4. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+
+Everything else in v7.8 is handled by the chart. Renamed or removed settings left in your overrides are ignored, not rejected, so no other cleanup is required. New features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput controls) are opt-in and default off.
 
 </details>
 
