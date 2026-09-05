@@ -12,7 +12,7 @@ This guide covers upgrading an existing RPI v7.7 Helm deployment to v7.8. If you
 <details>
 <summary><strong style="font-size:1.25em;">What Changed in the Helm Chart</strong></summary>
 
-v7.8 is an additive release. It introduces Google Cloud data-plane support (Cloud SQL and BigQuery) and new Realtime API and Interaction API configuration. Existing v7.7 overrides continue to work unchanged (see the checklist below).
+v7.8 is designed to preserve existing v7.7 configuration. Most existing overrides require no changes. A small number of settings have changed behavior or been removed; these are identified below. In particular, BigQuery service-account credentials continue to use the existing ConfigMap and key, but the chart-managed credential mount path is now generated under `/app/google-creds/bigquery/` (see Changed in v7.8 and the checklist below).
 
 | Area | Change |
 |:---|:---|
@@ -30,7 +30,7 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 
 ### Google Cloud SQL (PostgreSQL) with IAM authentication
 
-RPI can connect to a Google Cloud SQL for PostgreSQL instance using passwordless IAM authentication through the Cloud SQL Auth Proxy, which runs as a sidecar. With `autoIamAuthn` enabled, pods connect over loopback using the IAM database user and no stored password. This path is SDK secrets mode only (`secretsManagement.provider: sdk`).
+RPI can connect to a Google Cloud SQL for PostgreSQL instance using passwordless IAM authentication through the Cloud SQL Auth Proxy, which runs as a sidecar. With `autoIamAuthn` enabled, pods connect over loopback using the IAM database user and no stored password. The proxy requires `cloudIdentity.enabled: true` (it authenticates with the pod's Google identity); the secret provider is independent, so `kubernetes`, `csi`, or `sdk` may all be used.
 
 ```yaml
 databases:
@@ -149,6 +149,20 @@ redpointAI:
 </details>
 
 <details>
+<summary><strong style="font-size:1.25em;">Changed in v7.8</strong></summary>
+
+### BigQuery service-account credential mount path
+
+BigQuery service-account credentials are now mounted in a chart-managed namespace, isolated from the platform Google credential. The mount path changed from `/app/google-creds/<keyName>` (v7.7) to `/app/google-creds/bigquery/<connection name>.json`, and the generated ODBC DSN `KeyFilePath` points there.
+
+- Your existing `configMapName` and `keyName` still identify the same Kubernetes ConfigMap and data key. Do not recreate or rename your BigQuery ConfigMaps or service accounts.
+- `ConfigMapFilePath` on a BigQuery connection is no longer used; the namespace is chart-managed. Remove it from your overrides (it is ignored if left in place).
+- No action is required unless something outside the chart references the old path directly. In that case, update the reference from `/app/google-creds/<keyName>` to `/app/google-creds/bigquery/<connection name>.json`.
+- Platform Google credentials (`cloudIdentity.google`) are unchanged and remain at `/app/google-creds/<keyName>`. A BigQuery connection and the platform may reference the same ConfigMap; the chart keeps their mount paths separate.
+
+</details>
+
+<details>
 <summary><strong style="font-size:1.25em;">Removed in v7.8</strong></summary>
 
 ### RedpointAI vector search values
@@ -174,8 +188,10 @@ The Interaction API no longer emits `EnableSwagger`. The setting remains valid a
 
 1. Remove `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` if present.
 2. Check for silent breaks: rename the LuxSci `SendRequestCount` cap to `maxConcurrentApiRequestsPerAccount`, and stop setting `InternalCache__StatePersistence__Provider: DefaultCache` (removed from the provider enum - use `FileSystem` or `AzureBlobStorage`). Both are ignored rather than rejected if left in place.
-3. Review the new optional features (Cloud SQL IAM, BigQuery, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput) and adopt as needed. All are opt-in and default off.
-4. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+3. BigQuery service-account connections: no credential action needed - your ConfigMap and key are unchanged. Remove any `ConfigMapFilePath` from a BigQuery connection (no longer used), and update only references outside the chart to the old `/app/google-creds/<keyName>` path (now `/app/google-creds/bigquery/<connection name>.json`). See Changed in v7.8.
+4. Cloud SQL Auth Proxy now requires `cloudIdentity.enabled: true` rather than a specific secret provider; existing SDK deployments already satisfy this, and `kubernetes` / `csi` / `sdk` are all supported.
+5. Review the new optional features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput) and adopt as needed. All are opt-in and default off; BigQuery Workload Identity is not required for existing BigQuery deployments.
+6. Apply the upgrade with your existing `helm upgrade` command and overrides file.
 
 </details>
 
