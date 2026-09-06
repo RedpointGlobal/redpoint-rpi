@@ -157,62 +157,39 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 <colgroup><col style="width:31%"><col style="width:37%"><col style="width:20%"><col style="width:12%"></colgroup>
 <thead>
 <tr>
-<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">Setting in your <code>overrides.yaml</code></th>
-<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">7.8 change</th>
-<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">Action</th>
-<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">Breaking if left?</th>
+<th align="left">Setting</th>
+<th align="left">7.8 change</th>
+<th align="left">Action</th>
+<th align="left">Breaking</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><pre><code>redpointAI:
-  VectorSearchProfile
-  VectorSearchConfig</code></pre></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:<br>&nbsp;&nbsp;VectorSearchProfile<br>&nbsp;&nbsp;VectorSearchConfig</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
 </tr>
-<tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><pre><code>executionservice:
-  internalCache:
-    statePersistenceProvider: DefaultCache</code></pre>(also Queue Reader)</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>DefaultCache</code> is no longer a supported provider</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Change it to <code>FileSystem</code> or <code>AzureBlobStorage</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the Execution Service and Queue Reader fail to start</td>
-</tr>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><pre><code>executionservice:
-  jobExecution:
-    luxScisendRequestCount</code></pre></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<pre><code>executionservice:
-  jobExecution:
-    luxSci:
-      maxConcurrentApiRequestsPerAccount</code></pre>(default 5 in both)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:<br>&nbsp;&nbsp;jobExecution:<br>&nbsp;&nbsp;&nbsp;&nbsp;luxScisendRequestCount</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:<br>&nbsp;&nbsp;jobExecution:<br>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code><br>(default 5 in both)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><pre><code>executionservice:
-  internalCache:
-    backupToOpsDBInterval
-    failOnPrimaryDataLoss</code></pre>(also Queue Reader)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:<br>&nbsp;&nbsp;internalCache:<br>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval<br>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code><br>(also Queue Reader)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
 </tr>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><pre><code>interactionapi:
-  enableSwagger</code></pre></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>interactionapi:<br>&nbsp;&nbsp;enableSwagger</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">The Interaction API no longer exposes Swagger (<code>integrationapi.enableSwagger</code> unchanged)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><pre><code>databases:
-  datawarehouse:
-    bigquery:
-      connections:
-        - ConfigMapFilePath</code></pre></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases:<br>&nbsp;&nbsp;datawarehouse:<br>&nbsp;&nbsp;&nbsp;&nbsp;bigquery:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connections:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ConfigMapFilePath</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer applies; the chart manages the credential file location</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
