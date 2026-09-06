@@ -853,6 +853,11 @@ nodemanager:
 deploymentapi:
   enabled: true
   replicas: 1
+  # Use external (Keycloak) user management for the Deployment API's install-time
+  # user lookups. Off by default (native). When true, the chart emits the
+  # ClusterEnvironment.UserManagement + Keycloak settings (ClientSecret from the
+  # shared Secret key CDP_Keycloak_Client_Secret).
+  useExternalUserManagement: false
   # OIDC authentication for the Deployment API endpoints. Disabled by default.
   # When enabled, all four values below are required (the render fails if any
   # is missing); there are no defaults.

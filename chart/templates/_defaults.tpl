@@ -775,6 +775,7 @@ logging:
   rpiTrace: Error
   rpiError: Error
   Console: Error
+useExternalUserManagement: false
 resources:
   enabled: true
 {{- end -}}

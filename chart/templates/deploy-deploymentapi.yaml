@@ -163,6 +163,23 @@ spec:
         - name: Authentication__ClientId
           value: {{ required "deploymentapi.authentication.clientId is required when deploymentapi.authentication.enabled=true" $auth.clientId | quote }}
         {{- end }}
+        {{- if $cfg.useExternalUserManagement }}
+        - name: ClusterEnvironment__UserManagement__UseNativeUserManagement
+          value: "true"
+        - name: ClusterEnvironment__UserManagement__UseExternalUserManagement
+          value: "true"
+        - name: ClusterEnvironment__UserManagement__Keycloak__Address
+          value: "http://cdp-keycloak/auth/"
+        - name: ClusterEnvironment__UserManagement__Keycloak__Realm
+          value: redpoint-mercury
+        - name: ClusterEnvironment__UserManagement__Keycloak__ClientId
+          value: rpi-service
+        - name: ClusterEnvironment__UserManagement__Keycloak__ClientSecret
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: CDP_Keycloak_Client_Secret
+        {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
         - name: Logging__Database__LogLevel__Default
