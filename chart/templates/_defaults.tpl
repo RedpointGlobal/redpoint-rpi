@@ -345,6 +345,7 @@ cacheProvider:
 
 {{/* ------ Callback API ------ */}}
 {{- define "rpi.defaults.callbackapi" -}}
+enableHttpsRedirection: false
 podAnnotations: {}
 podLabels: {}
 type: deployment
@@ -560,6 +561,7 @@ extraEnvs:
 
 {{/* ------ Interaction API ------ */}}
 {{- define "rpi.defaults.interactionapi" -}}
+disableHttpRedirect: false
 podAnnotations: {}
 podLabels: {}
 type: deployment

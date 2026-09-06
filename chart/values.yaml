@@ -684,6 +684,9 @@ realtimeapi:
 callbackapi:
   enabled: true
   replicas: 1
+  # App-level HTTPS redirection. Off by default (leave off behind a
+  # TLS-terminating ingress). Set true to force redirect to HTTPS.
+  enableHttpsRedirection: false
   channelLabel: SendGrid
   # Enable multitenancy for per-client instances
   multitenancy:
@@ -753,6 +756,10 @@ executionservice:
 interactionapi:
   enabled: true
   replicas: 1
+  # App-level HTTP-to-HTTPS redirection. false (default) keeps the existing
+  # behavior; the redirect is also skipped when the in-cluster auth metadata
+  # host is set. Set true to disable the redirect explicitly.
+  disableHttpRedirect: false
   enableRPIAuthentication: true
   # Native-auth password policy, enforced when users are created or change
   # their password. The Interaction API is the identity provider; the policy

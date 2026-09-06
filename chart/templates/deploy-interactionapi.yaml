@@ -367,6 +367,8 @@ spec:
         {{- end }}
         {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
         {{- with (include "rpi.realtime.clientOverrides" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        - name: DisableHttpRedirect
+          value: {{ $cfg.disableHttpRedirect | quote }}
         - name: RPI__SMTP__EmailSenderAddress
           value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
         - name: RPI__SMTP__Address

@@ -1589,6 +1589,10 @@
           "type": "boolean",
           "description": "Enable the Callback API service"
         },
+        "enableHttpsRedirection": {
+          "type": "boolean",
+          "description": "Enable app-level HTTPS redirection. Default false (leave off behind a TLS-terminating ingress)."
+        },
         "replicas": {
           "type": "integer",
           "description": "Number of Callback API pod replicas",
@@ -2173,6 +2177,10 @@
         "enabled": {
           "type": "boolean",
           "description": "Enable the Interaction API service"
+        },
+        "disableHttpRedirect": {
+          "type": "boolean",
+          "description": "Disable app-level HTTP-to-HTTPS redirection. Default false; the redirect is also skipped when the in-cluster auth metadata host is set."
         },
         "replicas": {
           "type": "integer",

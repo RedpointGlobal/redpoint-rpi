@@ -204,6 +204,8 @@ spec:
           value: {{ $cfg.logging.Console | quote }}
         - name: CallbackServiceConfig__QueueEnabled
           value: "true"
+        - name: EnableHttpsRedirection
+          value: {{ $cfg.enableHttpsRedirection | quote }}
         - name: RPI__DateTimeSource
           value: {{ .Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
         {{- if $diag.copytoAzureBlob.enabled }}
@@ -749,6 +751,8 @@ spec:
           value: {{ $cfg.logging.Console | quote }}
         - name: CallbackServiceConfig__QueueEnabled
           value: "true"
+        - name: EnableHttpsRedirection
+          value: {{ $cfg.enableHttpsRedirection | quote }}
         - name: RPI__DateTimeSource
           value: {{ $.Values.databases.operational.dateTimeSource | default "OperatingSystem" | quote }}
         {{- if $diag.copytoAzureBlob.enabled }}
