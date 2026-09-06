@@ -165,7 +165,6 @@ RealtimeServerCookieHttpOnly: false
 CacheOutputCollectIPAddress: true
 HashVisitorID: false
 EventListeningLocalCacheDuration: 60
-RPIVersion: "7.8"
 RealtimeAgentAddress: ""
 RealtimeAgentInProcessPath: ""
 SaveProfilePostDecisionResponse: false

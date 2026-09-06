@@ -1394,10 +1394,6 @@
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
         },
-        "RPIVersion": {
-          "type": "string",
-          "description": "RPI product version reported by the Realtime API."
-        },
         "RealtimeAgentAddress": {
           "type": "string",
           "description": "Address of the Interaction Realtime Agent. Unset leaves the application default."
