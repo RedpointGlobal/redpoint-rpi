@@ -165,13 +165,13 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 </thead>
 <tbody>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI.VectorSearchProfile</code>, <code>redpointAI.VectorSearchConfig</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI.VectorSearchProfile</code><br><code>redpointAI.VectorSearchConfig</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.internalCache.statePersistenceProvider: DefaultCache</code> (also <code>queuereader.internalCache.statePersistenceProvider</code>)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.internalCache.statePersistenceProvider: DefaultCache</code><br>(also <code>queuereader.internalCache.statePersistenceProvider</code>)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>DefaultCache</code> is no longer a supported provider</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Change it to <code>FileSystem</code> or <code>AzureBlobStorage</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the Execution Service and Queue Reader fail to start</td>
@@ -183,7 +183,7 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.internalCache.backupToOpsDBInterval</code>, <code>executionservice.internalCache.failOnPrimaryDataLoss</code> (also Queue Reader)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.internalCache.backupToOpsDBInterval</code><br><code>executionservice.internalCache.failOnPrimaryDataLoss</code><br>(also Queue Reader)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
