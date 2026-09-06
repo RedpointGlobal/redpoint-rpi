@@ -172,12 +172,12 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 </tr>
 <tr>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxScisendRequestCount</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code><br>(default 5 in both)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;internalCache:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code><br>(also Queue Reader)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;internalCache:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
