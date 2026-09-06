@@ -153,14 +153,55 @@ redpointAI:
 
 If your `overrides.yaml` sets any of the following, here is what changed and what to do. Each row lists whether leaving the old setting in place blocks the upgrade.
 
-| Setting in your `overrides.yaml` | 7.8 change | Action | Breaking if left? |
-|:---|:---|:---|:---|
-| `redpointAI.VectorSearchProfile`, `redpointAI.VectorSearchConfig` | Removed; RPI builds the search index at runtime | Remove them | **Yes** - the chart rejects them and the upgrade will not render |
-| `executionservice.internalCache.statePersistenceProvider: DefaultCache` (also `queuereader.internalCache.statePersistenceProvider`) | `DefaultCache` is no longer a supported provider | Change it to `FileSystem` or `AzureBlobStorage` | **Yes** - the Execution Service and Queue Reader fail to start |
-| `executionservice.jobExecution.luxScisendRequestCount` | Renamed to `executionservice.jobExecution.luxSci.maxConcurrentApiRequestsPerAccount` (default 5 in both) | Move your value to the new setting and remove the old one | No - the old setting is ignored |
-| `executionservice.internalCache.backupToOpsDBInterval`, `executionservice.internalCache.failOnPrimaryDataLoss` (also Queue Reader) | Removed; OpsDB cache failover removed | Remove them | No - ignored if left |
-| `interactionapi.enableSwagger` | The Interaction API no longer exposes Swagger (`integrationapi.enableSwagger` unchanged) | Remove it | No - ignored if left |
-| `databases.datawarehouse.bigquery.connections[].ConfigMapFilePath` | No longer applies; the chart manages the credential file location | Remove it | No - ignored if left |
+<table style="width:100%;border-collapse:collapse;table-layout:fixed;line-height:1.4">
+<colgroup><col style="width:31%"><col style="width:37%"><col style="width:20%"><col style="width:12%"></colgroup>
+<thead>
+<tr>
+<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">Setting in your <code>overrides.yaml</code></th>
+<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">7.8 change</th>
+<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">Action</th>
+<th style="text-align:left;padding:8px 12px;vertical-align:top;border-bottom:1px solid #d0d7de;background:#f6f8fa;font-weight:600;overflow-wrap:anywhere">Breaking if left?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI.VectorSearchProfile</code>, <code>redpointAI.VectorSearchConfig</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
+</tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.internalCache.statePersistenceProvider: DefaultCache</code> (also <code>queuereader.internalCache.statePersistenceProvider</code>)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>DefaultCache</code> is no longer a supported provider</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Change it to <code>FileSystem</code> or <code>AzureBlobStorage</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the Execution Service and Queue Reader fail to start</td>
+</tr>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.jobExecution.luxScisendRequestCount</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to <code>executionservice.jobExecution.luxSci.maxConcurrentApiRequestsPerAccount</code> (default 5 in both)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
+</tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice.internalCache.backupToOpsDBInterval</code>, <code>executionservice.internalCache.failOnPrimaryDataLoss</code> (also Queue Reader)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>interactionapi.enableSwagger</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">The Interaction API no longer exposes Swagger (<code>integrationapi.enableSwagger</code> unchanged)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases.datawarehouse.bigquery.connections[].ConfigMapFilePath</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer applies; the chart manages the credential file location</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+</tbody>
+</table>
 
 The rows marked **Yes** must be resolved before you upgrade. The rest are cleanup you can do before or after the upgrade: if you leave the old setting in place, the chart ignores it and the upgrade proceeds normally.
 
