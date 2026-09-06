@@ -165,31 +165,31 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 </thead>
 <tbody>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:<br>&nbsp;&nbsp;VectorSearchProfile<br>&nbsp;&nbsp;VectorSearchConfig</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;VectorSearchProfile</code><br><code>&nbsp;&nbsp;VectorSearchConfig</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
 </tr>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:<br>&nbsp;&nbsp;jobExecution:<br>&nbsp;&nbsp;&nbsp;&nbsp;luxScisendRequestCount</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:<br>&nbsp;&nbsp;jobExecution:<br>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code><br>(default 5 in both)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxScisendRequestCount</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code><br>(default 5 in both)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:<br>&nbsp;&nbsp;internalCache:<br>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval<br>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code><br>(also Queue Reader)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;internalCache:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code><br>(also Queue Reader)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
 </tr>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>interactionapi:<br>&nbsp;&nbsp;enableSwagger</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>interactionapi:</code><br><code>&nbsp;&nbsp;enableSwagger</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">The Interaction API no longer exposes Swagger (<code>integrationapi.enableSwagger</code> unchanged)</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases:<br>&nbsp;&nbsp;datawarehouse:<br>&nbsp;&nbsp;&nbsp;&nbsp;bigquery:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connections:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ConfigMapFilePath</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases:</code><br><code>&nbsp;&nbsp;datawarehouse:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;bigquery:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connections:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ConfigMapFilePath</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer applies; the chart manages the credential file location</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
