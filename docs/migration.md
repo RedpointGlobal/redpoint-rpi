@@ -149,7 +149,7 @@ redpointAI:
 </details>
 
 <details>
-<summary><strong style="font-size:1.25em;">Settings changed or removed in v7.8</strong></summary>
+<summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
 If your `overrides.yaml` sets any of the following, here is what changed and what to do. Each row lists whether leaving the old setting in place blocks the upgrade.
 
@@ -197,16 +197,9 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 </tbody>
 </table>
 
-The rows marked **Yes** must be resolved before you upgrade. The rest are cleanup you can do before or after the upgrade: if you leave the old setting in place, the chart ignores it and the upgrade proceeds normally.
+BigQuery `serviceAccount` connections keep working with no credential change: your `configMapName` and `keyName` still point at the same ConfigMap and data key, and `cloudIdentity.google` is unchanged. The chart now manages where the credential file is placed, which matters only if a process outside the chart reads that file directly (see step 2).
 
-BigQuery `serviceAccount` connections keep working with no credential change: your `configMapName` and `keyName` still point at the same ConfigMap and data key, and `cloudIdentity.google` is unchanged. The chart now manages where the credential file is placed, which matters only if a process outside the chart reads that file directly (see the checklist).
-
-</details>
-
-<details>
-<summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
-
-1. Resolve any breaking rows from the table above that appear in your `overrides.yaml` (the RedpointAI vector search values, and `DefaultCache`).
+1. Resolve any breaking rows from the table above that appear in your `overrides.yaml` (the RedpointAI vector search values).
 2. If a process outside the chart reads the BigQuery credential file directly, update its path to `/app/google-creds/bigquery/<connection name>.json` (v7.7 used `/app/google-creds/<keyName>`). The chart already uses the new path.
 3. Apply the upgrade with your existing `helm upgrade` command and overrides file.
 4. Optionally, complete the non-breaking cleanup from the table above. This can be done before or after the upgrade.
