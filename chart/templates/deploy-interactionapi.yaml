@@ -206,7 +206,7 @@ spec:
         - name: RPIClient__HelpStartPageURL
           value: "https://docs.redpointglobal.com/rpi/"
         - name: RPIClient__ProductUpdateFeed__Enabled
-          value: {{ $cfg.productUpdateFeed.enabled | quote }} 
+          value: {{ $cfg.productUpdateFeed.enabled | quote }}
         - name: RPIClient__ProductUpdateFeed__URL
           value: {{ $cfg.productUpdateFeed.url | quote }}
         {{- if $diag.copytoAzureBlob.enabled }}

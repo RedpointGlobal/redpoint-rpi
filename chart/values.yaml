@@ -529,6 +529,8 @@ realtimeapi:
   # RealtimeServerCookieExpires: 60
   # RealtimeServerCookieHttpOnly: false
   # RealtimeServerCookieDomain: ".example.com"
+  # Number of days to persist web events. Override as needed.
+  EventDaysToPersistOverride: 365
 
   # Geolocation settings for real-time weather / location enrichment.
   # Disabled by default. When enabled, the settings below are applied AND the

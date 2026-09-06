@@ -502,6 +502,8 @@ spec:
             value: "true"
           - name: RealtimeAPIConfiguration__AppSettings__NoDaysPersistWebEvents
             value: "365"
+          - name: RealtimeAPIConfiguration__AppSettings__EventDaysToPersistOverride
+            value: {{ $cfg.EventDaysToPersistOverride | quote }}
           - name: RealtimeAPIConfiguration__Queues__CacheOutputQueueEnabled
             value: {{ $cfg.cacheOutputQueueEnabled | quote }}
           - name: RealtimeAPIConfiguration__AppSettings__CacheWebFormData

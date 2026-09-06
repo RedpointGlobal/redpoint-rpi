@@ -1458,6 +1458,10 @@
           "type": "integer",
           "description": "Web visitor cache duration in minutes. 0 uses the application default."
         },
+        "EventDaysToPersistOverride": {
+          "type": "integer",
+          "description": "Override for the number of days to persist web events. Unset leaves the application default (NoDaysPersistWebEvents)."
+        },
         "MaxNoVisitorDevicesAllowed": {
           "type": "integer",
           "description": "Maximum number of devices tracked per visitor."
