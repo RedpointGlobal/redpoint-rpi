@@ -1671,16 +1671,13 @@ queuereader:
     allowAllServerLocations: true
     # Allow per-client file-output directory overrides.
     allowClientOverrides: true
-  # Internal cache used by the queue reader.
+  # Chart-managed Redis that coordinates work across Queue Reader replicas when
+  # realtimeConfiguration.isDistributed is true. The cache provider is Redis by application
+  # default; the Queue Reader does not use InternalCache state persistence.
   internalCache:
-    # Fail startup if the cache connection cannot be established.
-    failOnCacheConnectionError: true
-    # Maximum cache connection retry attempts.
-    maxNumberRetries: 100
-    # Delay (hh:mm:ss) between cache connection retries.
-    maxRetryDelay: '00:01:00'
-    # Internal cache tuning. For type=external the connection string comes from the shared
-    # Secret key QueueReader_RedisCache_ConnectionString, never from values.
+    # Chart-managed Redis StatefulSet settings. The Queue Reader's connection string is
+    # generated into the internal-services Secret (QueueService_RedisCache_ConnectionString),
+    # never taken from values.
     redisSettings:
       # PodDisruptionBudget for the chart-managed Queue Reader Redis.
       podDisruptionBudget:
@@ -1719,16 +1716,6 @@ queuereader:
         storageClassName: ''
         # Access mode for the claim (default ReadWriteOnce).
         accessModes: ''
-    # Filesystem state-persistence settings (used when the cache runs the FileSystem
-    # provider).
-    stateFileSystem:
-      # State directory path to use when overrideDirectoryPath is true.
-      directoryPathOverride: /rpifileoutputdirectory
-      # Override the default state directory path.
-      overrideDirectoryPath: true
-    # State-tracking store provider (StateTrackingStoreProviders enum, e.g. FileSystem). The
-    # cache provider itself is set separately.
-    statePersistenceProvider: FileSystem
   # Internal message queue used by the queue reader.
   internalQueues:
     rabbitmqSettings:
@@ -1860,7 +1847,9 @@ queuereader:
   queueListenerEnabled: true
   # Realtime processing configuration
   realtimeConfiguration:
-    # Enable distributed processing for high-volume transactions
+    # Distribute queue processing across Queue Reader replicas. Deploys the chart-managed
+    # Redis (workload coordination: locks, partition offsets, deduplication) and RabbitMQ, and
+    # wires the Queue Reader to them.
     isDistributed: false
     # RPI client IDs (GUIDs) this queue reader processes.
     tenantIds: []

@@ -887,7 +887,9 @@ queuereader:
     rabbitmqSettings:
       # username defaults to the release namespace; set to override.
       username: ""
-  # Chart-managed Redis for distributed mode (realtimeConfiguration.isDistributed)
+  # Redis that coordinates work across Queue Reader replicas (distributed locks,
+  # partition offsets, deduplication) when realtimeConfiguration.isDistributed is
+  # true. The Queue Reader does not use InternalCache state persistence.
   internalCache:
     redisSettings:
       replicas: 1
