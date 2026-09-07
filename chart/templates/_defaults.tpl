@@ -51,7 +51,6 @@ initialDelaySeconds: 60
 periodSeconds: 15
 timeoutSeconds: 5
 failureThreshold: 5
-successThreshold: 1
 {{- end -}}
 
 {{/* ------ Readiness Probe ------ */}}
@@ -65,7 +64,6 @@ initialDelaySeconds: 20
 periodSeconds: 30
 timeoutSeconds: 5
 failureThreshold: 5
-successThreshold: 1
 {{- end -}}
 
 {{/* ------ Startup Probe ------ */}}
@@ -79,7 +77,6 @@ initialDelaySeconds: 10
 periodSeconds: 10
 timeoutSeconds: 5
 failureThreshold: 60
-successThreshold: 1
 {{- end -}}
 
 {{/* ------ Topology Spread Constraints ------ */}}
@@ -126,7 +123,6 @@ netutils:
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     privileged: false
-    appArmorProfile: ""
     capabilities:
       drop:
         - ALL
@@ -424,7 +420,6 @@ autoscaling:
   kedaScaledObject:
     serverAddress: ""
     useTriggerAuthentication: true
-    authenticationRef: rpi-executionservice
     metricName: execution_max_thread_count
     query: ""
     threshold: "80"
@@ -504,13 +499,6 @@ userManagement:
   useNativeUserManagement: true
   useExternalUserManagement: false
 systemVariables: []
-internalQueues:
-  enabled: false
-  hostName: localhost
-  virtualHost: "/"
-  username: redpointrpi
-  port: 5672
-  isDurable: true
 pubSub:
   enabled: false
   provider: Azure
@@ -955,8 +943,6 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
 service:
   port: 80
 logging:
@@ -970,7 +956,7 @@ autoscaling:
 terminationGracePeriodSeconds: 120
 resources:
   enabled: true
-  java_opts: "-Xmx1536m"
+  java_opts: "-Xmx750m"
 securityContext:
   enabled: true
   runAsUser: 7777
@@ -983,12 +969,6 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop: ["ALL"]
-  seccompProfile:
-    type: RuntimeDefault
-rollingUpdate:
-  maxUnavailable: "25%"
-  maxSurge: "25%"
-  progressDeadlineSeconds: 600
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
@@ -1000,16 +980,8 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
 service:
   port: 80
-autoscaling:
-  enabled: false
-  minReplicas: 2
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 80
-  targetMemoryUtilizationPercentage: 80
 resources:
   enabled: true
 securityContext:
@@ -1022,12 +994,9 @@ securityContext:
   privileged: false
   appArmorProfile: ""
   allowPrivilegeEscalation: false
-  capabilities:
-    drop: ["ALL"]
 rollingUpdate:
   maxUnavailable: "25%"
   maxSurge: "25%"
-  progressDeadlineSeconds: 600
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
@@ -1039,8 +1008,6 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
 service:
   port: 80
 resources:
@@ -1060,10 +1027,6 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop: ["ALL"]
-rollingUpdate:
-  maxUnavailable: "25%"
-  maxSurge: "25%"
-  progressDeadlineSeconds: 600
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
@@ -1071,12 +1034,7 @@ podDisruptionBudget:
 
 {{/* ------ Message Queue ------ */}}
 {{- define "rpi.defaults.messageq" -}}
-type: StatefulSet
 port: 5672
-serviceAccount:
-  enabled: true
-resources:
-  enabled: true
 securityContext:
   enabled: true
   runAsUser: 7777
@@ -1102,14 +1060,9 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
 port: 80
 resources:
   enabled: true
-  java_opts: "-Xmx1536m"
-logging:
-  verbosity: DEBUG
 securityContext:
   enabled: true
   runAsUser: 7777
@@ -1122,10 +1075,6 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop: ["ALL"]
-rollingUpdate:
-  maxUnavailable: "25%"
-  maxSurge: "25%"
-  progressDeadlineSeconds: 600
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
@@ -1137,8 +1086,6 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
 service:
   port: 80
 resources:
@@ -1175,16 +1122,10 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
-keycloak_realm: "redpoint-mercury"
 service:
   port: 80
 resources:
   enabled: true
-  java_opts: "-Xmx1536m"
-logging:
-  verbosity: DEBUG
 autoscaling:
   enabled: false
   minReplicas: 2
@@ -1214,15 +1155,10 @@ type: deployment
 rollout:
   autoPromotionEnabled: true
   revisionHistoryLimit: 3
-serviceAccount:
-  enabled: true
 service:
   port: 80
 resources:
   enabled: true
-  java_opts: "-Xmx2150m"
-logging:
-  verbosity: DEBUG
 autoscaling:
   enabled: false
   minReplicas: 2
@@ -1248,9 +1184,6 @@ podDisruptionBudget:
 
 {{/* ------ CDP Cache ------ */}}
 {{- define "rpi.defaults.cdpcache" -}}
-type: StatefulSet
-serviceAccount:
-  enabled: true
 service:
   port: 6379
 resources:

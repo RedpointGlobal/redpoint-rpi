@@ -1,4 +1,5 @@
 {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "keycloak")) -}}
+{{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $liveness := fromYaml (include "rpi.merged.livenessProbe" .) -}}
 {{- $startup := fromYaml (include "rpi.merged.startupProbe" .) -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
@@ -210,7 +211,7 @@ spec:
           privileged: {{ $cfg.securityContext.privileged }}
           allowPrivilegeEscalation: {{ $cfg.securityContext.allowPrivilegeEscalation }}
           readOnlyRootFilesystem: {{ $cfg.securityContext.readOnlyRootFilesystem }}
-          {{- $kcAppArmor := $cfg.securityContext.appArmorProfile | default $.Values.securityContext.appArmorProfile }}
+          {{- $kcAppArmor := $cfg.securityContext.appArmorProfile | default $secCtx.appArmorProfile }}
           {{- if $kcAppArmor }}
           appArmorProfile:
             type: {{ $kcAppArmor }}

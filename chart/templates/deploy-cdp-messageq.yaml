@@ -156,11 +156,6 @@ spec:
               value: {{ $cfg.username }}
             - name: RABBITMQ_DEFAULT_VHOST
               value: /
-            - name: RABBITMQ_ERLANG_COOKIE
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "rpi.secrets.secretName" . | quote }}
-                  key: CDP_RabbitMQ_ErlangCookie
             {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 12 }}{{- end }}
           volumeMounts:
             - name: {{ $name }}-data

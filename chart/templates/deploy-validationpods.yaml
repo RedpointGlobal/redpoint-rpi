@@ -9,7 +9,8 @@
     pvc       - Mounts a PersistentVolumeClaim and writes a test file in a loop
     csiSecret - Mounts a CSI SecretProviderClass volume and sleeps
 
-  Enabled via: validationPods.enabled: true
+  Each entry under validationPods.deployments renders unless it sets
+  enabled: false.
 */}}
 {{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
 {{- $saMode := .Values.cloudIdentity.serviceAccount.mode | default "per-service" -}}

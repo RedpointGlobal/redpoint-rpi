@@ -486,27 +486,6 @@ spec:
         - name: SystemVariables__Variables__{{ $i }}__Value
           value: {{ $v.value | quote }}
         {{- end }}
-        {{- if $cfg.internalQueues.enabled }}
-        - name: InternalQueues__Enabled
-          value: "true"
-        - name: InternalQueues__HostName
-          value: {{ $cfg.internalQueues.hostName | quote }}
-        - name: InternalQueues__VirtualHost
-          value: {{ $cfg.internalQueues.virtualHost | quote }}
-        - name: InternalQueues__Username
-          value: {{ $cfg.internalQueues.username | quote }}
-        - name: InternalQueues__Port
-          value: {{ $cfg.internalQueues.port | quote }}
-        - name: InternalQueues__IsDurable
-          value: {{ $cfg.internalQueues.isDurable | quote }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-        - name: InternalQueues__Password
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: QueueService_RabbitMQ_Password
-        {{- end }}
-        {{- end }}
         {{- if $cfg.pubSub.enabled }}
         - name: PubSub__Provider
           value: {{ $cfg.pubSub.provider | quote }}

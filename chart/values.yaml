@@ -138,7 +138,7 @@ databases:
     googleWorkloadIdentity: false
     server_host: <my-database-server-host>
     server_username: <my-database-server-username>
-    server_password: <my-database-server-password>
+    # Password: shared Secret key Operations_Database_Server_Password
     pulse_database_name: <my-pulse-database-name>
     pulse_logging_database_name: <my-logging-database-name>
     # Schema the Deployment API uses within the operational database.
@@ -691,11 +691,10 @@ callbackapi:
   # Enable multitenancy for per-client instances
   multitenancy:
     enabled: false
+  # Per-tenant instances rendered when multitenancy is enabled. Every instance uses callbackapi.replicas.
   instances:
     - name: "tenant1"
-      replicas: 1
   #  - name: "client2"
-  #    replicas: 1
   autoscaling:
     enabled: false
 
@@ -715,18 +714,10 @@ executionservice:
     azureStorageSettings:
       accountName: my_storage_account_name
       containerName: rpi
-      connectionString: DefaultEndpointsProtocol=https;AccountName=<myAccoutName;AccountKey=<myAccountAccessKey;EndpointSuffix=core.windows.net
+      # ConnectionString: shared Secret key ExecutionService_AzureBlob_ConnectionString
       useCloudIdentity: false
   # Optional external integrations. Disabled by default; enable and populate
   # the paired Secret key (see secrets-management.md) to activate.
-  # Internal RabbitMQ broker. Password: shared Secret key QueueService_RabbitMQ_Password
-  internalQueues:
-    enabled: false
-    hostName: localhost
-    virtualHost: "/"
-    username: redpointrpi
-    port: 5672
-    isDurable: true
   # Azure Web PubSub. ConnectionString: shared Secret key PubSub_ConnectionString
   pubSub:
     enabled: false
@@ -818,9 +809,8 @@ integrationapi:
   enabled: true
   replicas: 1
   enableRPIAuthentication: true
-  # Credentials (required if Smart Activation is enabled)
+  # Service account used by Smart Activation (required if enabled). Password: shared Secret key CDP_Integration_Password
   username: admin@noemail.com
-  password: my_Super_Strong_Pwd
   autoscaling:
     enabled: false
 
@@ -897,6 +887,10 @@ queuereader:
     rabbitmqSettings:
       # username defaults to the release namespace; set to override.
       username: ""
+  # Chart-managed Redis for distributed mode (realtimeConfiguration.isDistributed)
+  internalCache:
+    redisSettings:
+      replicas: 1
   errorQueuePath: listenerQueueError
   nonActiveQueuePath: listenerQueueNonActive
   # Optional external integrations. Disabled by default; enable and populate
@@ -922,7 +916,7 @@ queuereader:
 # ==========================
 rebrandly:
   enabled: false
-  apiKey: my_rebrandly_api_key
+  # ApiKey: shared Secret key Rebrandly_ApiKey
   redisSettings:
     # internal: chart-managed Redis | external: BYO Redis. For external, populate
     # the shared Secret key Rebrandly_Redis_Password (sdk mode resolves it from
@@ -937,7 +931,7 @@ diagnosticsMode:
   copytoAzureBlob:
     enabled: false
     accountName: <yourstorageaccount>
-    accessKey: <yourstorageaccount-access-key>
+    # AccessKey: shared Secret key CopyToAzureBlobAccessKey
     containerName: <yourstorageaccount-container-name>
     blobServiceEndpoint: https://yourstorage.blob.core.windows.net
     enableCdn: false
@@ -948,7 +942,7 @@ diagnosticsMode:
     enabled: false
     sftpHost: <your-sftp-host>
     sftpUsername: <your-sftp-username>
-    sftpPassword: <your-sftp-password>
+    # Password: shared Secret key CopyToSFTPSecureFTPPassword
     sftpPort: "22"
     # Transfer diagnostics over SFTP rather than plain FTP
     useSftp: true
@@ -1191,24 +1185,25 @@ redpointAI:
 # ==========================
 smartActivation:
   enabled: false
-  secretName: rpi-smartactivation
 
 # Auth Service (Smart Activation)
 authservice:
   replicas: 1
+  resources:
+    # JVM options for the Auth Service container
+    java_opts: "-Xmx750m"
+  # Seconds Kubernetes waits for an Auth Service pod to stop before killing it.
+  terminationGracePeriodSeconds: 120
+  # Web UI admin password: shared Secret key CDP_Default_Password
   default_username: admin@noemail.com
-  default_password: my_Super_Strong_Pwd
 
 # Keycloak (Smart Activation)
 keycloak:
   replicas: 1
   hostname: keycloak
   username: admin@noemail.com
-  password: my_Super_Strong_Pwd
   database_name: keycloak
   realm_name: redpoint-mercury
-  realm_client_id: rpi-service
-  realm_client_secret: <my-realm-client-secret>
 
 # Reporting Service
 reportingservice:
@@ -1216,7 +1211,7 @@ reportingservice:
     enabled: false
     api_url: https://api.us.azure.sigmacomputing.com
     client_id: 48dd1982ab835ff53177e9cbd7fb5608b1db8c56491a040f2f0843a3bfc6b440
-    client_secret: my_sigma_client_secret
+    # Client secret: shared Secret key CDP_SIGMA_Client_Secret
 
 # Init Service (Smart Activation)
 initservice:
@@ -1224,11 +1219,10 @@ initservice:
   database:
     operational:
       name: smart_activation_db
-      connection_string: mongodb+srv://<my_username>:<my_password>@<my_hostname>/?retryWrites=true&w=majority
+      # Connection string: shared Secret key CDP_Mongo_ConnectionString
 
 # Message Queue (Smart Activation)
 messageq:
-  replicas: 1
   username: redpointrpi
 
 # Maintenance Service (Smart Activation)
@@ -1250,7 +1244,6 @@ uiservice:
 
 # CDP Cache (Smart Activation)
 cdpcache:
-  enabled: true
   replicas: 1
 
 # ==========================

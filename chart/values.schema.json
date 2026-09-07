@@ -142,10 +142,6 @@
               "type": "string",
               "description": "Database server username"
             },
-            "server_password": {
-              "type": "string",
-              "description": "Database server password"
-            },
             "pulse_database_name": {
               "type": "string",
               "description": "Name of the Pulse operational database"
@@ -192,8 +188,8 @@
                   "description": "Graceful shutdown window (e.g. '30s')"
                 },
                 "resources": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/definitions/resources",
+                  "description": "Resource requests and limits for the Cloud SQL Auth Proxy sidecar."
                 },
                 "additionalArgs": {
                   "type": "array",
@@ -533,8 +529,81 @@
               "description": "SecretProviderClass definitions for CSI driver",
               "items": {
                 "type": "object",
-                "additionalProperties": true
+                "additionalProperties": true,
+                "properties": {
+                  "parameters": {
+                    "type": "object",
+                    "description": "Provider-specific driver parameters, passed verbatim to the SecretProviderClass (keys differ per provider).",
+                    "additionalProperties": true
+                  },
+                  "secretObjects": {
+                    "type": "array",
+                    "description": "Kubernetes Secret synced from mounted objects.",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "description": "Kubernetes Secret type (e.g. Opaque, kubernetes.io/tls)."
+                        },
+                        "data": {
+                          "type": "array",
+                          "description": "Key mapping inside the synced Secret.",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "properties": {
+                              "key": {
+                                "type": "string",
+                                "description": "Key inside the synced Kubernetes Secret."
+                              },
+                              "objectName": {
+                                "type": "string",
+                                "description": "Vault object whose value fills the key."
+                              }
+                            }
+                          }
+                        },
+                        "secretName": {
+                          "type": "string",
+                          "description": "Kubernetes Secret the driver syncs the objects into."
+                        }
+                      }
+                    }
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "SecretProviderClass name."
+                  },
+                  "objects": {
+                    "type": "array",
+                    "description": "Vault object to mount.",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "objectName": {
+                          "type": "string",
+                          "description": "Vault object name to mount."
+                        },
+                        "objectType": {
+                          "type": "string",
+                          "description": "Vault object type (secret, key, cert)."
+                        }
+                      }
+                    }
+                  },
+                  "provider": {
+                    "type": "string",
+                    "description": "CSI secrets-store provider (azure, aws, gcp, vault)."
+                  }
+                }
               }
+            },
+            "syncService": {
+              "type": "string",
+              "description": "Which service's pod mounts the SecretProviderClass to trigger the CSI sync into the Kubernetes Secret (none disables the sync pod)."
             }
           }
         }
@@ -578,6 +647,14 @@
               "additionalProperties": {
                 "type": "string"
               }
+            },
+            "mountOptions": {
+              "type": "array",
+              "description": "Mount options for the chart-managed StorageClass."
+            },
+            "volumeBindingMode": {
+              "type": "string",
+              "description": "Volume binding mode of the chart-managed StorageClass (Immediate or WaitForFirstConsumer)."
             }
           }
         },
@@ -652,6 +729,10 @@
             "type": "object",
             "additionalProperties": true
           }
+        },
+        "dynamicPVCs": {
+          "type": "array",
+          "description": "Additional PersistentVolumeClaims the chart creates from the storage class."
         }
       }
     },
@@ -1037,7 +1118,17 @@
                 "redisSettings": {
                   "type": "object",
                   "additionalProperties": true,
-                  "description": "Internal cache StatefulSet tuning (resources, volumeClaimTemplates)."
+                  "description": "Internal cache StatefulSet tuning (resources, volumeClaimTemplates).",
+                  "properties": {
+                    "resources": {
+                      "$ref": "#/definitions/workloadResources",
+                      "description": "Resource requests and limits for the chart-managed Realtime Redis."
+                    },
+                    "volumeClaimTemplates": {
+                      "$ref": "#/definitions/volumeClaimTemplatesBasic",
+                      "description": "Persistent volume claim template for the chart-managed Realtime Redis."
+                    }
+                  }
                 },
                 "type": {
                   "type": "string",
@@ -1222,7 +1313,29 @@
                 "rabbitmqSettings": {
                   "type": "object",
                   "additionalProperties": true,
-                  "description": "RabbitMQ settings. username defaults to the release namespace; hostname applies to external (BYO) RabbitMQ."
+                  "description": "RabbitMQ settings. username defaults to the release namespace; hostname applies to external (BYO) RabbitMQ.",
+                  "properties": {
+                    "resources": {
+                      "$ref": "#/definitions/workloadResources",
+                      "description": "Resource requests and limits for the chart-managed Realtime RabbitMQ."
+                    },
+                    "podDisruptionBudget": {
+                      "$ref": "#/definitions/podDisruptionBudget",
+                      "description": "PodDisruptionBudget for the chart-managed Realtime RabbitMQ."
+                    },
+                    "volumeClaimTemplates": {
+                      "$ref": "#/definitions/volumeClaimTemplates",
+                      "description": "Persistent volume claim template for the chart-managed Realtime RabbitMQ."
+                    },
+                    "hostname": {
+                      "type": "string",
+                      "description": "RabbitMQ host. The chart-managed broker name for type internal; the customer broker host for type external."
+                    },
+                    "virtualhost": {
+                      "type": "string",
+                      "description": "RabbitMQ virtual host."
+                    }
+                  }
                 },
                 "type": {
                   "type": "string",
@@ -1387,7 +1500,7 @@
           }
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
@@ -1456,7 +1569,7 @@
         },
         "EventDaysToPersistOverride": {
           "type": "integer",
-          "description": "Override for the number of days to persist web events. Unset leaves the application default (NoDaysPersistWebEvents)."
+          "description": "Number of days to persist web events. The chart always sets this value; override it to change the retention."
         },
         "MaxNoVisitorDevicesAllowed": {
           "type": "integer",
@@ -1577,6 +1690,246 @@
               "description": "Service host port."
             }
           }
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "logging": {
+          "type": "object",
+          "description": "Realtime API and Realtime Agent log levels.",
+          "additionalProperties": true,
+          "properties": {
+            "realtimeagent": {
+              "type": "object",
+              "description": "Realtime Agent log levels.",
+              "additionalProperties": true,
+              "properties": {
+                "console": {
+                  "type": "string",
+                  "description": "Console log level."
+                },
+                "database": {
+                  "type": "string",
+                  "description": "Database log sink level."
+                },
+                "default": {
+                  "type": "string",
+                  "description": "Default log level."
+                },
+                "microsoft": {
+                  "type": "string",
+                  "description": "Microsoft namespace log level."
+                },
+                "microsoftHostingLifetime": {
+                  "type": "string",
+                  "description": "Microsoft.Hosting.Lifetime log level."
+                },
+                "rpiError": {
+                  "type": "string",
+                  "description": "Database RPIError level."
+                },
+                "rpiTrace": {
+                  "type": "string",
+                  "description": "Database RPITrace level."
+                }
+              }
+            },
+            "realtimeapi": {
+              "type": "object",
+              "description": "Realtime API log levels.",
+              "additionalProperties": true,
+              "properties": {
+                "console": {
+                  "type": "string",
+                  "description": "Console log level."
+                },
+                "default": {
+                  "type": "string",
+                  "description": "Default log level."
+                },
+                "endpoint": {
+                  "type": "string",
+                  "description": "Endpoint log level."
+                },
+                "nlogTarget": {
+                  "type": "string",
+                  "description": "NLog target name."
+                },
+                "other": {
+                  "type": "string",
+                  "description": "Log level for other namespaces."
+                },
+                "plugins": {
+                  "type": "string",
+                  "description": "Plugin log level."
+                },
+                "shared": {
+                  "type": "string",
+                  "description": "Shared-library log level."
+                }
+              }
+            }
+          }
+        },
+        "CacheOutputCollectIPAddress": {
+          "type": "boolean",
+          "description": "Include the visitor IP address in cache output."
+        },
+        "CacheWebFormData": {
+          "type": "boolean",
+          "description": "Store submitted web-form data in the realtime cache."
+        },
+        "EventListeningLocalCacheDuration": {
+          "type": "integer",
+          "description": "Seconds event-listening data is held in the local cache."
+        },
+        "HashVisitorID": {
+          "type": "boolean",
+          "description": "Hash visitor IDs before storing them."
+        },
+        "ThresholdBetweenPageVisitsMinutes": {
+          "type": "integer",
+          "description": "Minutes between requests that start a new page visit."
+        },
+        "ThresholdBetweenSiteVisitsMinutes": {
+          "type": "integer",
+          "description": "Minutes of inactivity after which a new site visit begins."
+        },
+        "cacheOutputQueueEnabled": {
+          "type": "boolean",
+          "description": "Publish cache output to the cache-output queue."
+        },
+        "decisionCacheDuration": {
+          "type": "integer",
+          "description": "Seconds a decision result is cached."
+        },
+        "enableAuditMetricsInHeaders": {
+          "type": "boolean",
+          "description": "Return audit metrics in response headers."
+        },
+        "enableEventListening": {
+          "type": "boolean",
+          "description": "Enable event listening."
+        },
+        "enableHelpPages": {
+          "type": "boolean",
+          "description": "Serve the Realtime API help pages."
+        },
+        "idValidation": {
+          "type": "object",
+          "description": "Visitor and device ID validation.",
+          "additionalProperties": true,
+          "properties": {
+            "deviceID": {
+              "type": "object",
+              "description": "Device ID validation rules.",
+              "additionalProperties": true,
+              "properties": {
+                "enableLetters": {
+                  "type": "boolean",
+                  "description": "Allow letters in deviceID values."
+                },
+                "enableNumbers": {
+                  "type": "boolean",
+                  "description": "Allow digits in deviceID values."
+                },
+                "maximumLength": {
+                  "type": "integer",
+                  "description": "Maximum deviceID length."
+                },
+                "minimumLength": {
+                  "type": "integer",
+                  "description": "Minimum deviceID length."
+                },
+                "permittedCharacters": {
+                  "type": "array",
+                  "description": "Additional characters permitted in deviceID values.",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "enableDeviceIDValidation": {
+              "type": "boolean",
+              "description": "Validate incoming device IDs against the deviceID rules."
+            },
+            "enableVisitorIDValidation": {
+              "type": "boolean",
+              "description": "Validate incoming visitor IDs against the visitorID rules."
+            },
+            "visitorID": {
+              "type": "object",
+              "description": "Visitor ID validation rules.",
+              "additionalProperties": true,
+              "properties": {
+                "enableLetters": {
+                  "type": "boolean",
+                  "description": "Allow letters in visitorID values."
+                },
+                "enableNumbers": {
+                  "type": "boolean",
+                  "description": "Allow digits in visitorID values."
+                },
+                "maximumLength": {
+                  "type": "integer",
+                  "description": "Maximum visitorID length."
+                },
+                "minimumLength": {
+                  "type": "integer",
+                  "description": "Minimum visitorID length."
+                },
+                "permittedCharacters": {
+                  "type": "array",
+                  "description": "Additional characters permitted in visitorID values.",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "multitenant": {
+          "type": "boolean",
+          "description": "Run the Realtime API in multi-tenant mode. Required for realtimeapi.clientAddressOverrides."
         }
       }
     },
@@ -1595,7 +1948,7 @@
         },
         "replicas": {
           "type": "integer",
-          "description": "Number of Callback API pod replicas",
+          "description": "Callback API replicas. Applies to the standard deployment and, when multitenancy.enabled is true, to every per-tenant instance deployment.",
           "minimum": 0
         },
         "channelLabel": {
@@ -1615,7 +1968,7 @@
         },
         "instances": {
           "type": "array",
-          "description": "List of tenant instances when multitenancy is enabled",
+          "description": "Per-tenant Callback API instances rendered when multitenancy.enabled is true. Each instance uses callbackapi.replicas.",
           "items": {
             "type": "object",
             "additionalProperties": true,
@@ -1623,22 +1976,61 @@
               "name": {
                 "type": "string",
                 "description": "Tenant instance name"
-              },
-              "replicas": {
-                "type": "integer",
-                "description": "Replica count for this tenant",
-                "minimum": 0
               }
             }
           }
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "logging": {
+          "$ref": "#/definitions/rpiLogging",
+          "description": "Log settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -1691,10 +2083,6 @@
                   "type": "string",
                   "description": "Azure Blob container name"
                 },
-                "connectionString": {
-                  "type": "string",
-                  "description": "Azure Storage connection string"
-                },
                 "useCloudIdentity": {
                   "type": "boolean",
                   "description": "Use cloud identity for authentication"
@@ -1739,7 +2127,7 @@
           }
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
@@ -1764,9 +2152,6 @@
                         "boolean",
                         "string"
                       ]
-                    },
-                    "authenticationRef": {
-                      "type": "string"
                     },
                     "metricName": {
                       "type": "string"
@@ -1820,7 +2205,69 @@
                     "behavior": {
                       "type": "object",
                       "additionalProperties": true,
-                      "description": "HPA scaling behavior (scaleUp/scaleDown stabilization and policies)."
+                      "description": "HPA scaling behavior (scaleUp/scaleDown stabilization and policies).",
+                      "properties": {
+                        "scaleDown": {
+                          "type": "object",
+                          "description": "Scale-down behavior.",
+                          "additionalProperties": true,
+                          "properties": {
+                            "policies": {
+                              "type": "object",
+                              "description": "Scale-down policy.",
+                              "additionalProperties": true,
+                              "properties": {
+                                "periodSeconds": {
+                                  "type": "integer",
+                                  "description": "Length of the policy period in seconds."
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "description": "Scaling policy type: Percent or Pods."
+                                },
+                                "value": {
+                                  "type": "integer",
+                                  "description": "Amount the policy may change the replica count per period."
+                                }
+                              }
+                            },
+                            "stabilizationWindowSeconds": {
+                              "type": "integer",
+                              "description": "Seconds of metric history considered before a scaleDown decision."
+                            }
+                          }
+                        },
+                        "scaleUp": {
+                          "type": "object",
+                          "description": "Scale-up behavior.",
+                          "additionalProperties": true,
+                          "properties": {
+                            "policies": {
+                              "type": "object",
+                              "description": "Scale-up policy.",
+                              "additionalProperties": true,
+                              "properties": {
+                                "periodSeconds": {
+                                  "type": "integer",
+                                  "description": "Length of the policy period in seconds."
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "description": "Scaling policy type: Percent or Pods."
+                                },
+                                "value": {
+                                  "type": "integer",
+                                  "description": "Amount the policy may change the replica count per period."
+                                }
+                              }
+                            },
+                            "stabilizationWindowSeconds": {
+                              "type": "integer",
+                              "description": "Seconds of metric history considered before a scaleUp decision."
+                            }
+                          }
+                        }
+                      }
                     },
                     "terminationGracePeriodSeconds": {
                       "type": [
@@ -1921,6 +2368,39 @@
                   }
                 }
               }
+            },
+            "luxSci": {
+              "type": "object",
+              "description": "LuxSci channel throttling.",
+              "additionalProperties": true,
+              "properties": {
+                "maxConcurrentApiRequestsPerAccount": {
+                  "type": "integer",
+                  "description": "Maximum concurrent LuxSci API requests per account."
+                },
+                "maxDegreeOfParallelism": {
+                  "type": "integer",
+                  "description": "Maximum parallel LuxSci operations."
+                },
+                "numberOfDaysToBacktrack": {
+                  "type": "integer",
+                  "description": "Days of LuxSci history to backtrack when collecting results."
+                }
+              }
+            },
+            "maxSmartAssetInstancesForOfferReporting": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "description": "Maximum smart-asset instances included in offer reporting."
+            },
+            "rpdmOApiRequestTimeout": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "description": "Timeout in seconds for Redpoint Data Management OAPI requests."
             }
           }
         },
@@ -2004,37 +2484,6 @@
                 "type": "string",
                 "description": "Variable value."
               }
-            }
-          }
-        },
-        "internalQueues": {
-          "type": "object",
-          "description": "Internal RabbitMQ broker connection. Disabled by default; set enabled: true and populate Secret key QueueService_RabbitMQ_Password.",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable the internal RabbitMQ broker connection."
-            },
-            "hostName": {
-              "type": "string",
-              "description": "RabbitMQ host name."
-            },
-            "virtualHost": {
-              "type": "string",
-              "description": "RabbitMQ virtual host."
-            },
-            "username": {
-              "type": "string",
-              "description": "RabbitMQ username."
-            },
-            "port": {
-              "type": "integer",
-              "description": "RabbitMQ port."
-            },
-            "isDurable": {
-              "type": "boolean",
-              "description": "Declare queues as durable."
             }
           }
         },
@@ -2166,6 +2615,93 @@
               }
             }
           }
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "extraEnvs": {
+          "type": "array",
+          "description": "Extra environment variable.",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Emit this environment variable."
+              },
+              "name": {
+                "type": "string",
+                "description": "Environment variable name."
+              },
+              "value": {
+                "type": "string",
+                "description": "Environment variable value."
+              }
+            }
+          }
+        },
+        "seedService": {
+          "type": "object",
+          "description": "Seed-service resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxNumberRetries": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "description": "Maximum retries when the seed service fails to load."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between seed-service retries."
+            },
+            "memoryCacheSize": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "description": "Seed-service in-memory cache size."
+            }
+          }
         }
       }
     },
@@ -2238,7 +2774,7 @@
           "description": "Enable RPI authentication for this service"
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
@@ -2498,6 +3034,73 @@
               }
             }
           }
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "allowSavingLoginDetails": {
+          "type": "boolean",
+          "description": "Allow the RPI client to remember login details."
+        },
+        "alwaysShowClientsAtLogin": {
+          "type": "boolean",
+          "description": "Always show the tenant (client) picker on the login screen."
+        },
+        "authMetaHttpEnabled": {
+          "type": "boolean",
+          "description": "Resolve the RPI authentication metadata over plain HTTP inside the cluster instead of the public HTTPS host."
+        },
+        "productUpdateFeed": {
+          "type": "object",
+          "description": "Product-update feed shown in the RPI client.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Show the Redpoint product-update feed in the RPI client."
+            },
+            "url": {
+              "type": "string",
+              "description": "URL of the product-update feed."
+            }
+          }
         }
       }
     },
@@ -2523,17 +3126,72 @@
           "type": "string",
           "description": "Integration API credentials username (required if Smart Activation is enabled)"
         },
-        "password": {
-          "type": "string",
-          "description": "Integration API credentials password"
-        },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
           "$ref": "#/definitions/autoscaling",
           "description": "Horizontal Pod Autoscaler configuration"
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "logging": {
+          "$ref": "#/definitions/rpiLogging",
+          "description": "Log settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "authMetaHttpEnabled": {
+          "type": "boolean",
+          "description": "Resolve the RPI authentication metadata over plain HTTP inside the cluster instead of the public HTTPS host."
+        },
+        "enableSwagger": {
+          "type": "boolean",
+          "description": "Serve the Integration API Swagger UI."
+        },
+        "read_timeout": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Read timeout in milliseconds that the Smart Activation services use when calling the Integration API (emitted only on those pods)."
         }
       }
     },
@@ -2556,7 +3214,7 @@
           "description": "Enable RPI authentication for this service"
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
@@ -2774,6 +3432,46 @@
               }
             }
           }
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -2838,8 +3536,48 @@
           }
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "logging": {
+          "$ref": "#/definitions/rpiLogging",
+          "description": "Log settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "useExternalUserManagement": {
+          "type": "boolean",
+          "description": "Wire the Deployment API to the CDP user-management service (Keycloak). Requires the shared Secret key CDP_Keycloak_Client_Secret. false keeps RPI-native user management."
         }
       }
     },
@@ -2883,7 +3621,25 @@
             "redisSettings": {
               "type": "object",
               "additionalProperties": true,
-              "description": "Internal cache tuning. For type=external the connection string comes from the shared Secret key QueueReader_RedisCache_ConnectionString, never from values."
+              "description": "Internal cache tuning. For type=external the connection string comes from the shared Secret key QueueReader_RedisCache_ConnectionString, never from values.",
+              "properties": {
+                "resources": {
+                  "$ref": "#/definitions/workloadResources",
+                  "description": "Resource requests and limits for the chart-managed Queue Reader Redis."
+                },
+                "podDisruptionBudget": {
+                  "$ref": "#/definitions/podDisruptionBudget",
+                  "description": "PodDisruptionBudget for the chart-managed Queue Reader Redis."
+                },
+                "volumeClaimTemplates": {
+                  "$ref": "#/definitions/volumeClaimTemplates",
+                  "description": "Persistent volume claim template for the chart-managed Queue Reader Redis."
+                },
+                "replicas": {
+                  "type": "integer",
+                  "description": "Replicas of the chart-managed Queue Reader Redis."
+                }
+              }
             },
             "maxNumberRetries": {
               "type": "integer",
@@ -2927,13 +3683,21 @@
               "type": "object",
               "additionalProperties": true,
               "properties": {
-                "hostname": {
-                  "type": "string",
-                  "description": "RabbitMQ hostname (external/BYO)."
-                },
                 "username": {
                   "type": "string",
                   "description": "RabbitMQ username. Defaults to the release namespace."
+                },
+                "resources": {
+                  "$ref": "#/definitions/workloadResources",
+                  "description": "Resource requests and limits for the chart-managed Queue Reader RabbitMQ."
+                },
+                "volumeClaimTemplates": {
+                  "$ref": "#/definitions/volumeClaimTemplates",
+                  "description": "Persistent volume claim template for the chart-managed Queue Reader RabbitMQ."
+                },
+                "virtualhost": {
+                  "type": "string",
+                  "description": "RabbitMQ virtual host used by the chart-managed Queue Reader broker."
                 }
               }
             }
@@ -2948,7 +3712,7 @@
           "description": "Queue path for non-active messages"
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
         },
         "autoscaling": {
@@ -3147,6 +3911,138 @@
               "description": "Service host port."
             }
           }
+        },
+        "customMetrics": {
+          "$ref": "#/definitions/customMetrics",
+          "description": "Prometheus scrape settings for this service."
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "isCacheProcessingEnabled": {
+          "type": "boolean",
+          "description": "Process realtime cache messages."
+        },
+        "isCallbackServiceProcessingEnabled": {
+          "type": "boolean",
+          "description": "Process callback-service messages from the external queue provider."
+        },
+        "isEventProcessingEnabled": {
+          "type": "boolean",
+          "description": "Process realtime event messages."
+        },
+        "isFormProcessingEnabled": {
+          "type": "boolean",
+          "description": "Process web-form submission messages."
+        },
+        "listenerQueueErrorTTLDays": {
+          "type": "integer",
+          "description": "Days a failed listener-queue message is retained before it is discarded."
+        },
+        "listenerQueueNonActiveTTLDays": {
+          "type": "integer",
+          "description": "Days an inactive listener-queue entry is retained."
+        },
+        "maintenanceModeBufferTime": {
+          "type": "string",
+          "description": "Grace period (hh:mm:ss) before maintenance mode takes effect."
+        },
+        "maxBatchSize": {
+          "type": "integer",
+          "description": "Maximum messages read from the queue per batch."
+        },
+        "partitionHandler": {
+          "type": "object",
+          "description": "Partitioned-queue handling.",
+          "additionalProperties": true,
+          "properties": {
+            "deduplicationCacheTTL": {
+              "type": "string",
+              "description": "Lifetime (hh:mm:ss) of the message-deduplication cache."
+            },
+            "offsetPositionTTL": {
+              "type": "string",
+              "description": "Lifetime (hh:mm:ss) of stored partition offsets."
+            },
+            "partitionLockDuration": {
+              "type": "string",
+              "description": "How long (hh:mm:ss) a partition lock is held."
+            }
+          }
+        },
+        "queueListenerEnabled": {
+          "type": "boolean",
+          "description": "Enable the queue listener."
+        },
+        "seedService": {
+          "type": "object",
+          "description": "Seed-service resilience settings.",
+          "additionalProperties": true,
+          "properties": {
+            "maxNumberRetries": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "description": "Maximum retries when the seed service fails to load."
+            },
+            "maxRetryDelay": {
+              "type": "string",
+              "description": "Delay (hh:mm:ss) between seed-service retries."
+            },
+            "memoryCacheSize": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "description": "Seed-service in-memory cache size."
+            }
+          }
+        },
+        "threadPoolSize": {
+          "type": "integer",
+          "description": "Worker threads processing queue messages."
+        },
+        "timeoutMinutes": {
+          "type": "integer",
+          "description": "Minutes before a message-processing operation times out."
+        },
+        "useMessageLocks": {
+          "type": "boolean",
+          "description": "Lock messages while they are processed so parallel readers do not process the same message."
         }
       }
     },
@@ -3158,10 +4054,6 @@
         "enabled": {
           "type": "boolean",
           "description": "Enable the Rebrandly URL shortener service"
-        },
-        "apiKey": {
-          "type": "string",
-          "description": "Rebrandly API key"
         },
         "redisSettings": {
           "type": "object",
@@ -3187,12 +4079,80 @@
             "port": {
               "type": "integer",
               "description": "Redis port"
+            },
+            "resources": {
+              "$ref": "#/definitions/resources",
+              "description": "Resource requests and limits for the chart-managed Rebrandly Redis."
+            },
+            "volumeClaimTemplates": {
+              "$ref": "#/definitions/volumeClaimTemplatesSized",
+              "description": "Persistent volume claim template for the chart-managed Rebrandly Redis."
             }
           }
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra annotations added to this service's pods.",
+          "additionalProperties": true
+        },
+        "podLabels": {
+          "type": "object",
+          "description": "Extra labels added to this service's pods.",
+          "additionalProperties": true
+        },
+        "replicas": {
+          "type": "integer",
+          "description": "Number of replicas.",
+          "minimum": 0
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "description": "ServiceAccount for this service."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for the pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
+        },
+        "logging": {
+          "type": "object",
+          "description": "Rebrandly service log levels.",
+          "additionalProperties": true,
+          "properties": {
+            "aspNetCore": {
+              "type": "string",
+              "description": "ASP.NET Core log level."
+            },
+            "default": {
+              "type": "string",
+              "description": "Default log level."
+            }
+          }
+        },
+        "baseUrl": {
+          "type": "string",
+          "description": "Rebrandly API base URL."
+        },
+        "enterpriseBaseUrl": {
+          "type": "string",
+          "description": "Rebrandly enterprise API base URL."
         }
       }
     },
@@ -3209,6 +4169,14 @@
             "enabled": {
               "type": "boolean",
               "description": "Enable .NET diagnostic tools"
+            },
+            "useCounters": {
+              "type": "boolean",
+              "description": "Enable dotnet-counters collection in diagnostics mode."
+            },
+            "useGcDump": {
+              "type": "boolean",
+              "description": "Enable dotnet-gcdump collection in diagnostics mode."
             }
           }
         },
@@ -3224,10 +4192,6 @@
             "accountName": {
               "type": "string",
               "description": "Azure Storage account name"
-            },
-            "accessKey": {
-              "type": "string",
-              "description": "Azure Storage access key"
             },
             "containerName": {
               "type": "string",
@@ -3268,10 +4232,6 @@
               "type": "string",
               "description": "SFTP username"
             },
-            "sftpPassword": {
-              "type": "string",
-              "description": "SFTP password"
-            },
             "sftpPort": {
               "type": "string",
               "description": "SFTP port"
@@ -3279,6 +4239,21 @@
             "useSftp": {
               "type": "boolean",
               "description": "Transfer diagnostics over SFTP rather than plain FTP"
+            }
+          }
+        },
+        "netutils": {
+          "type": "object",
+          "description": "Network-utilities diagnostics pod.",
+          "additionalProperties": true,
+          "properties": {
+            "securityContext": {
+              "$ref": "#/definitions/netutilsSecurityContext",
+              "description": "Security context for the network-utilities pod."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Deploy the network-utilities pod for connectivity troubleshooting."
             }
           }
         }
@@ -3402,10 +4377,6 @@
         "SMTP_Username": {
           "type": "string",
           "description": "SMTP authentication username"
-        },
-        "SMTP_Password": {
-          "type": "string",
-          "description": "SMTP authentication password"
         }
       }
     },
@@ -3539,6 +4510,21 @@
         "className": {
           "type": "string",
           "description": "Ingress class name override (defaults to release namespace)"
+        },
+        "internalImageOverride": {
+          "type": "object",
+          "description": "Ingress controller image override.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Pull the ingress-nginx controller from the image below instead of the public registry (air-gapped or mirrored registries)."
+            },
+            "image": {
+              "type": "string",
+              "description": "Full ingress-nginx controller image reference used when enabled."
+            }
+          }
         }
       }
     },
@@ -3550,6 +4536,10 @@
         "enabled": {
           "type": "boolean",
           "description": "Enable Kubernetes network policies"
+        },
+        "allowDNS": {
+          "type": "boolean",
+          "description": "Allow DNS egress from every service pod when the network policy is enabled."
         }
       }
     },
@@ -3595,6 +4585,16 @@
               }
             }
           }
+        },
+        "podAnnotations": {
+          "type": "object",
+          "description": "Extra pod annotations added when the service mesh is enabled, passed verbatim.",
+          "additionalProperties": true
+        },
+        "serverDefaults": {
+          "type": "object",
+          "description": "Linkerd Server defaults applied to every service, passed verbatim.",
+          "additionalProperties": true
         }
       }
     },
@@ -3658,10 +4658,6 @@
           "description": "Natural language AI settings (OpenAI / Azure OpenAI)",
           "additionalProperties": false,
           "properties": {
-            "ApiKey": {
-              "type": "string",
-              "description": "OpenAI API key"
-            },
             "ApiBase": {
               "type": "string",
               "description": "OpenAI API base URL"
@@ -3699,10 +4695,6 @@
             "SearchEndpoint": {
               "type": "string",
               "description": "Cognitive Search endpoint URL"
-            },
-            "SearchKey": {
-              "type": "string",
-              "description": "Cognitive Search API key"
             }
           }
         },
@@ -3711,10 +4703,6 @@
           "description": "Model storage settings",
           "additionalProperties": false,
           "properties": {
-            "ConnectionString": {
-              "type": "string",
-              "description": "Azure Storage connection string for models"
-            },
             "EmbeddingsModel": {
               "type": "string",
               "description": "Embeddings model name"
@@ -3743,10 +4731,6 @@
         "enabled": {
           "type": "boolean",
           "description": "Enable Smart Activation (CDP) services"
-        },
-        "secretName": {
-          "type": "string",
-          "description": "Kubernetes secret name for Smart Activation"
         }
       }
     },
@@ -3764,13 +4748,43 @@
           "type": "string",
           "description": "Default admin username"
         },
-        "default_password": {
-          "type": "string",
-          "description": "Default admin password"
-        },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/javaResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/cdpAutoscaling",
+          "description": "Horizontal Pod Autoscaler configuration for this service."
+        },
+        "logging": {
+          "$ref": "#/definitions/cdpLogging",
+          "description": "Log settings for this service."
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Seconds Kubernetes waits for an Auth Service pod to stop gracefully before killing it.",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3792,10 +4806,6 @@
           "type": "string",
           "description": "Keycloak admin username"
         },
-        "password": {
-          "type": "string",
-          "description": "Keycloak admin password"
-        },
         "database_name": {
           "type": "string",
           "description": "Keycloak database name"
@@ -3804,17 +4814,34 @@
           "type": "string",
           "description": "Keycloak realm name"
         },
-        "realm_client_id": {
-          "type": "string",
-          "description": "Keycloak realm client ID"
-        },
-        "realm_client_secret": {
-          "type": "string",
-          "description": "Keycloak realm client secret"
-        },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollingUpdate": {
+          "$ref": "#/definitions/rollingUpdate",
+          "description": "RollingUpdate strategy for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/keycloakSecurityContext",
+          "description": "Security context for Keycloak; overrides the chart-wide securityContext."
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3839,10 +4866,6 @@
             "client_id": {
               "type": "string",
               "description": "Sigma client ID"
-            },
-            "client_secret": {
-              "type": "string",
-              "description": "Sigma client secret"
             }
           }
         }
@@ -3871,18 +4894,39 @@
                 "name": {
                   "type": "string",
                   "description": "Database name"
-                },
-                "connection_string": {
-                  "type": "string",
-                  "description": "MongoDB connection string"
                 }
               }
             }
           }
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/javaResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "logging": {
+          "$ref": "#/definitions/cdpLogging",
+          "description": "Log settings for this service."
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3891,11 +4935,6 @@
       "description": "Message Queue service configuration (Smart Activation component)",
       "additionalProperties": true,
       "properties": {
-        "replicas": {
-          "type": "integer",
-          "description": "Number of Message Queue pod replicas",
-          "minimum": 0
-        },
         "username": {
           "type": "string",
           "description": "Message queue username"
@@ -3903,6 +4942,18 @@
         "resources": {
           "$ref": "#/definitions/resources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "volumeClaimTemplates": {
+          "$ref": "#/definitions/volumeClaimTemplatesStorageOnly",
+          "description": "Persistent volume claim template for this service."
         }
       }
     },
@@ -3917,8 +4968,29 @@
           "minimum": 0
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3937,8 +5009,37 @@
           "description": "Enable SSO for Services API"
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/javaResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/cdpAutoscaling",
+          "description": "Horizontal Pod Autoscaler configuration for this service."
+        },
+        "logging": {
+          "$ref": "#/definitions/cdpLogging",
+          "description": "Log settings for this service."
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3953,8 +5054,33 @@
           "minimum": 0
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/cdpAutoscaling",
+          "description": "Horizontal Pod Autoscaler configuration for this service."
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3969,8 +5095,33 @@
           "minimum": 0
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/cdpAutoscaling",
+          "description": "Horizontal Pod Autoscaler configuration for this service."
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "rollout": {
+          "$ref": "#/definitions/rollout",
+          "description": "Argo Rollout settings, used when type is rollout."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "type": {
+          "type": "string",
+          "description": "Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful services use StatefulSet.",
+          "enum": [
+            "deployment",
+            "rollout",
+            "StatefulSet"
+          ]
         }
       }
     },
@@ -3979,18 +5130,26 @@
       "description": "CDP Cache service configuration (Smart Activation component)",
       "additionalProperties": true,
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable CDP Cache service"
-        },
         "replicas": {
           "type": "integer",
-          "description": "Number of CDP Cache pod replicas",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Number of CDP Cache StatefulSet replicas."
         },
         "resources": {
-          "$ref": "#/definitions/resources",
+          "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "description": "PodDisruptionBudget for this service."
+        },
+        "securityContext": {
+          "$ref": "#/definitions/workloadSecurityContext",
+          "description": "Security context for this service; overrides the chart-wide securityContext."
+        },
+        "volumeClaimTemplates": {
+          "$ref": "#/definitions/volumeClaimTemplatesStorageOnly",
+          "description": "Persistent volume claim template for this service."
         }
       }
     },
@@ -4049,6 +5208,43 @@
               "description": "Recipient email for upgrade notifications"
             }
           }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "description": "Resource requests and limits for the database-upgrade Job."
+        },
+        "activeDeadlineSeconds": {
+          "type": "integer",
+          "description": "Seconds the database-upgrade Job may run before Kubernetes terminates it."
+        },
+        "backoffLimit": {
+          "type": "integer",
+          "description": "Retries before the database-upgrade Job is marked failed."
+        },
+        "maxReadyWaitSeconds": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Seconds the Job waits for the Deployment API to report ready before starting the upgrade."
+        },
+        "pollIntervalSeconds": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Seconds between readiness polls of the Deployment API."
+        },
+        "ttlSecondsAfterFinished": {
+          "type": "integer",
+          "description": "Seconds a finished Job is retained before Kubernetes deletes it."
+        },
+        "waitTimeoutSeconds": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Seconds the Job waits for the upgrade call to complete."
         }
       }
     },
@@ -4057,10 +5253,6 @@
       "description": "Validation pods that verify storage mounts and CSI secret mounts are working",
       "additionalProperties": true,
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable validation pod deployments"
-        },
         "deployments": {
           "type": "array",
           "description": "List of validation pod deployment definitions",
@@ -4068,6 +5260,10 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Render this validation pod. Default true; set false to skip the entry without deleting it."
+              },
               "name": {
                 "type": "string",
                 "description": "Validation pod deployment name"
@@ -4102,29 +5298,43 @@
       }
     },
     "securityContext": {
-      "type": "object",
-      "description": "Global pod security context overrides (merged with defaults from _defaults.tpl)",
-      "additionalProperties": true
+      "$ref": "#/definitions/chartSecurityContext",
+      "description": "Global pod security context overrides (merged with defaults from _defaults.tpl)"
     },
     "livenessProbe": {
-      "type": "object",
-      "description": "Global liveness probe overrides (merged with defaults from _defaults.tpl)",
-      "additionalProperties": true
+      "$ref": "#/definitions/probe",
+      "description": "Global liveness probe overrides (merged with defaults from _defaults.tpl)"
     },
     "readinessProbe": {
-      "type": "object",
-      "description": "Global readiness probe overrides (merged with defaults from _defaults.tpl)",
-      "additionalProperties": true
+      "$ref": "#/definitions/probe",
+      "description": "Global readiness probe overrides (merged with defaults from _defaults.tpl)"
     },
     "startupProbe": {
-      "type": "object",
-      "description": "Global startup probe overrides (merged with defaults from _defaults.tpl)",
-      "additionalProperties": true
+      "$ref": "#/definitions/probe",
+      "description": "Global startup probe overrides (merged with defaults from _defaults.tpl)"
     },
     "topologySpreadConstraints": {
       "type": "object",
       "description": "Global topology spread constraints overrides (merged with defaults from _defaults.tpl)",
-      "additionalProperties": true
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Spread each service's pods across the topology key below."
+        },
+        "maxSkew": {
+          "type": "integer",
+          "description": "Maximum difference in pod count between topology domains."
+        },
+        "topologyKey": {
+          "type": "string",
+          "description": "Node label used as the topology domain (e.g. kubernetes.io/hostname)."
+        },
+        "whenUnsatisfiable": {
+          "type": "string",
+          "description": "DoNotSchedule or ScheduleAnyway when the constraint cannot be met."
+        }
+      }
     },
     "resources": {
       "$ref": "#/definitions/resources",
@@ -4205,7 +5415,97 @@
         "karpenter": {
           "type": "object",
           "description": "Karpenter NodePool configuration",
-          "additionalProperties": true
+          "additionalProperties": true,
+          "properties": {
+            "nodePool": {
+              "type": "object",
+              "description": "nodePool settings.",
+              "additionalProperties": true,
+              "properties": {
+                "disruption": {
+                  "type": "object",
+                  "description": "Node consolidation settings.",
+                  "additionalProperties": true,
+                  "properties": {
+                    "consolidateAfter": {
+                      "type": "string",
+                      "description": "How long a node stays underutilized before consolidation (e.g. 15m)."
+                    },
+                    "consolidationPolicy": {
+                      "type": "string",
+                      "description": "Karpenter consolidation policy: WhenEmpty or WhenEmptyOrUnderutilized."
+                    }
+                  }
+                },
+                "expireAfter": {
+                  "type": "string",
+                  "description": "Node lifetime before Karpenter replaces it (e.g. 360h)."
+                },
+                "labels": {
+                  "type": "object",
+                  "description": "Labels applied to provisioned nodes, passed verbatim to the NodePool spec.",
+                  "additionalProperties": true
+                },
+                "limits": {
+                  "type": "object",
+                  "description": "Resource ceilings for the pool.",
+                  "additionalProperties": true,
+                  "properties": {
+                    "cpu": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Maximum total CPU the pool may provision."
+                    },
+                    "memory": {
+                      "type": "string",
+                      "description": "Maximum total memory the pool may provision."
+                    }
+                  }
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Name of the Karpenter NodePool created for RPI workloads."
+                },
+                "nodeClassRef": {
+                  "type": "object",
+                  "description": "Reference to the cloud node class the pool provisions from.",
+                  "additionalProperties": true,
+                  "properties": {
+                    "group": {
+                      "type": "string",
+                      "description": "API group of the node class the pool references."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "Kind of the node class the pool references (e.g. EC2NodeClass)."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Name of the node class the pool references."
+                    }
+                  }
+                },
+                "requirements": {
+                  "type": "array",
+                  "description": "Karpenter scheduling requirements, passed verbatim to the NodePool spec."
+                },
+                "startupTaints": {
+                  "type": "array",
+                  "description": "Startup taints applied to provisioned nodes, passed verbatim to the NodePool spec."
+                },
+                "taints": {
+                  "type": "array",
+                  "description": "Taints applied to provisioned nodes, passed verbatim to the NodePool spec."
+                },
+                "weight": {
+                  "type": "integer",
+                  "description": "NodePool weight; higher wins when several pools satisfy a pod."
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -4218,15 +5518,6 @@
           "type": "boolean",
           "description": "Enable custom CA certificate mounting",
           "default": false
-        },
-        "source": {
-          "type": "string",
-          "description": "Source type for CA certificates",
-          "enum": [
-            "configMap",
-            "secret"
-          ],
-          "default": "configMap"
         },
         "name": {
           "type": "string",
@@ -4471,6 +5762,470 @@
         "targetCPUUtilizationPercentage": {
           "type": "integer",
           "description": "Target CPU utilization percentage for autoscaling"
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "description": "Target average memory utilization percentage for the autoscaler",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "workloadResources": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/resources"
+        },
+        {
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Apply the requests and limits below to the container. false deploys the container without resource constraints."
+            }
+          }
+        }
+      ],
+      "description": "CPU and memory resource requests and limits for the service container."
+    },
+    "cdpAutoscaling": {
+      "type": "object",
+      "description": "Horizontal Pod Autoscaler configuration",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable horizontal pod autoscaling"
+        },
+        "minReplicas": {
+          "type": "integer",
+          "description": "Minimum number of replicas",
+          "minimum": 0
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "description": "Maximum number of replicas",
+          "minimum": 1
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "description": "Target average CPU utilization percentage for the autoscaler",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "description": "Target average memory utilization percentage for the autoscaler",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "description": "PodDisruptionBudget for this workload.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Create a PodDisruptionBudget for the workload."
+        },
+        "minAvailable": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Minimum pods that must stay available during voluntary disruption (count or percentage)."
+        }
+      }
+    },
+    "rollout": {
+      "type": "object",
+      "description": "Argo Rollout settings, used when type is rollout.",
+      "additionalProperties": true,
+      "properties": {
+        "autoPromotionEnabled": {
+          "type": "boolean",
+          "description": "Promote the new revision automatically once it is healthy."
+        },
+        "revisionHistoryLimit": {
+          "type": "integer",
+          "description": "Number of old ReplicaSets retained for rollback.",
+          "minimum": 0
+        }
+      }
+    },
+    "rollingUpdate": {
+      "type": "object",
+      "description": "RollingUpdate strategy for the Deployment.",
+      "additionalProperties": true,
+      "properties": {
+        "maxSurge": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Maximum pods created above the desired count during an update (count or percentage)."
+        },
+        "maxUnavailable": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Maximum pods that may be unavailable during an update (count or percentage)."
+        }
+      }
+    },
+    "workloadSecurityContext": {
+      "type": "object",
+      "description": "Pod and container security context for this workload. Overrides the chart-wide securityContext.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Emit the security context on the pod and container."
+        },
+        "runAsUser": {
+          "type": "integer",
+          "description": "UID the container runs as."
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "description": "Primary GID of the container process."
+        },
+        "fsGroup": {
+          "type": "integer",
+          "description": "GID applied to mounted volumes."
+        },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "description": "Require the container to run as a non-root user."
+        },
+        "privileged": {
+          "type": "boolean",
+          "description": "Run the container in privileged mode."
+        },
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "description": "Allow the process to gain more privileges than its parent."
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean",
+          "description": "Mount the container root filesystem read-only."
+        },
+        "appArmorProfile": {
+          "type": "string",
+          "description": "AppArmor profile applied to the container; empty for none."
+        },
+        "capabilities": {
+          "type": "object",
+          "description": "Linux capabilities.",
+          "additionalProperties": true,
+          "properties": {
+            "drop": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Capabilities dropped from the container."
+            }
+          }
+        }
+      }
+    },
+    "chartSecurityContext": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/workloadSecurityContext"
+        },
+        {
+          "properties": {
+            "supplementalGroups": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "description": "Additional GIDs applied to the pod."
+            }
+          }
+        }
+      ],
+      "description": "Chart-wide pod and container security context; services may override it."
+    },
+    "netutilsSecurityContext": {
+      "type": "object",
+      "description": "Security context for the network-utilities pod.",
+      "additionalProperties": true,
+      "properties": {
+        "runAsUser": {
+          "type": "integer",
+          "description": "UID the container runs as."
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "description": "Primary GID of the container process."
+        },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "description": "Require the container to run as a non-root user."
+        },
+        "privileged": {
+          "type": "boolean",
+          "description": "Run the container in privileged mode."
+        },
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "description": "Allow the process to gain more privileges than its parent."
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean",
+          "description": "Mount the container root filesystem read-only."
+        },
+        "capabilities": {
+          "type": "object",
+          "description": "Linux capabilities.",
+          "additionalProperties": true,
+          "properties": {
+            "add": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Capabilities added (NET_ADMIN and NET_RAW enable packet tools)."
+            },
+            "drop": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Capabilities dropped from the container."
+            }
+          }
+        }
+      }
+    },
+    "customMetrics": {
+      "type": "object",
+      "description": "Prometheus scrape settings for this service's /metrics endpoint.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Expose the service metrics endpoint for scraping."
+        },
+        "prometheus_scrape": {
+          "type": "boolean",
+          "description": "Add the prometheus.io/scrape pod annotation."
+        }
+      }
+    },
+    "rpiLogging": {
+      "type": "object",
+      "description": "Log levels for this service (Trace, Debug, Information, Warning, Error, Critical, None).",
+      "additionalProperties": true,
+      "properties": {
+        "default": {
+          "type": "string",
+          "description": "Default log level."
+        },
+        "database": {
+          "type": "string",
+          "description": "Database log sink level."
+        },
+        "rpiTrace": {
+          "type": "string",
+          "description": "Database RPITrace level."
+        },
+        "rpiError": {
+          "type": "string",
+          "description": "Database RPIError level."
+        },
+        "Console": {
+          "type": "string",
+          "description": "Console log level."
+        }
+      }
+    },
+    "cdpLogging": {
+      "type": "object",
+      "description": "Log settings for this service.",
+      "additionalProperties": true,
+      "properties": {
+        "verbosity": {
+          "type": "string",
+          "description": "Log verbosity (e.g. DEBUG, INFO, WARN, ERROR)."
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "description": "ServiceAccount for this service.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Create a dedicated ServiceAccount for the service; cloud identity annotations are applied to it."
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "description": "Kubernetes probe timing. The probe endpoint itself is chart-managed.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Emit the probe on every service container."
+        },
+        "initialDelaySeconds": {
+          "type": "integer",
+          "description": "Seconds after container start before the first probe.",
+          "minimum": 0
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "description": "Seconds between probes.",
+          "minimum": 1
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "Seconds before a probe attempt times out.",
+          "minimum": 1
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "description": "Consecutive failures before the probe is considered failed.",
+          "minimum": 1
+        }
+      }
+    },
+    "volumeClaimTemplates": {
+      "type": "object",
+      "description": "Persistent volume claim template for the StatefulSet.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Provision a PersistentVolumeClaim per replica through the StatefulSet; false expects an existing claim."
+        },
+        "storage": {
+          "type": "string",
+          "description": "Requested volume size (e.g. 100Gi)."
+        },
+        "storageClassName": {
+          "type": "string",
+          "description": "StorageClass for the claim; unset uses the cluster default."
+        },
+        "accessModes": {
+          "type": "string",
+          "description": "Access mode for the claim (default ReadWriteOnce)."
+        }
+      }
+    },
+    "volumeClaimTemplatesBasic": {
+      "type": "object",
+      "description": "Persistent volume claim template for the StatefulSet.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Provision a PersistentVolumeClaim per replica through the StatefulSet; false expects an existing claim."
+        },
+        "storage": {
+          "type": "string",
+          "description": "Requested volume size (e.g. 100Gi)."
+        }
+      }
+    },
+    "volumeClaimTemplatesSized": {
+      "type": "object",
+      "description": "Persistent volume claim template for the StatefulSet.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Provision a PersistentVolumeClaim per replica through the StatefulSet; false expects an existing claim."
+        },
+        "size": {
+          "type": "string",
+          "description": "Requested volume size (e.g. 50Gi)."
+        },
+        "storageClassName": {
+          "type": "string",
+          "description": "StorageClass for the claim; unset uses the cluster default."
+        },
+        "accessModes": {
+          "type": "string",
+          "description": "Access mode for the claim (default ReadWriteOnce)."
+        }
+      }
+    },
+    "volumeClaimTemplatesStorageOnly": {
+      "type": "object",
+      "description": "Persistent volume claim template for the StatefulSet.",
+      "additionalProperties": true,
+      "properties": {
+        "storage": {
+          "type": "string",
+          "description": "Requested volume size (e.g. 100Gi)."
+        }
+      }
+    },
+    "javaResources": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/workloadResources"
+        },
+        {
+          "properties": {
+            "java_opts": {
+              "type": "string",
+              "description": "JVM options passed to the service (e.g. -Xmx2150m)."
+            }
+          }
+        }
+      ],
+      "description": "CPU and memory resource requests and limits, plus JVM options."
+    },
+    "keycloakSecurityContext": {
+      "type": "object",
+      "description": "Security context for Keycloak; overrides the chart-wide securityContext.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Emit the security context on the pod and container."
+        },
+        "runAsUser": {
+          "type": "integer",
+          "description": "UID the container runs as."
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "description": "Primary GID of the container process."
+        },
+        "fsGroup": {
+          "type": "integer",
+          "description": "GID applied to mounted volumes."
+        },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "description": "Require the container to run as a non-root user."
+        },
+        "privileged": {
+          "type": "boolean",
+          "description": "Run the container in privileged mode."
+        },
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "description": "Allow the process to gain more privileges than its parent."
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean",
+          "description": "Mount the container root filesystem read-only."
+        },
+        "appArmorProfile": {
+          "type": "string",
+          "description": "AppArmor profile applied to the container; empty for none."
         }
       }
     }
