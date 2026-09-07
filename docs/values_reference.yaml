@@ -2281,7 +2281,9 @@ realtimeapi:
       default: Error
       # Endpoint log level.
       endpoint: Error
-      # NLog target name.
+      # Name of an NLog target to which Realtime API log events are also written (the image
+      # defines async and logconsole). Empty, the default, disables it and the variable is not
+      # emitted.
       nlogTarget: ''
       # Log level for other namespaces.
       other: Error

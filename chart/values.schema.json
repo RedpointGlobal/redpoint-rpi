@@ -1790,7 +1790,7 @@
                 },
                 "nlogTarget": {
                   "type": "string",
-                  "description": "NLog target name."
+                  "description": "Name of an NLog target to which Realtime API log events are also written (the image defines async and logconsole). Empty, the default, disables it and the variable is not emitted."
                 },
                 "other": {
                   "type": "string",

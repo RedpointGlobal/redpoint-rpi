@@ -268,8 +268,10 @@ spec:
             value: {{ $cfg.logging.realtimeapi.default | quote }}
           - name: Logging__RPIRealtime__ConsoleLogging
             value: {{ $cfg.logging.realtimeapi.console | quote }}
+          {{- with $cfg.logging.realtimeapi.nlogTarget }}
           - name: Logging__RPIRealtime__NLogTarget
-            value: {{ $cfg.logging.realtimeapi.nlogTarget | quote }}
+            value: {{ . | quote }}
+          {{- end }}
           - name: Logging__LogLevel__Microsoft
             value: {{ $cfg.logging.realtimeagent.microsoft | quote }}
           - name: Logging__LogLevel__Microsoft.Hosting.Lifetime
