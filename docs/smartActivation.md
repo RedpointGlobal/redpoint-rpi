@@ -3,7 +3,7 @@
 
 [< Back to Home](../README.md)
 
-[RPI Smart Activation](https://docs.redpointglobal.com/cdp/data-activation-overview-page) adds a web-based UI for building segments, audiences, and data activations on top of RPI. It is disabled by default and deployed only when explicitly enabled.
+[RPI Smart Activation](https://docs.redpointglobal.com/cdp/data-activation-overview-page) adds a web based UI for building segments, audiences, and data activations on top of RPI. It is disabled by default and deployed only when explicitly enabled.
 
 > **Advisory:** We recommend you **do not** enable Smart Activation at this time. Contact your Redpoint representative for further details.
 
@@ -33,26 +33,42 @@ Before enabling Smart Activation, ensure you have:
 
 ### 1. Enable Smart Activation
 
-Add the following to your overrides file:
+Smart Activation reads every credential from the RPI Kubernetes Secret
+(`redpoint-rpi-secrets` by default), the same Secret the RPI services use.
+Populate these keys before deploying, using whichever secrets provider your
+deployment runs (`kubernetes`, `csi`, or `sdk`; see
+[Secrets Management](secrets-management.md)). Passwords are never set in the
+overrides file.
+
+| Secret key | Used for |
+|:-----------|:---------|
+| `CDP_Integration_Password` | Password of the Integration API service account (`integrationapi.username`) |
+| `CDP_Default_Password` | Password of the Web UI administrator (`authservice.default_username`) |
+| `CDP_Keycloak_Admin_Password` | Keycloak administrator password (`keycloak.username`) |
+| `CDP_Keycloak_Client_Secret` | Keycloak client secret for the `rpi-service` client |
+| `CDP_Mongo_ConnectionString` | Connection string of the Smart Activation MongoDB database |
+| `CDP_RabbitMQ_Password` | Password of the Smart Activation message queue |
+| `CDP_SIGMA_Client_Secret` | Sigma client secret, only when `reportingservice.sigma.enabled: true` |
+
+Then add the following to your overrides file. Only the usernames and
+database name are configuration; the matching passwords come from the
+Secret keys above.
 
 ```yaml
 smartActivation:
   enabled: true
 
-# Integration API service account credentials (must match the RPI service account)
+# Integration API service account (must match the RPI service account)
 integrationapi:
   username: admin@noemail.com
-  password: <my-secure-password>
 
-# Web UI administrator credentials
+# Web UI administrator
 authservice:
   default_username: admin@noemail.com
-  default_password: <my-secure-password>
 
-# Keycloak administrator credentials
+# Keycloak administrator
 keycloak:
   username: admin@noemail.com
-  password: <my-secure-password>
   database_name: keycloak
 
 # Smart Activation operational database (MongoDB)
@@ -60,7 +76,6 @@ initservice:
   database:
     operational:
       name: smart_activation_db
-      connection_string: mongodb+srv://<username>:<password>@<hostname>/?retryWrites=true&w=majority
 ```
 
 Deploy with Helm:

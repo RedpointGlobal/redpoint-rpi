@@ -93,7 +93,7 @@ spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
     whenScaled: Retain
-  replicas: 1
+  replicas: {{ $cfg.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}

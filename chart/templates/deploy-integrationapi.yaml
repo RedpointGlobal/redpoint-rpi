@@ -203,8 +203,10 @@ spec:
           value: {{ $diag.copytoAzureBlob.blobServiceEndpoint | quote }}
         - name: RPI__Diagnostics__CopyToAzure__EnableCdn
           value: {{ $diag.copytoAzureBlob.enableCdn | quote }}
-        - name: RPI__Diagnostics__CopyToAzure__AzureUseDataLakeStorageGen2
+        - name: RPI__Diagnostics__CopyToAzure__UseDataLakeStorageGen2
           value: {{ $diag.copytoAzureBlob.UseDataLakeStorageGen2 | quote }}
+        - name: RPI__Diagnostics__CopyToAzure__UseAzureIdentityAuthentication
+          value: {{ $diag.copytoAzureBlob.useAzureIdentityAuthentication | quote }}
         {{- end }}
         {{- if $diag.copytoSftp.enabled }}
         - name: RPI__Diagnostics__CopyToSFTP__SecureFTPHost
@@ -216,9 +218,9 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CopyToSFTPSecureFTPPassword
-        - name: RPI__Diagnostics__CopyToSFTP__PortNumberNumber
+        - name: RPI__Diagnostics__CopyToSFTP__PortNumber
           value: {{ $diag.copytoSftp.sftpPort | quote }}
-        - name: RPI__Diagnostics__UseSFTP
+        - name: RPI__Diagnostics__CopyToSFTP__UseSFTP
           value: "true"
         - name: RPI__Diagnostics__CopyToSFTP__IsEnabled
           value: "true"
@@ -250,12 +252,6 @@ spec:
         {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
-        {{- if eq .Values.global.deployment.platform "azure" }}
-        {{- if (($dw.bigquery | default dict).enabled | default false) }}
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
-        {{- end }}
-        {{- end }}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
         - name: ODBCINI
           value: /odbc-config/odbc.ini
@@ -442,10 +438,10 @@ spec:
           - name: odbcini
             mountPath: /odbc-config
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
-          {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
-            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
-            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
+          {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
+          - name: bigquery-{{ .name }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
+            subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -480,10 +476,10 @@ spec:
         - name: odbcini
           emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
-        {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+        {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
+        - name: bigquery-{{ .name }}
           configMap:
-            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            name: {{ .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}

@@ -11,7 +11,7 @@ RPI services are exposed to external traffic through Kubernetes Ingress resource
 
 | Approach | When to use | TLS termination |
 |:---------|:------------|:----------------|
-| **Chart-managed nginx** | Simplest setup. The chart deploys its own nginx ingress controller. | At the nginx controller (K8s TLS Secret) |
+| **Chart managed nginx** | Simplest setup. The chart deploys its own nginx ingress controller. | At the nginx controller (K8s TLS Secret) |
 | **BYO ingress controller** | You already have an ingress controller (nginx, Traefik, HAProxy, etc.) | At your controller |
 | **AWS ALB** | AWS environments using Application Load Balancer with the AWS Load Balancer Controller | At the ALB (ACM certificate) |
 | **Azure AGC** | Azure environments using Application Gateway for Containers with the ALB controller | At AGC (K8s TLS Secret synced from Key Vault via CSI) |
@@ -19,7 +19,7 @@ RPI services are exposed to external traffic through Kubernetes Ingress resource
 ---
 
 <details>
-<summary><strong style="font-size:1.25em;">Chart-Managed Nginx</strong></summary>
+<summary><strong style="font-size:1.25em;">Chart managed Nginx</strong></summary>
 
 The chart deploys an nginx ingress controller as a Deployment + Service + IngressClass. On AWS, the Service gets NLB annotations. On Azure, it gets an internal or public load balancer.
 
@@ -226,7 +226,7 @@ ingress:
 | Access | Annotation |
 |:-------|:-----------|
 | Internal only (VPC) | `alb.ingress.kubernetes.io/scheme: internal` |
-| Internet-facing | `alb.ingress.kubernetes.io/scheme: internet-facing` |
+| Internet facing | `alb.ingress.kubernetes.io/scheme: internet-facing` |
 
 ### Single ALB for all services
 
@@ -349,7 +349,7 @@ Services that have host entries:
 | hosts key | Service | Notes |
 |:----------|:--------|:------|
 | `config` | Deployment API | Database schema management, licensing |
-| `client` | Interaction API | Client-facing API |
+| `client` | Interaction API | Client facing API |
 | `integration` | Integration API | Third-party integrations |
 | `realtime` | Realtime API | Realtime decisioning |
 | `callbackapi` | Callback API | Async callbacks |

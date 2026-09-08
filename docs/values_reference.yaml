@@ -69,20 +69,36 @@ serviceAccountAnnotations: {}
 databases:
   # Data warehouse provider configurations
   datawarehouse:
-    # Google BigQuery data warehouse configuration
+    # BigQuery data-warehouse configuration independent of the RPI hosting platform (supported
+    # on Azure, AWS, and Google). Each connection defines its own authentication
+    # configuration, including a service-account key via its own KeyFilePath or the configured
+    # workload-identity/ADC mode. BigQuery credentials are configured independently from
+    # cloudIdentity.google.
     bigquery:
       # List of BigQuery connection configurations
       connections:
-      - ConfigMapFilePath: /app/google-creds
-        OAuthMechanism: 0
+      # BigQuery ODBC driver auth mode: 0 for a service account key; the driver's Application
+      # Default Credentials value (typically 3) for workloadIdentity.
+      - OAuthMechanism: 0
         allowLargeResults: 0
+        # Kubernetes ConfigMap holding the service account key. Used only with
+        # credentialsType=serviceAccount.
         configMapName: gbq-tenant1
+        # serviceAccount: authenticate with a mounted service account key (provide
+        # serviceAccountEmail, configMapName, keyName). workloadIdentity: keyless, using the
+        # pod's Workload Identity service account.
         credentialsType: serviceAccount
+        # Data key within the ConfigMap. Used only with credentialsType=serviceAccount. The
+        # credential mounts at /app/google-creds/bigquery/<connection name>.json regardless of
+        # the key name.
         keyName: gbq-tenant1.json
         largeResultsDataSetId: _bqodbc_temp_tables
         largeResultsTempTableExpirationTime: '3600000'
+        # Connection name (used as the ODBC DSN name).
         name: gbq-tenant1
+        # Google Cloud project ID (BigQuery catalog).
         projectId: gbq-tenant1
+        # Service account email. Used only with credentialsType=serviceAccount.
         serviceAccountEmail: gbq-tenant1@my-project.iam.gserviceaccount.com
         sqlDialect: 1
       # Enable BigQuery data warehouse provider
@@ -95,7 +111,9 @@ databases:
       enabled: false
       # Snowflake private key files. Each entry has keyName and optional secretName.
       keys:
+      # Key file name (e.g. tenant1-private-key.p8)
       - keyName: my-snowflake-rsakey.p8
+        # K8s Secret containing the key file (kubernetes provider only)
         secretName: snowflake-rsa-private-key
       # Mount path for Snowflake key files (default: /app/snowflake-creds)
       mountPath: /app/snowflake-creds
@@ -117,12 +135,19 @@ databases:
       image: 'gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.2'
       # Connect to the Cloud SQL private IP (requires VPC peering)
       privateIp: true
+      # Resource requests and limits for the Cloud SQL Auth Proxy sidecar.
       resources:
+        # Resource limits (maximum allocation)
         limits:
+          # CPU limit (e.g., '1', '2')
           cpu: 200m
+          # Memory limit (e.g., '1Gi', '3Gi')
           memory: 256Mi
+        # Resource requests (guaranteed allocation)
         requests:
+          # CPU request (e.g., '500m', '1')
           cpu: 50m
+          # Memory request (e.g., '512Mi', '1Gi')
           memory: 64Mi
       # Graceful shutdown window (e.g. '30s')
       terminationGracePeriod: 30s
@@ -144,8 +169,6 @@ databases:
     pulse_logging_database_name: <my-logging-database-name>
     # Database server hostname or IP address
     server_host: <my-database-server-host>
-    # Database server password
-    server_password: <my-database-server-password>
     # Database server username
     server_username: <my-database-server-username>
 
@@ -158,10 +181,16 @@ secretsManagement:
     secretName: redpoint-rpi-secrets
     # SecretProviderClass definitions for CSI driver
     secretProviderClasses:
+    # SecretProviderClass name.
     - name: my-secret-class-1
+      # Vault object to mount.
       objects:
+        # Vault object name to mount.
         - objectName: my-tls-certificate
+          # Vault object type (secret, key, cert).
           objectType: secret
+      # Provider-specific driver parameters, passed verbatim to the SecretProviderClass (keys
+      # differ per provider).
       parameters:
         clientID: my-managed-identity-client-id
         keyvaultName: my-keyvault-name
@@ -171,17 +200,30 @@ secretsManagement:
         usePodIdentity: 'false'
         useVMManagedIdentity: 'false'
         useWorkloadIdentity: 'true'
+      # CSI secrets-store provider (azure, aws, gcp, vault).
       provider: azure
+      # Kubernetes Secret synced from mounted objects.
       secretObjects:
+        # Key mapping inside the synced Secret.
         - data:
+            # Key inside the synced Kubernetes Secret.
             - key: tls.key
+              # Vault object whose value fills the key.
               objectName: my-tls-certificate
+          # Kubernetes Secret the driver syncs the objects into.
           secretName: secret1
+          # Kubernetes Secret type (e.g. Opaque, kubernetes.io/tls).
           type: kubernetes.io/tls
+    # SecretProviderClass name.
     - name: my-secret-class-2
+      # Vault object to mount.
       objects:
+        # Vault object name to mount.
         - objectName: V7-ConnectionString-Operations
+          # Vault object type (secret, key, cert).
           objectType: secret
+      # Provider-specific driver parameters, passed verbatim to the SecretProviderClass (keys
+      # differ per provider).
       parameters:
         clientID: my-managed-identity-client-id
         enable-secret-rotation: 'true'
@@ -193,13 +235,22 @@ secretsManagement:
         usePodIdentity: 'false'
         useVMManagedIdentity: 'false'
         useWorkloadIdentity: 'true'
+      # CSI secrets-store provider (azure, aws, gcp, vault).
       provider: azure
+      # Kubernetes Secret synced from mounted objects.
       secretObjects:
+        # Key mapping inside the synced Secret.
         - data:
+            # Key inside the synced Kubernetes Secret.
             - key: ConnectionString_Logging_Database
+              # Vault object whose value fills the key.
               objectName: V7-ConnectionString-LoggingDatabase
+          # Kubernetes Secret the driver syncs the objects into.
           secretName: secret2
+          # Kubernetes Secret type (e.g. Opaque, kubernetes.io/tls).
           type: Opaque
+    # Which service's pod mounts the SecretProviderClass to trigger the CSI sync into the
+    # Kubernetes Secret (none disables the sync pod).
     syncService: none
   # Kubernetes secrets settings (provider: kubernetes)
   kubernetes:
@@ -248,7 +299,10 @@ cloudIdentity:
     tenantId: your-azure-tenant-id
   # Enable cloud identity for pod authentication to cloud services
   enabled: false
-  # Google Cloud Workload Identity settings
+  # Platform-level Google Cloud identity for the RPI platform. Rendered only when
+  # global.deployment.platform is google and used by Google platform services such as Cloud
+  # Storage, Secret Manager, Pub/Sub, and Cloud SQL proxy. BigQuery authentication is
+  # configured independently under databases.datawarehouse.bigquery.
   google:
     # Mount path for the ConfigMap
     configMapFilePath: /app/google-creds
@@ -276,8 +330,6 @@ customCACerts:
   mountPath: /usr/local/share/ca-certificates/custom
   # Name of the ConfigMap or Secret containing CA certificates
   name: ''
-  # Source type for CA certificates
-  source: ''
   # Optional: specific CA bundle filename. When set, SSL_CERT_FILE env var is set to
   # mountPath/certFile
   certFile: ''
@@ -298,8 +350,6 @@ SMTPSettings:
   SMTP_Username: your_smtp_server_username
   # Use authentication credentials for SMTP
   UseCredentials: true
-  # SMTP authentication password
-  SMTP_Password: ''
 
 # OpenID Connect provider configuration for SSO
 OpenIdProviders:
@@ -372,8 +422,12 @@ ingress:
     realtime: rpi-realtimeapi
     # Smart Activation hostname or subdomain
     smartactivation: rpi-smartActivation
+  # Ingress controller image override.
   internalImageOverride:
+    # Pull the ingress-nginx controller from the image below instead of the public registry
+    # (air-gapped or mirrored registries).
     enabled: false
+    # Full ingress-nginx controller image reference used when enabled.
     image: 'registry.k8s.io/ingress-nginx/controller:v1.14.3@sha256:82917be97c0939f6ada1717bb39aa7e66c229d6cfb10dcfc8f1bd42f9efe0f81'
   # Ingress mode: public (internet-facing) or private (internal only)
   mode: public
@@ -383,18 +437,18 @@ ingress:
     azure:
       # Enable Azure Private Link
       enabled: false
-  service:
-    port: 80
   # VPC subnet name (required if mode=private)
   subnetName: <my-ingress-vpc-subnet-name>
   # TLS configuration entries (rendered when certificateSource=kubernetes)
   tls:
+  # Kubernetes TLS secret name
   - secretName: ingress-tls
   # Custom ingress annotations (replaces defaults when set)
   annotations: {}
 
 # Kubernetes Network Policy configuration
 networkPolicy:
+  # Allow DNS egress from every service pod when the network policy is enabled.
   allowDNS: true
   # Enable Kubernetes network policies
   enabled: false
@@ -403,15 +457,18 @@ networkPolicy:
 serviceMesh:
   # Enable service mesh integration
   enabled: false
+  # Extra pod annotations added when the service mesh is enabled, passed verbatim.
   podAnnotations: {}
   # Service mesh provider
   provider: linkerd
+  # Linkerd Server defaults applied to every service, passed verbatim.
   serverDefaults: {}
   # Linkerd Server CRDs for L7 traffic policy
   servers: []
 
 # Storage configuration for persistent volume claims and volumes
 storage:
+  # Additional PersistentVolumeClaims the chart creates from the storage class.
   dynamicPVCs: []
   # Persistent volume claim configurations
   persistentVolumeClaims:
@@ -445,6 +502,7 @@ storage:
   storageClass:
     # Create a StorageClass resource
     enabled: false
+    # Mount options for the chart-managed StorageClass.
     mountOptions: []
     # Name of the StorageClass
     name: redpoint-rpi
@@ -454,6 +512,8 @@ storage:
     provisioner: ''
     # Reclaim policy
     reclaimPolicy: Delete
+    # Volume binding mode of the chart-managed StorageClass (Immediate or
+    # WaitForFirstConsumer).
     volumeBindingMode: Immediate
 
 # Kubernetes node selector for pod scheduling
@@ -491,9 +551,13 @@ podAntiAffinity:
 
 # Global topology spread constraints overrides (merged with defaults from _defaults.tpl)
 topologySpreadConstraints:
+  # Spread each service's pods across the topology key below.
   enabled: true
+  # Maximum difference in pod count between topology domains.
   maxSkew: 1
+  # Node label used as the topology domain (e.g. kubernetes.io/hostname).
   topologyKey: kubernetes.io/hostname
+  # DoNotSchedule or ScheduleAnyway when the constraint cannot be met.
   whenUnsatisfiable: ScheduleAnyway
 
 # Node provisioning for dedicated RPI nodes (Karpenter NodePool)
@@ -502,90 +566,128 @@ nodeProvisioning:
   enabled: false
   # Karpenter NodePool configuration
   karpenter:
+    # nodePool settings.
     nodePool:
+      # Node consolidation settings.
       disruption:
+        # How long a node stays underutilized before consolidation (e.g. 15m).
         consolidateAfter: 15m
+        # Karpenter consolidation policy: WhenEmpty or WhenEmptyOrUnderutilized.
         consolidationPolicy: WhenEmpty
+      # Node lifetime before Karpenter replaces it (e.g. 360h).
       expireAfter: 360h
+      # Labels applied to provisioned nodes, passed verbatim to the NodePool spec.
       labels: {}
+      # Resource ceilings for the pool.
       limits:
+        # Maximum total CPU the pool may provision.
         cpu: '1000'
+        # Maximum total memory the pool may provision.
         memory: 1000Gi
+      # Name of the Karpenter NodePool created for RPI workloads.
       name: redpoint-nodepool
+      # Reference to the cloud node class the pool provisions from.
       nodeClassRef:
+        # API group of the node class the pool references.
         group: karpenter.k8s.aws
+        # Kind of the node class the pool references (e.g. EC2NodeClass).
         kind: EC2NodeClass
+        # Name of the node class the pool references.
         name: default
+      # Karpenter scheduling requirements, passed verbatim to the NodePool spec.
       requirements: []
+      # Startup taints applied to provisioned nodes, passed verbatim to the NodePool spec.
       startupTaints: []
+      # Taints applied to provisioned nodes, passed verbatim to the NodePool spec.
       taints: []
+      # NodePool weight; higher wins when several pools satisfy a pod.
       weight: 10
   # Node provisioner
   provider: karpenter
 
 # Global resource defaults applied to all services. Per-service overrides take priority.
 resources:
+  # Resource limits (maximum allocation)
   limits:
+    # Memory limit (e.g., '1Gi', '3Gi')
     memory: 3Gi
+    # CPU limit (e.g., '1', '2')
+    cpu: ''
+  # Resource requests (guaranteed allocation)
   requests:
+    # CPU request (e.g., '500m', '1')
     cpu: 50m
+    # Memory request (e.g., '512Mi', '1Gi')
     memory: 256Mi
 
 # Global pod security context overrides (merged with defaults from _defaults.tpl)
 securityContext:
+  # Allow the process to gain more privileges than its parent.
   allowPrivilegeEscalation: false
+  # Linux capabilities.
   capabilities:
+    # Capabilities dropped from the container.
     drop:
     - ALL
+  # Emit the security context on the pod and container.
   enabled: true
+  # GID applied to mounted volumes.
   fsGroup: 7777
+  # Run the container in privileged mode.
   privileged: false
+  # Mount the container root filesystem read-only.
   readOnlyRootFilesystem: true
+  # Primary GID of the container process.
   runAsGroup: 7777
+  # Require the container to run as a non-root user.
   runAsNonRoot: true
+  # UID the container runs as.
   runAsUser: 7777
+  # Additional GIDs applied to the pod.
   supplementalGroups:
   - 1000
   - 4000
   - 5000
+  # AppArmor profile applied to the container; empty for none.
+  appArmorProfile: ''
 
 # Global liveness probe overrides (merged with defaults from _defaults.tpl)
 livenessProbe:
+  # Emit the probe on every service container.
   enabled: true
+  # Consecutive failures before the probe is considered failed.
   failureThreshold: 5
-  httpGet:
-    path: /health/live
-    port: 8080
-    scheme: HTTP
+  # Seconds after container start before the first probe.
   initialDelaySeconds: 60
+  # Seconds between probes.
   periodSeconds: 15
-  successThreshold: 1
+  # Seconds before a probe attempt times out.
   timeoutSeconds: 5
 
 # Global readiness probe overrides (merged with defaults from _defaults.tpl)
 readinessProbe:
+  # Emit the probe on every service container.
   enabled: true
+  # Consecutive failures before the probe is considered failed.
   failureThreshold: 5
-  httpGet:
-    path: /health/ready
-    port: 8080
-    scheme: HTTP
+  # Seconds after container start before the first probe.
   initialDelaySeconds: 20
+  # Seconds between probes.
   periodSeconds: 30
-  successThreshold: 1
+  # Seconds before a probe attempt times out.
   timeoutSeconds: 5
 
 # Global startup probe overrides (merged with defaults from _defaults.tpl)
 startupProbe:
+  # Emit the probe on every service container.
   enabled: true
+  # Consecutive failures before the probe is considered failed.
   failureThreshold: 60
-  httpGet:
-    path: /health/live
-    port: 8080
-    scheme: HTTP
+  # Seconds after container start before the first probe.
   initialDelaySeconds: 10
+  # Seconds between probes.
   periodSeconds: 10
-  successThreshold: 1
+  # Seconds before a probe attempt times out.
   timeoutSeconds: 5
 
 # Enable Prometheus scrape annotations on all RPI service pods
@@ -599,8 +701,6 @@ diagnosticsMode:
   copytoAzureBlob:
     # Use Azure Data Lake Storage Gen2
     UseDataLakeStorageGen2: false
-    # Azure Storage access key
-    accessKey: <yourstorageaccount-access-key>
     # Azure Storage account name
     accountName: <yourstorageaccount>
     # Azure Blob service endpoint URL
@@ -619,8 +719,6 @@ diagnosticsMode:
     enabled: false
     # SFTP server hostname
     sftpHost: <your-sftp-host>
-    # SFTP password
-    sftpPassword: <your-sftp-password>
     # SFTP port
     sftpPort: '22'
     # SFTP username
@@ -631,31 +729,40 @@ diagnosticsMode:
   dotNetTools:
     # Enable .NET diagnostic tools
     enabled: false
-    extractionBaseDir: /tmp
-    path: /app/dotnet-tools
+    # Enable dotnet-counters collection in diagnostics mode.
     useCounters: false
+    # Enable dotnet-gcdump collection in diagnostics mode.
     useGcDump: false
+  # Network-utilities diagnostics pod.
   netutils:
+    # Deploy the network-utilities pod for connectivity troubleshooting.
     enabled: false
+    # Security context for the network-utilities pod.
     securityContext:
+      # Allow the process to gain more privileges than its parent.
       allowPrivilegeEscalation: false
-      appArmorProfile: ''
+      # Linux capabilities.
       capabilities:
+        # Capabilities added (NET_ADMIN and NET_RAW enable packet tools).
         add:
         - NET_ADMIN
         - NET_RAW
+        # Capabilities dropped from the container.
         drop:
         - ALL
+      # Run the container in privileged mode.
       privileged: false
+      # Mount the container root filesystem read-only.
       readOnlyRootFilesystem: true
+      # Primary GID of the container process.
       runAsGroup: 7777
+      # Require the container to run as a non-root user.
       runAsNonRoot: true
+      # UID the container runs as.
       runAsUser: 7777
 
 # Validation pods that verify storage mounts and CSI secret mounts are working
 validationPods:
-  # Enable validation pod deployments
-  enabled: false
   # List of validation pod deployment definitions
   deployments: []
 
@@ -664,13 +771,13 @@ validationPods:
 # global.deployment.images.overrides.net-utils or global.deployment.images.nameOverrides.net-
 # utils.
 databaseUpgrade:
+  # Seconds the database-upgrade Job may run before Kubernetes terminates it.
   activeDeadlineSeconds: 900
+  # Retries before the database-upgrade Job is marked failed.
   backoffLimit: 3
-  deploymentapiHost: rpi-deploymentapi
-  deploymentapiPort: '80'
   # Enable automatic database upgrade
   enabled: false
-  healthPath: /health/ready
+  # Seconds the Job waits for the Deployment API to report ready before starting the upgrade.
   maxReadyWaitSeconds: '600'
   # Email notification settings for upgrade completion
   notification:
@@ -678,16 +785,25 @@ databaseUpgrade:
     enabled: false
     # Recipient email for upgrade notifications
     recipientEmail: ''
+  # Seconds between readiness polls of the Deployment API.
   pollIntervalSeconds: '15'
+  # Resource requests and limits for the database-upgrade Job.
   resources:
+    # Resource limits (maximum allocation)
     limits:
+      # CPU limit (e.g., '1', '2')
       cpu: 200m
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 128Mi
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 64Mi
+  # Seconds a finished Job is retained before Kubernetes deletes it.
   ttlSecondsAfterFinished: 3600
-  upgradePath: /api/deployment/upgrade
+  # Seconds the Job waits for the upgrade call to complete.
   waitTimeoutSeconds: '360'
 
 # Interaction API service configuration — main API for client/UI interactions
@@ -702,20 +818,36 @@ interactionapi:
     maxFailedAccessAttempts: null
     # Lockout duration as a .NET TimeSpan, e.g. 00:05:00 (no chart default)
     lockoutTimeSpan: ''
+  # Allow the RPI client to remember login details.
   allowSavingLoginDetails: true
+  # Always show the tenant (client) picker on the login screen.
   alwaysShowClientsAtLogin: true
+  # Resolve the RPI authentication metadata over plain HTTP inside the cluster instead of the
+  # public HTTPS host.
   authMetaHttpEnabled: true
   # Horizontal Pod Autoscaler configuration
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: false
+  # Disable app-level HTTP-to-HTTPS redirection. Default false; the redirect is also skipped
+  # when the in-cluster auth metadata host is set.
+  disableHttpRedirect: false
   # Enable RPI authentication for this service
   enableRPIAuthentication: true
   # Enable the Interaction API service
@@ -804,13 +936,21 @@ interactionapi:
     requiredLength: 6
     # Minimum number of distinct characters (default 1)
     requiredUniqueChars: 1
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
+  # Product-update feed shown in the RPI client.
   productUpdateFeed:
+    # Show the Redpoint product-update feed in the RPI client.
     enabled: true
+    # URL of the product-update feed.
     url: 'https://www.redpointglobal.com/feed/productfeed'
   # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
   pubSub:
@@ -828,18 +968,31 @@ interactionapi:
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
   # This Interaction API's externally reachable host and port.
   serviceHost:
@@ -851,7 +1004,10 @@ interactionapi:
     portNumber: 80
   # Custom SystemVariables exposed to workflows. Each item: {name, value}.
   systemVariables: []
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
   # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
   userManagement:
@@ -869,55 +1025,94 @@ interactionapi:
 # Integration API service configuration — handles external system integrations and Smart
 # Activation communication
 integrationapi:
+  # Resolve the RPI authentication metadata over plain HTTP inside the cluster instead of the
+  # public HTTPS host.
   authMetaHttpEnabled: false
   # Horizontal Pod Autoscaler configuration
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: true
   # Enable RPI authentication for this service
   enableRPIAuthentication: true
+  # Serve the Integration API Swagger UI.
   enableSwagger: true
   # Enable the Integration API service
   enabled: true
+  # Log settings for this service.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Database RPIError level.
     rpiError: Error
+    # Database RPITrace level.
     rpiTrace: Error
-  # Integration API credentials password
-  password: my_Super_Strong_Pwd
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
+  # Read timeout in milliseconds that the Smart Activation services use when calling the
+  # Integration API (emitted only on those pods).
   read_timeout: '300000'
   # Number of Integration API pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
   # Integration API credentials username (required if Smart Activation is enabled)
   username: admin@noemail.com
@@ -926,21 +1121,36 @@ integrationapi:
 executionservice:
   # Autoscaling (hpa or keda).
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # KEDA Prometheus trigger settings (autoscaling.type=keda). serverAddress and query are
+    # operator-supplied.
     kedaScaledObject:
-      authenticationRef: rpi-executionservice
+      # HPA scaling behavior (scaleUp/scaleDown stabilization and policies).
       behavior:
+        # Scale-down behavior.
         scaleDown:
+          # Scale-down policy.
           policies:
+            # Length of the policy period in seconds.
             periodSeconds: 60
+            # Scaling policy type: Percent or Pods.
             type: Percent
+            # Amount the policy may change the replica count per period.
             value: 50
+          # Seconds of metric history considered before a scaleDown decision.
           stabilizationWindowSeconds: 300
+        # Scale-up behavior.
         scaleUp:
+          # Scale-up policy.
           policies:
+            # Length of the policy period in seconds.
             periodSeconds: 60
+            # Scaling policy type: Percent or Pods.
             type: Percent
+            # Amount the policy may change the replica count per period.
             value: 100
+          # Seconds of metric history considered before a scaleUp decision.
           stabilizationWindowSeconds: 300
       fallback:
         failureThreshold: 3
@@ -949,56 +1159,106 @@ executionservice:
       metricName: execution_max_thread_count
       minReplicaCount: 2
       pollingInterval: 30
+      # PromQL query. Required when autoscaling.type=keda.
       query: ''
+      # Prometheus server URL. Required when autoscaling.type=keda.
       serverAddress: ''
       terminationGracePeriodSeconds: 120
       threshold: '80'
       useTriggerAuthentication: true
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: false
   # Enable RPI authentication for this service
   enableRPIAuthentication: true
   # Enable the Execution Service
   enabled: true
+  # Extra environment variable.
   extraEnvs:
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: Plugins__LuxSci__IsSandboxMode
+    # Environment variable value.
     value: 'true'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: Plugins__SendGrid__EnableSandBoxMode
+    # Environment variable value.
     value: 'true'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
+    name: Plugins__Marigold__CampaignTriggerSendThreadCount
+    # Environment variable value.
+    value: '16'
+  # Emit this environment variable.
+  - enabled: false
+    # Environment variable name.
     name: RPI_MPULSE_UPSERT_CONTACT_DEBUG
+    # Environment variable value.
     value: '1'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: RPI_MPULSE_EVENT_UPLOAD_DEBUG
+    # Environment variable value.
     value: '1'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: LC_ALL
+    # Environment variable value.
     value: en_US.UTF-8
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: LANG
+    # Environment variable value.
     value: en_US.UTF-8
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: LANGUAGE
+    # Environment variable value.
     value: en_US.UTF-8
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: RPI_MPULSE_EVENT_UPLOAD_FAIL_DEBUG
+    # Environment variable value.
     value: '0'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: RPI_MPULSE_EVENT_UPLOAD_SCENARIO
+    # Environment variable value.
     value: '1,5,2,3,5,7'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: RPI_MPULSE_SAVE_MPULSE_EVENT_CONTENT_DEBUG
+    # Environment variable value.
     value: '1'
+  # Emit this environment variable.
   - enabled: false
+    # Environment variable name.
     name: RPI_MPULSE_UPSERT_CONTACT_IMPORT_PATH_DEBUG
+    # Environment variable value.
     value: /rpifileoutputdir/mpulse-debug-path
   # Execution Service file-output behavior.
   fileOutput:
@@ -1012,8 +1272,6 @@ executionservice:
     azureStorageSettings:
       # Azure Storage account name
       accountName: my_storage_account_name
-      # Azure Storage connection string
-      connectionString: DefaultEndpointsProtocol=https;AccountName=<myAccoutName;AccountKey=<myAccountAccessKey;EndpointSuffix=core.windows.net
       # Azure Blob container name
       containerName: rpi
       # Use cloud identity for authentication
@@ -1039,21 +1297,6 @@ executionservice:
     redisSettings:
       # Redis server address.
       ipAddress: localhost
-  # Internal RabbitMQ broker connection. Disabled by default; set enabled: true and populate
-  # Secret key QueueService_RabbitMQ_Password.
-  internalQueues:
-    # Enable the internal RabbitMQ broker connection.
-    enabled: false
-    # RabbitMQ host name.
-    hostName: localhost
-    # Declare queues as durable.
-    isDurable: true
-    # RabbitMQ port.
-    port: 5672
-    # RabbitMQ username.
-    username: redpointrpi
-    # RabbitMQ virtual host.
-    virtualHost: /
   # Execution Service job and workflow execution tuning.
   jobExecution:
     # Write task lifecycle events to the audit log.
@@ -1068,10 +1311,15 @@ executionservice:
       jobRules: []
     # Grace period (hh:mm:ss) to wait for in-flight activity before shutdown.
     executionShutdownWaitForActivity: '00:08:00'
+    # LuxSci channel throttling.
     luxSci:
+      # Maximum concurrent LuxSci API requests per account.
       maxConcurrentApiRequestsPerAccount: 5
+      # Maximum parallel LuxSci operations.
       maxDegreeOfParallelism: 10
+      # Days of LuxSci history to backtrack when collecting results.
       numberOfDaysToBacktrack: 30
+    # Maximum smart-asset instances included in offer reporting.
     maxSmartAssetInstancesForOfferReporting: '100000'
     # Maximum concurrent worker threads per Execution Service replica.
     maxThreadsPerExecutionService: 100
@@ -1081,6 +1329,7 @@ executionservice:
     persistTaskExecutionDetails: false
     # URI prefix for the RPDM Operational API.
     rpdmOApiPrefixUri: /v1/
+    # Timeout in seconds for Redpoint Data Management OAPI requests.
     rpdmOApiRequestTimeout: '200'
     # Task execution timeout in seconds.
     taskTimeout: 60
@@ -1151,10 +1400,15 @@ executionservice:
     maxRetryCount: 12
     # Delay (hh:mm:ss) between operational-database retries.
     maxRetryDelay: '00:01:00'
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
   # Azure Web PubSub. Disabled by default; set enabled: true and populate Secret key
   # PubSub_ConnectionString.
@@ -1171,22 +1425,39 @@ executionservice:
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Seed-service resilience settings.
   seedService:
+    # Maximum retries when the seed service fails to load.
     maxNumberRetries: '100'
+    # Delay (hh:mm:ss) between seed-service retries.
     maxRetryDelay: '00:01:00'
+    # Seed-service in-memory cache size.
     memoryCacheSize: '10'
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
   # This Execution Service's externally reachable host and port (used for callbacks).
   serviceHost:
@@ -1198,7 +1469,10 @@ executionservice:
     portNumber: 80
   # Custom SystemVariables exposed to workflows. Each item: {name, value}.
   systemVariables: []
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
   # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
   userManagement:
@@ -1211,14 +1485,23 @@ executionservice:
 nodemanager:
   # Horizontal Pod Autoscaler configuration
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: false
   # Enable RPI authentication for this service
   enableRPIAuthentication: true
@@ -1284,10 +1567,15 @@ nodemanager:
     maxRetryCount: 12
     # Delay (hh:mm:ss) between operational-database retries.
     maxRetryDelay: '00:01:00'
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
   # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
   pubSub:
@@ -1303,18 +1591,31 @@ nodemanager:
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
   # This Node Manager's externally reachable host and port.
   serviceHost:
@@ -1326,7 +1627,10 @@ nodemanager:
     portNumber: 80
   # Custom SystemVariables exposed to workflows. Each item: {name, value}.
   systemVariables: []
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
   # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
   userManagement:
@@ -1339,14 +1643,23 @@ nodemanager:
 queuereader:
   # Horizontal Pod Autoscaler configuration
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: true
   # Enable the Queue Reader service
   enabled: true
@@ -1358,64 +1671,97 @@ queuereader:
     allowAllServerLocations: true
     # Allow per-client file-output directory overrides.
     allowClientOverrides: true
-  # Internal cache used by the queue reader.
+  # Chart-managed Redis that coordinates work across Queue Reader replicas when
+  # realtimeConfiguration.isDistributed is true. The cache provider is Redis by application
+  # default; the Queue Reader does not use InternalCache state persistence.
   internalCache:
-    # Fail startup if the cache connection cannot be established.
-    failOnCacheConnectionError: true
-    # Maximum cache connection retry attempts.
-    maxNumberRetries: 100
-    # Delay (hh:mm:ss) between cache connection retries.
-    maxRetryDelay: '00:01:00'
-    # Internal cache tuning. For type=external the connection string comes from the shared
-    # Secret key QueueReader_RedisCache_ConnectionString, never from values.
+    # Chart-managed Redis StatefulSet settings. The Queue Reader's connection string is
+    # generated into the internal-services Secret (QueueService_RedisCache_ConnectionString),
+    # never taken from values.
     redisSettings:
+      # PodDisruptionBudget for the chart-managed Queue Reader Redis.
       podDisruptionBudget:
+        # Create a PodDisruptionBudget for the workload.
         enabled: false
+        # Minimum pods that must stay available during voluntary disruption (count or
+        # percentage).
         minAvailable: 1
+      # Replicas of the chart-managed Queue Reader Redis.
       replicas: 1
+      # Resource requests and limits for the chart-managed Queue Reader Redis.
       resources:
+        # Apply the requests and limits below to the container. false deploys the container
+        # without resource constraints.
         enabled: true
+        # Resource limits (maximum allocation)
         limits:
+          # Memory limit (e.g., '1Gi', '3Gi')
           memory: 3Gi
+          # CPU limit (e.g., '1', '2')
+          cpu: ''
+        # Resource requests (guaranteed allocation)
         requests:
+          # CPU request (e.g., '500m', '1')
           cpu: 100m
+          # Memory request (e.g., '512Mi', '1Gi')
           memory: 256Mi
+      # Persistent volume claim template for the chart-managed Queue Reader Redis.
       volumeClaimTemplates:
+        # Provision a PersistentVolumeClaim per replica through the StatefulSet; false expects
+        # an existing claim.
         enabled: true
+        # Requested volume size (e.g. 100Gi).
         storage: 100Gi
-    # Filesystem state-persistence settings (used when the cache runs the FileSystem
-    # provider).
-    stateFileSystem:
-      # State directory path to use when overrideDirectoryPath is true.
-      directoryPathOverride: /rpifileoutputdirectory
-      # Override the default state directory path.
-      overrideDirectoryPath: true
-    # State-tracking store provider (StateTrackingStoreProviders enum, e.g. FileSystem). The
-    # cache provider itself is set separately.
-    statePersistenceProvider: FileSystem
+        # StorageClass for the claim; unset uses the cluster default.
+        storageClassName: ''
+        # Access mode for the claim (default ReadWriteOnce).
+        accessModes: ''
   # Internal message queue used by the queue reader.
   internalQueues:
     rabbitmqSettings:
+      # Resource requests and limits for the chart-managed Queue Reader RabbitMQ.
       resources:
+        # Apply the requests and limits below to the container. false deploys the container
+        # without resource constraints.
         enabled: true
+        # Resource limits (maximum allocation)
         limits:
+          # Memory limit (e.g., '1Gi', '3Gi')
           memory: 3Gi
+          # CPU limit (e.g., '1', '2')
+          cpu: ''
+        # Resource requests (guaranteed allocation)
         requests:
+          # CPU request (e.g., '500m', '1')
           cpu: 100m
+          # Memory request (e.g., '512Mi', '1Gi')
           memory: 256Mi
       # RabbitMQ username. Defaults to the release namespace.
       username: ''
+      # RabbitMQ virtual host used by the chart-managed Queue Reader broker.
       virtualhost: /
+      # Persistent volume claim template for the chart-managed Queue Reader RabbitMQ.
       volumeClaimTemplates:
+        # Provision a PersistentVolumeClaim per replica through the StatefulSet; false expects
+        # an existing claim.
         enabled: true
+        # Requested volume size (e.g. 100Gi).
         storage: 100Gi
-      # RabbitMQ hostname (external/BYO).
-      hostname: ''
+        # StorageClass for the claim; unset uses the cluster default.
+        storageClassName: ''
+        # Access mode for the claim (default ReadWriteOnce).
+        accessModes: ''
+  # Process realtime cache messages.
   isCacheProcessingEnabled: true
+  # Process callback-service messages from the external queue provider.
   isCallbackServiceProcessingEnabled: true
+  # Process realtime event messages.
   isEventProcessingEnabled: true
+  # Process web-form submission messages.
   isFormProcessingEnabled: true
+  # Days a failed listener-queue message is retained before it is discarded.
   listenerQueueErrorTTLDays: 14
+  # Days an inactive listener-queue entry is retained.
   listenerQueueNonActiveTTLDays: 14
   # Queue Reader log levels and log-forwarding sinks.
   logging:
@@ -1457,7 +1803,9 @@ queuereader:
     rpiError: Error
     # Database RPITrace level.
     rpiTrace: Error
+  # Grace period (hh:mm:ss) before maintenance mode takes effect.
   maintenanceModeBufferTime: '00:01:00'
+  # Maximum messages read from the queue per batch.
   maxBatchSize: 50
   # Queue path for non-active messages
   nonActiveQueuePath: listenerQueueNonActive
@@ -1467,14 +1815,23 @@ queuereader:
     maxRetryCount: 12
     # Delay (hh:mm:ss) between operational-database retries.
     maxRetryDelay: '00:01:00'
+  # Partitioned-queue handling.
   partitionHandler:
+    # Lifetime (hh:mm:ss) of the message-deduplication cache.
     deduplicationCacheTTL: '01:00:00'
+    # Lifetime (hh:mm:ss) of stored partition offsets.
     offsetPositionTTL: '23:59:59'
+    # How long (hh:mm:ss) a partition lock is held.
     partitionLockDuration: '00:02:00'
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
   # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
   pubSub:
@@ -1486,10 +1843,13 @@ queuereader:
     enabled: false
     # PubSub provider.
     provider: Azure
+  # Enable the queue listener.
   queueListenerEnabled: true
   # Realtime processing configuration
   realtimeConfiguration:
-    # Enable distributed processing for high-volume transactions
+    # Distribute queue processing across Queue Reader replicas. Deploys the chart-managed
+    # Redis (workload coordination: locks, partition offsets, deduplication) and RabbitMQ, and
+    # wires the Queue Reader to them.
     isDistributed: false
     # RPI client IDs (GUIDs) this queue reader processes.
     tenantIds: []
@@ -1497,22 +1857,39 @@ queuereader:
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Seed-service resilience settings.
   seedService:
+    # Maximum retries when the seed service fails to load.
     maxNumberRetries: '100'
+    # Delay (hh:mm:ss) between seed-service retries.
     maxRetryDelay: '00:01:00'
+    # Seed-service in-memory cache size.
     memoryCacheSize: '10'
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
   # This Queue Reader's own host and port (used for callbacks).
   serviceHost:
@@ -1524,10 +1901,17 @@ queuereader:
     portNumber: 80
   # Custom SystemVariables exposed to workflows. Each item: {name, value}.
   systemVariables: []
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Worker threads processing queue messages.
   threadPoolSize: 10
+  # Minutes before a message-processing operation times out.
   timeoutMinutes: 60
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
+  # Lock messages while they are processed so parallel readers do not process the same
+  # message.
   useMessageLocks: true
   # User management mode. Enabling Keycloak (OpenIdProviders) forces external management on.
   userManagement:
@@ -1542,16 +1926,23 @@ realtimeapi:
   # Allowed CORS origins for the Realtime API
   CORSOrigins:
   - '*'
+  # Include the visitor IP address in cache output.
   CacheOutputCollectIPAddress: true
   # Cache-output exclusion entries.
   CacheOutputExclusions: []
+  # Store submitted web-form data in the realtime cache.
   CacheWebFormData: false
   # Timeout in milliseconds for loading cached attribute lists. 0 uses the application
   # default.
   CachedAttributeLoadTimeoutMS: 0
   # Emit events when visitor profiles are merged.
   EnableProfileMergeEvents: true
+  # Number of days to persist web events. The chart always sets this value; override it to
+  # change the retention.
+  EventDaysToPersistOverride: 365
+  # Seconds event-listening data is held in the local cache.
   EventListeningLocalCacheDuration: 60
+  # Hash visitor IDs before storing them.
   HashVisitorID: false
   # Maximum number of event metadata instances retained.
   MaxNoEventMetadataInstances: 100
@@ -1565,8 +1956,6 @@ realtimeapi:
   NoMinsCacheRecommendResults: 60
   # Minutes to cache selection results.
   NoMinsCacheSelectionResults: 60
-  # RPI product version reported by the Realtime API.
-  RPIVersion: '7.8'
   # Address of the Interaction Realtime Agent. Unset leaves the application default.
   RealtimeAgentAddress: ''
   # Path to the in-process Realtime Agent assembly. Unset leaves the application default.
@@ -1590,7 +1979,9 @@ realtimeapi:
   RegionLanguageCodeParameter: ''
   # Persist the visitor profile after returning a decision response.
   SaveProfilePostDecisionResponse: false
+  # Minutes between requests that start a new page visit.
   ThresholdBetweenPageVisitsMinutes: 1
+  # Minutes of inactivity after which a new site visit begins.
   ThresholdBetweenSiteVisitsMinutes: 120
   # Record the merge on the source profile when profiles are merged.
   TrackProfileMergeInSourceProfile: true
@@ -1622,12 +2013,19 @@ realtimeapi:
     type: basic
   # Horizontal Pod Autoscaler configuration
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
+  # Publish cache output to the cache-output queue.
   cacheOutputQueueEnabled: true
   # Real-time cache provider configuration
   cacheProvider:
@@ -1659,15 +2057,29 @@ realtimeapi:
     redis:
       # Internal cache StatefulSet tuning (resources, volumeClaimTemplates).
       redisSettings:
+        # Resource requests and limits for the chart-managed Realtime Redis.
         resources:
+          # Apply the requests and limits below to the container. false deploys the container
+          # without resource constraints.
           enabled: true
+          # Resource limits (maximum allocation)
           limits:
+            # Memory limit (e.g., '1Gi', '3Gi')
             memory: 3Gi
+            # CPU limit (e.g., '1', '2')
+            cpu: ''
+          # Resource requests (guaranteed allocation)
           requests:
+            # CPU request (e.g., '500m', '1')
             cpu: 100m
+            # Memory request (e.g., '512Mi', '1Gi')
             memory: 256Mi
+        # Persistent volume claim template for the chart-managed Realtime Redis.
         volumeClaimTemplates:
+          # Provision a PersistentVolumeClaim per replica through the StatefulSet; false
+          # expects an existing claim.
           enabled: true
+          # Requested volume size (e.g. 100Gi).
           storage: 50Gi
       # Redis deployment type: internal (chart-managed) or external (BYO)
       type: internal
@@ -1675,8 +2087,11 @@ realtimeapi:
   # meaningful with multiple Realtime API instances); render fails if set on a single-tenant
   # deployment. Clients not listed use the cluster-wide address.
   clientAddressOverrides: []
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: true
   # Custom Realtime plugins configuration
   customPlugins:
@@ -1687,30 +2102,37 @@ realtimeapi:
   # Per-DataMap overrides. An empty Cache inherits the effective cacheProvider.provider.
   dataMaps:
     messageHistory:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: false
       DaysToPersist: 9999
     nonVisitorData:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: false
       DaysToPersist: 365
     offerHistory:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: false
       DaysToPersist: 9999
     productRecommendation:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: false
       DaysToPersist: 365
     visitorBackup:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: false
       DaysToPersist: 9999
     visitorHistory:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: true
       DaysToPersist: 365
     visitorProfile:
+      # Cache assignment; empty inherits the effective cacheProvider.provider.
       Cache: ''
       CompressData: true
       DaysToPersist: 365
@@ -1720,9 +2142,13 @@ realtimeapi:
       CompressData: false
       DaysToPersist: 9999
       KeySuffix: _p
+  # Seconds a decision result is cached.
   decisionCacheDuration: 60
+  # Return audit metrics in response headers.
   enableAuditMetricsInHeaders: true
+  # Enable event listening.
   enableEventListening: true
+  # Serve the Realtime API help pages.
   enableHelpPages: true
   # Enable the Realtime API service
   enabled: true
@@ -1764,12 +2190,19 @@ realtimeapi:
     provider: Azure
     # Units for weather enrichment
     weatherUnits: imperial
+  # Visitor and device ID validation.
   idValidation:
+    # Device ID validation rules.
     deviceID:
+      # Allow letters in deviceID values.
       enableLetters: true
+      # Allow digits in deviceID values.
       enableNumbers: true
+      # Maximum deviceID length.
       maximumLength: 36
+      # Minimum deviceID length.
       minimumLength: 1
+      # Additional characters permitted in deviceID values.
       permittedCharacters:
       - '-'
       - _
@@ -1779,13 +2212,21 @@ realtimeapi:
       - '#'
       - '&'
       - '?'
+    # Validate incoming device IDs against the deviceID rules.
     enableDeviceIDValidation: true
+    # Validate incoming visitor IDs against the visitorID rules.
     enableVisitorIDValidation: true
+    # Visitor ID validation rules.
     visitorID:
+      # Allow letters in visitorID values.
       enableLetters: true
+      # Allow digits in visitorID values.
       enableNumbers: true
+      # Maximum visitorID length.
       maximumLength: 36
+      # Minimum visitorID length.
       minimumLength: 1
+      # Additional characters permitted in visitorID values.
       permittedCharacters:
       - '-'
       - _
@@ -1814,31 +2255,56 @@ realtimeapi:
     mergeParameters: true
     # Querystring parameter names to exclude from the merge
     parameterMergeExclusions: []
+  # Realtime API and Realtime Agent log levels.
   logging:
+    # Realtime Agent log levels.
     realtimeagent:
+      # Console log level.
       console: Error
+      # Database log sink level.
       database: Error
+      # Default log level.
       default: Error
+      # Microsoft namespace log level.
       microsoft: Error
+      # Microsoft.Hosting.Lifetime log level.
       microsoftHostingLifetime: Error
+      # Database RPIError level.
       rpiError: Error
+      # Database RPITrace level.
       rpiTrace: Error
+    # Realtime API log levels.
     realtimeapi:
+      # Console log level.
       console: 'false'
+      # Default log level.
       default: Error
+      # Endpoint log level.
       endpoint: Error
+      # Name of an NLog target to which Realtime API log events are also written (the image
+      # defines async and logconsole). Empty, the default, disables it and the variable is not
+      # emitted.
       nlogTarget: ''
+      # Log level for other namespaces.
       other: Error
+      # Plugin log level.
       plugins: Error
+      # Shared-library log level.
       shared: Error
+  # Run the Realtime API in multi-tenant mode. Required for
+  # realtimeapi.clientAddressOverrides.
   multitenant: false
-  name: rpi-realtimeapi
   # Mappings from an inbound parameter to a cached attribute list.
   parameterToDataMappings: []
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
   # Queue listener configurations.
   queueListenerConfiguration: []
@@ -1917,42 +2383,79 @@ realtimeapi:
       # RabbitMQ settings. username defaults to the release namespace; hostname applies to
       # external (BYO) RabbitMQ.
       rabbitmqSettings:
+        # RabbitMQ host. The chart-managed broker name for type internal; the customer broker
+        # host for type external.
         hostname: rpi-realtimeapi-rabbitmq
+        # PodDisruptionBudget for the chart-managed Realtime RabbitMQ.
         podDisruptionBudget:
+          # Create a PodDisruptionBudget for the workload.
           enabled: false
+          # Minimum pods that must stay available during voluntary disruption (count or
+          # percentage).
           minAvailable: 1
+        # Resource requests and limits for the chart-managed Realtime RabbitMQ.
         resources:
+          # Apply the requests and limits below to the container. false deploys the container
+          # without resource constraints.
           enabled: true
+          # Resource limits (maximum allocation)
           limits:
+            # CPU limit (e.g., '1', '2')
             cpu: 1
+            # Memory limit (e.g., '1Gi', '3Gi')
             memory: 1Gi
+          # Resource requests (guaranteed allocation)
           requests:
+            # CPU request (e.g., '500m', '1')
             cpu: 100m
+            # Memory request (e.g., '512Mi', '1Gi')
             memory: 256Mi
+        # RabbitMQ virtual host.
         virtualhost: /
+        # Persistent volume claim template for the chart-managed Realtime RabbitMQ.
         volumeClaimTemplates:
+          # Provision a PersistentVolumeClaim per replica through the StatefulSet; false
+          # expects an existing claim.
           enabled: true
+          # Requested volume size (e.g. 100Gi).
           storage: 100Gi
+          # StorageClass for the claim; unset uses the cluster default.
+          storageClassName: ''
+          # Access mode for the claim (default ReadWriteOnce).
+          accessModes: ''
       # RabbitMQ deployment type: internal (chart-managed) or external (BYO)
       type: internal
   # Number of Realtime API pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
   # RPI Client ID (GUID) for this realtime instance
   rpiClientID: 00000000-0000-0000-0000-000000000000
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
   # This Realtime API's own host and port (used for callbacks).
   serviceHost:
@@ -1962,7 +2465,10 @@ realtimeapi:
     name: rpi-realtimeapi
     # Service host port.
     portNumber: 80
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
   # Named visitor views.
   visitorViews: []
@@ -1971,56 +2477,97 @@ realtimeapi:
 callbackapi:
   # Horizontal Pod Autoscaler configuration
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target CPU utilization percentage for autoscaling
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+    # Autoscaling type: hpa or keda
     type: hpa
   # Channel label identifier (e.g., SendGrid)
   channelLabel: SendGrid
+  # Prometheus scrape settings for this service.
   customMetrics:
+    # Expose the service metrics endpoint for scraping.
     enabled: false
+    # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: true
+  # Enable app-level HTTPS redirection. Default false (leave off behind a TLS-terminating
+  # ingress).
+  enableHttpsRedirection: false
   # Enable the Callback API service
   enabled: true
-  # List of tenant instances when multitenancy is enabled
+  # Per-tenant Callback API instances rendered when multitenancy.enabled is true. Each
+  # instance uses callbackapi.replicas.
   instances:
+  # Tenant instance name
   - name: tenant1
-    replicas: 1
+  # Log settings for this service.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Database RPIError level.
     rpiError: Error
+    # Database RPITrace level.
     rpiTrace: Error
   # Multi-tenancy configuration for per-client instances
   multitenancy:
     # Enable multi-tenancy mode
     enabled: false
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
+  # Extra labels added to this service's pods.
   podLabels: {}
-  # Number of Callback API pod replicas
+  # Callback API replicas. Applies to the standard deployment and, when multitenancy.enabled
+  # is true, to every per-tenant instance deployment.
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # Deployment API service configuration — manages tenant provisioning and database upgrades
@@ -2040,30 +2587,51 @@ deploymentapi:
     clientId: ''
   # Enable the Deployment API service
   enabled: true
+  # Log settings for this service.
   logging:
+    # Console log level.
     Console: Error
+    # Database log sink level.
     database: Error
+    # Default log level.
     default: Error
+    # Database RPIError level.
     rpiError: Error
+    # Database RPITrace level.
     rpiTrace: Error
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # Extra labels added to this service's pods.
   podLabels: {}
   # Number of Deployment API pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
   # Template tenant configuration for new tenant creation
   templateTenant:
@@ -2073,21 +2641,32 @@ deploymentapi:
     useTemplateFiles: false
     # Volume claim name for template files
     volumeClaimName: templatetenantfiles
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
+  # Wire the Deployment API to the CDP user-management service (Keycloak). Requires the shared
+  # Secret key CDP_Keycloak_Client_Secret. false keeps RPI-native user management.
+  useExternalUserManagement: false
 
 # Rebrandly URL shortener service configuration
 rebrandly:
-  # Rebrandly API key
-  apiKey: my_rebrandly_api_key
+  # Rebrandly API base URL.
   baseUrl: 'https://api.rebrandly.com'
   # Enable the Rebrandly URL shortener service
   enabled: false
+  # Rebrandly enterprise API base URL.
   enterpriseBaseUrl: 'https://enterprise-api.rebrandly.com'
+  # Rebrandly service log levels.
   logging:
+    # ASP.NET Core log level.
     aspNetCore: Error
+    # Default log level.
     default: Error
+  # Extra annotations added to this service's pods.
   podAnnotations: {}
+  # Extra labels added to this service's pods.
   podLabels: {}
   # Redis settings for Rebrandly caching
   redisSettings:
@@ -2096,39 +2675,69 @@ rebrandly:
     hostname: rpi-rebrandly-cache
     # Redis port
     port: 6379
+    # Resource requests and limits for the chart-managed Rebrandly Redis.
     resources:
+      # Resource limits (maximum allocation)
       limits:
+        # CPU limit (e.g., '1', '2')
         cpu: 3000m
+        # Memory limit (e.g., '1Gi', '3Gi')
         memory: 3Gi
+      # Resource requests (guaranteed allocation)
       requests:
+        # CPU request (e.g., '500m', '1')
         cpu: 50m
+        # Memory request (e.g., '512Mi', '1Gi')
         memory: 256Mi
     # Redis deployment type: internal or external
     type: internal
     # Use Azure credentials for Redis
     useAzureCredentials: false
+    # Persistent volume claim template for the chart-managed Rebrandly Redis.
     volumeClaimTemplates:
+      # Access mode for the claim (default ReadWriteOnce).
       accessModes: ReadWriteOnce
+      # Provision a PersistentVolumeClaim per replica through the StatefulSet; false expects
+      # an existing claim.
       enabled: false
+      # Requested volume size (e.g. 50Gi).
       size: 50Gi
+      # StorageClass for the claim; unset uses the cluster default.
       storageClassName: default
+  # Number of replicas.
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  service:
-    port: 80
+  # ServiceAccount for this service.
   serviceAccount:
+    # Create a dedicated ServiceAccount for the service; cloud identity annotations are
+    # applied to it.
     enabled: true
+  # Seconds Kubernetes waits for the pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # Redpoint AI configuration for natural language, cognitive search, and model storage
@@ -2137,8 +2746,6 @@ redpointAI:
   cognitiveSearch:
     # Cognitive Search endpoint URL
     SearchEndpoint: 'https://example.search.windows.net'
-    # Cognitive Search API key
-    SearchKey: ''
   # Enable Redpoint AI features
   enabled: false
   # RedpointAI logging settings
@@ -2155,8 +2762,6 @@ redpointAI:
     EmbeddingsModel: text-embedding-ada-002
     # Model embedding dimensions
     ModelDimensions: 1536
-    # Azure Storage connection string for models
-    ConnectionString: ''
   # Natural language AI settings (OpenAI / Azure OpenAI)
   naturalLanguage:
     # OpenAI API base URL
@@ -2167,271 +2772,393 @@ redpointAI:
     ChatGptEngine: gpt-5.2
     # ChatGPT temperature setting
     ChatGptTemp: 0.5
-    # OpenAI API key
-    ApiKey: ''
 
 # Smart Activation (CDP) master toggle and secrets
 smartActivation:
   # Enable Smart Activation (CDP) services
   enabled: false
-  # Kubernetes secret name for Smart Activation
-  secretName: rpi-smartactivation
 
 # Auth Service configuration (Smart Activation component)
 authservice:
+  # Horizontal Pod Autoscaler configuration for this service.
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target average CPU utilization percentage for the autoscaler
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
-  # Default admin password
-  default_password: my_Super_Strong_Pwd
   # Default admin username
   default_username: admin@noemail.com
+  # Log settings for this service.
   logging:
+    # Log verbosity (e.g. DEBUG, INFO, WARN, ERROR).
     verbosity: DEBUG
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
   # Number of Auth Service pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
-    java_opts: -Xmx1536m
+    # JVM options passed to the service (e.g. -Xmx2150m).
+    java_opts: -Xmx750m
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
-  rollingUpdate:
-    maxSurge: 25%
-    maxUnavailable: 25%
-    progressDeadlineSeconds: 600
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: true
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-    seccompProfile:
-      type: RuntimeDefault
-  service:
-    port: 80
-  serviceAccount:
-    enabled: true
+  # Seconds Kubernetes waits for an Auth Service pod to stop gracefully before killing it.
   terminationGracePeriodSeconds: 120
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # Services API configuration (Smart Activation component)
 servicesapi:
+  # Horizontal Pod Autoscaler configuration for this service.
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target average CPU utilization percentage for the autoscaler
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
+  # Log settings for this service.
   logging:
+    # Log verbosity (e.g. DEBUG, INFO, WARN, ERROR).
     verbosity: DEBUG
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
   # Number of Services API pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # JVM options passed to the service (e.g. -Xmx2150m).
     java_opts: -Xmx2150m
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  service:
-    port: 80
-  serviceAccount:
-    enabled: true
   # Enable SSO for Services API
   sso_enabled: true
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # Socket.io service configuration (Smart Activation component)
 socketio:
+  # Horizontal Pod Autoscaler configuration for this service.
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target average CPU utilization percentage for the autoscaler
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
-  keycloak_realm: redpoint-mercury
-  logging:
-    verbosity: DEBUG
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
   # Number of Socket.io pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
-    java_opts: -Xmx1536m
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  service:
-    port: 80
-  serviceAccount:
-    enabled: true
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # UI Service configuration (Smart Activation component)
 uiservice:
+  # Horizontal Pod Autoscaler configuration for this service.
   autoscaling:
+    # Enable horizontal pod autoscaling
     enabled: false
+    # Maximum number of replicas
     maxReplicas: 5
+    # Minimum number of replicas
     minReplicas: 2
+    # Target average CPU utilization percentage for the autoscaler
     targetCPUUtilizationPercentage: 80
+    # Target average memory utilization percentage for the autoscaler
     targetMemoryUtilizationPercentage: 80
-  logging:
-    verbosity: DEBUG
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
   # Number of UI Service pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
-    java_opts: -Xmx2150m
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  service:
-    port: 80
-  serviceAccount:
-    enabled: true
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # Keycloak configuration (Smart Activation component)
 keycloak:
-  autoscaling:
-    enabled: false
-    maxReplicas: 5
-    minReplicas: 2
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
   # Keycloak database name
   database_name: keycloak
   # Keycloak hostname
   hostname: keycloak
-  # Keycloak admin password
-  password: my_Super_Strong_Pwd
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
-  # Keycloak realm client ID
-  realm_client_id: rpi-service
-  # Keycloak realm client secret
-  realm_client_secret: <my-realm-client-secret>
   # Keycloak realm name
   realm_name: redpoint-mercury
   # Number of Keycloak pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # RollingUpdate strategy for this service.
   rollingUpdate:
+    # Maximum pods created above the desired count during an update (count or percentage).
     maxSurge: 25%
+    # Maximum pods that may be unavailable during an update (count or percentage).
     maxUnavailable: 25%
-    progressDeadlineSeconds: 600
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for Keycloak; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
-    capabilities:
-      drop:
-      - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 1001
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 1001
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 1001
-  service:
-    port: 80
-  serviceAccount:
-    enabled: true
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
   # Keycloak admin username
   username: admin@noemail.com
@@ -2442,168 +3169,245 @@ initservice:
   database:
     # Operational database for Smart Activation
     operational:
-      # MongoDB connection string
-      connection_string: 'mongodb+srv://<my_username>:<my_password>@<my_hostname>/?retryWrites=true&w=majority'
       # Database name
       name: smart_activation_db
+  # Log settings for this service.
   logging:
+    # Log verbosity (e.g. DEBUG, INFO, WARN, ERROR).
     verbosity: DEBUG
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
   # Number of Init Service pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # JVM options passed to the service (e.g. -Xmx2150m).
     java_opts: -Xmx2150m
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
-  rollingUpdate:
-    maxSurge: 25%
-    maxUnavailable: 25%
-    progressDeadlineSeconds: 600
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  service:
-    port: 80
-  serviceAccount:
-    enabled: true
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # Message Queue service configuration (Smart Activation component)
 messageq:
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
-  port: 5672
-  # Number of Message Queue pod replicas
-  replicas: 1
   # CPU and memory resource requests and limits
   resources:
-    enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: true
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  serviceAccount:
-    enabled: true
-  type: StatefulSet
   # Message queue username
   username: redpointrpi
+  # Persistent volume claim template for this service.
   volumeClaimTemplates:
+    # Requested volume size (e.g. 100Gi).
     storage: 100Gi
 
 # Maintenance Service configuration (Smart Activation component)
 maintenanceservice:
-  logging:
-    verbosity: DEBUG
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
-  port: 80
   # Number of Maintenance Service pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
-    java_opts: -Xmx1536m
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
-  rollingUpdate:
-    maxSurge: 25%
-    maxUnavailable: 25%
-    progressDeadlineSeconds: 600
+  # Argo Rollout settings, used when type is rollout.
   rollout:
+    # Promote the new revision automatically once it is healthy.
     autoPromotionEnabled: true
+    # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  serviceAccount:
-    enabled: true
+  # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
+  # services use StatefulSet.
   type: deployment
 
 # CDP Cache service configuration (Smart Activation component)
 cdpcache:
-  # Enable CDP Cache service
-  enabled: true
+  # PodDisruptionBudget for this service.
   podDisruptionBudget:
+    # Create a PodDisruptionBudget for the workload.
     enabled: false
+    # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
-  # Number of CDP Cache pod replicas
+  # Number of CDP Cache StatefulSet replicas.
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
+    # Apply the requests and limits below to the container. false deploys the container
+    # without resource constraints.
     enabled: true
+    # Resource limits (maximum allocation)
     limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
       memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
     requests:
+      # CPU request (e.g., '500m', '1')
       cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
       memory: 256Mi
+  # Security context for this service; overrides the chart-wide securityContext.
   securityContext:
+    # Allow the process to gain more privileges than its parent.
     allowPrivilegeEscalation: false
+    # AppArmor profile applied to the container; empty for none.
     appArmorProfile: ''
+    # Linux capabilities.
     capabilities:
+      # Capabilities dropped from the container.
       drop:
       - ALL
+    # Emit the security context on the pod and container.
     enabled: true
+    # GID applied to mounted volumes.
     fsGroup: 7777
+    # Run the container in privileged mode.
     privileged: false
+    # Mount the container root filesystem read-only.
     readOnlyRootFilesystem: false
+    # Primary GID of the container process.
     runAsGroup: 7777
+    # Require the container to run as a non-root user.
     runAsNonRoot: true
+    # UID the container runs as.
     runAsUser: 7777
-  service:
-    port: 6379
-  serviceAccount:
-    enabled: true
-  type: StatefulSet
+  # Persistent volume claim template for this service.
   volumeClaimTemplates:
+    # Requested volume size (e.g. 100Gi).
     storage: 100Gi
 
 # Reporting Service configuration (Sigma integration)
@@ -2614,7 +3418,5 @@ reportingservice:
     api_url: 'https://api.us.azure.sigmacomputing.com'
     # Sigma client ID
     client_id: 48dd1982ab835ff53177e9cbd7fb5608b1db8c56491a040f2f0843a3bfc6b440
-    # Sigma client secret
-    client_secret: my_sigma_client_secret
     # Enable Sigma reporting integration
     enabled: false

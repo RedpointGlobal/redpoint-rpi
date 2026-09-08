@@ -149,7 +149,7 @@ spec:
       {{- end }}
       serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
       {{- include "rpi.pod.securityContext" (dict "sc" $cfg.securityContext "noSupplementalGroups" true) | nindent 6 }}
-      terminationGracePeriodSeconds: 120
+      terminationGracePeriodSeconds: {{ $cfg.terminationGracePeriodSeconds }}
       {{- include "rpi.podAntiAffinity" (dict "root" . "name" $name) | nindent 6 }}
       topologySpreadConstraints:
         - maxSkew: 1
@@ -230,7 +230,7 @@ spec:
         - name: CACHE_PORT
           value: {{ $cacheCfg.service.port | quote }}
         - name: _JAVA_OPTIONS
-          value: -Xmx750m
+          value: {{ $cfg.resources.java_opts | quote }}
         - name: SMTP_HOST
           value: {{ .Values.SMTPSettings.SMTP_Address | quote }}
         - name: SMTP_PORT

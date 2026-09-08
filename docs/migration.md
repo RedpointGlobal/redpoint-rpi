@@ -12,7 +12,7 @@ This guide covers upgrading an existing RPI v7.7 Helm deployment to v7.8. If you
 <details>
 <summary><strong style="font-size:1.25em;">What Changed in the Helm Chart</strong></summary>
 
-v7.8 is an additive release. It introduces Google Cloud data-plane support (Cloud SQL and BigQuery) and new Realtime API and Interaction API configuration. Existing v7.7 overrides continue to work unchanged (see the checklist below).
+v7.8 is designed to preserve existing v7.7 configuration. Most existing overrides require no changes. A small number of settings have changed behavior or been removed; these are identified below. In particular, BigQuery service account connections continue to use the existing ConfigMap and key (see Changed in v7.8 and the checklist below).
 
 | Area | Change |
 |:---|:---|
@@ -30,7 +30,7 @@ v7.8 is an additive release. It introduces Google Cloud data-plane support (Clou
 
 ### Google Cloud SQL (PostgreSQL) with IAM authentication
 
-RPI can connect to a Google Cloud SQL for PostgreSQL instance using passwordless IAM authentication through the Cloud SQL Auth Proxy, which runs as a sidecar. With `autoIamAuthn` enabled, pods connect over loopback using the IAM database user and no stored password. This path is SDK secrets mode only (`secretsManagement.provider: sdk`).
+RPI can connect to a Google Cloud SQL for PostgreSQL instance using passwordless IAM authentication through the Cloud SQL Auth Proxy, which runs as a sidecar. With `autoIamAuthn` enabled, pods connect over loopback using the IAM database user and no stored password. The proxy requires `cloudIdentity.enabled: true` (it authenticates with the pod's Google identity); the secret provider is independent, so `kubernetes`, `csi`, or `sdk` may all be used.
 
 ```yaml
 databases:
@@ -52,8 +52,10 @@ The chart renders an ODBC DSN ConfigMap for the Simba BigQuery driver when `data
 
 | `credentialsType` | Authentication |
 |:---|:---|
-| `serviceAccount` | Service-account key file (`serviceAccountEmail` plus a mounted key) |
+| `serviceAccount` | Service account key file (`serviceAccountEmail` plus a mounted key) |
 | `workloadIdentity` | Keyless, via the pod's GCP Workload Identity (Application Default Credentials). No key file is mounted. |
+
+For `serviceAccount` connections, `configMapName` names the Kubernetes ConfigMap and `keyName` its data key. BigQuery credentials are managed independently of the platform Google credential (`cloudIdentity.google`); a connection and the platform may reference the same ConfigMap or different ones.
 
 ```yaml
 databases:
@@ -97,7 +99,7 @@ interactionapi:
 
 ### Queue Reader: expanded configuration
 
-Expanded configuration support for logging, integrations, distributed processing, and operational settings, including logging providers (New Relic, Loggly), NLP, SMTP, file output, operational database retry, and the chart-managed internal cache and queue for distributed processing.
+Expanded configuration support for logging, integrations, distributed processing, and operational settings, including logging providers (New Relic, Loggly), NLP, SMTP, file output, operational database retry, and the chart managed internal cache and queue for distributed processing.
 
 ```yaml
 queuereader:
@@ -112,7 +114,7 @@ queuereader:
 
 ### Per-tenant Realtime API address override
 
-The cluster-wide Realtime API address can be overridden per client (tenant). Each entry pairs a client GUID with the Realtime API base address for that client; the override is consumed by the Interaction API and Execution Service. Requires `realtimeapi.multitenant: true`.
+The cluster wide Realtime API address can be overridden per client (tenant). Each entry pairs a client GUID with the Realtime API base address for that client; the override is consumed by the Interaction API and Execution Service. Requires `realtimeapi.multitenant: true`.
 
 ```yaml
 realtimeapi:
@@ -136,7 +138,7 @@ executionservice:
 
 ### RPI NLP trace logging
 
-RPI NLP now supports verbose request/response trace logging for diagnostics, emitted as `RPI__NLP__EnableTrace` on every service that uses the NLP integration (Interaction API, Execution Service, Node Manager, Queue Reader, Integration API). Off by default; enable it through the shared RedpointAI logging setting.
+RPI NLP now supports verbose request/response trace logging for diagnostics on the services that use the NLP integration (Interaction API, Execution Service, Node Manager, Queue Reader, Integration API). It is off by default; enable it with `redpointAI.logging.enableTrace`.
 
 ```yaml
 redpointAI:
@@ -147,33 +149,62 @@ redpointAI:
 </details>
 
 <details>
-<summary><strong style="font-size:1.25em;">Removed in v7.8</strong></summary>
-
-### RedpointAI vector search values
-
-`redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` have been removed. RPI now creates the search index, vector profile, and algorithm dynamically at runtime, so these values are no longer needed. See [Redpoint AI](https://docs.redpointglobal.com/rpi/admin-basic-selection-rule-ai-integration).
-
-### Internal cache OpsDB failover
-
-`InternalCache__BackupToOpsDBInterval` and `InternalCache__FailOnPrimaryDataLoss` have been removed - OpsDB-backed cache failover was removed in 7.8. Remove them from your overrides if set (Execution Service and Queue Reader).
-
-### Swagger on the Interaction API
-
-The Interaction API no longer emits `EnableSwagger`. The setting remains valid and unchanged for the Integration API.
-
-### LuxSci SendRequestCount renamed
-
-`Plugins__LuxSci__SendRequestCount` was renamed to `Plugins__LuxSci__MaxConcurrentApiRequestsPerAccount`. The old key binds to nothing and is silently ignored, so update any override that sets it.
-
-</details>
-
-<details>
 <summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
-1. Remove `redpointAI.VectorSearchProfile` and `redpointAI.VectorSearchConfig` if present.
-2. Check for silent breaks: rename the LuxSci `SendRequestCount` cap to `maxConcurrentApiRequestsPerAccount`, and stop setting `InternalCache__StatePersistence__Provider: DefaultCache` (removed from the provider enum - use `FileSystem` or `AzureBlobStorage`). Both are ignored rather than rejected if left in place.
-3. Review the new optional features (Cloud SQL IAM, BigQuery, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput) and adopt as needed. All are opt-in and default off.
-4. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+If your `overrides.yaml` sets any of the following, here is what changed and what to do. Each row lists whether leaving the old setting in place blocks the upgrade.
+
+<table style="width:100%;border-collapse:collapse;table-layout:fixed;line-height:1.4">
+<colgroup><col style="width:31%"><col style="width:37%"><col style="width:20%"><col style="width:12%"></colgroup>
+<thead>
+<tr>
+<th align="left">Setting</th>
+<th align="left">7.8 change</th>
+<th align="left">Action</th>
+<th align="left">Breaking</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;VectorSearchProfile</code><br><code>&nbsp;&nbsp;VectorSearchConfig</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
+</tr>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxScisendRequestCount</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
+</tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;internalCache:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>interactionapi:</code><br><code>&nbsp;&nbsp;enableSwagger</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">The Interaction API no longer exposes Swagger (<code>integrationapi.enableSwagger</code> unchanged)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases:</code><br><code>&nbsp;&nbsp;datawarehouse:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;bigquery:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connections:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ConfigMapFilePath</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer applies; the chart manages the credential file location</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+</tbody>
+</table>
+
+BigQuery `serviceAccount` connections keep working with no credential change: your `configMapName` and `keyName` still point at the same ConfigMap and data key, and `cloudIdentity.google` is unchanged. The chart now manages where the credential file is placed, which matters only if a process outside the chart reads that file directly (see step 2).
+
+1. Resolve any breaking rows from the table above that appear in your `overrides.yaml` (the RedpointAI vector search values).
+2. If a process outside the chart reads the BigQuery credential file directly, update its path to `/app/google-creds/bigquery/<connection name>.json` (v7.7 used `/app/google-creds/<keyName>`). The chart already uses the new path.
+3. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+4. Optionally, complete the non-breaking cleanup from the table above. This can be done before or after the upgrade.
+
+New v7.8 features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput controls) are opt-in and default off.
 
 </details>
 

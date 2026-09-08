@@ -206,7 +206,7 @@ spec:
         - name: RPIClient__HelpStartPageURL
           value: "https://docs.redpointglobal.com/rpi/"
         - name: RPIClient__ProductUpdateFeed__Enabled
-          value: {{ $cfg.productUpdateFeed.enabled | quote }} 
+          value: {{ $cfg.productUpdateFeed.enabled | quote }}
         - name: RPIClient__ProductUpdateFeed__URL
           value: {{ $cfg.productUpdateFeed.url | quote }}
         {{- if $diag.copytoAzureBlob.enabled }}
@@ -263,12 +263,6 @@ spec:
         {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
-        {{- if eq .Values.global.deployment.platform "azure" }}
-        {{- if (($dw.bigquery | default dict).enabled | default false) }}
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
-        {{- end }}
-        {{- end }}
         {{- if and .Values.OpenIdProviders.enabled (eq .Values.OpenIdProviders.name "keycloak") }}
         - name: RPI__UserManagement__UseNativeUserManagement
           value: {{ $cfg.userManagement.useNativeUserManagement | quote }}
@@ -373,6 +367,8 @@ spec:
         {{- end }}
         {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
         {{- with (include "rpi.realtime.clientOverrides" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        - name: DisableHttpRedirect
+          value: {{ $cfg.disableHttpRedirect | quote }}
         - name: RPI__SMTP__EmailSenderAddress
           value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
         - name: RPI__SMTP__Address
@@ -589,10 +585,10 @@ spec:
             mountPath: /tmp
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
-          {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
-            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
-            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
+          {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
+          - name: bigquery-{{ .name }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
+            subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -621,10 +617,10 @@ spec:
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
-        {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+        {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
+        - name: bigquery-{{ .name }}
           configMap:
-            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            name: {{ .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}

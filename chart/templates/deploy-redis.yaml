@@ -97,7 +97,7 @@ spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
     whenScaled: Retain
-  replicas: 1
+  replicas: {{ $qrCfg.internalCache.redisSettings.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $QueueReadercacheName }}

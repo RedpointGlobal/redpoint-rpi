@@ -33,7 +33,7 @@ data:
     LargeResultsTempTableExpirationTime={{ .largeResultsTempTableExpirationTime | default "3600000" }}
     {{- if eq .credentialsType "serviceAccount" }}
     Email={{ .serviceAccountEmail }}
-    KeyFilePath={{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
+    KeyFilePath={{ include "rpi.bigquery.credentialPath" . }}
     {{- end }}
     {{- end }}
 {{- end }}

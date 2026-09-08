@@ -855,6 +855,18 @@ Usage: {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
 {{- end -}}
 
 {{/*
+BigQuery credential file path for a connection. BigQuery credentials live in
+their own filesystem namespace, isolated from the platform Google credential,
+keyed by the connection name so each connection is unique even when connections
+share a ConfigMap. The ConfigMap and its data key are chosen separately
+(configMapName / keyName); this is only where the credential is mounted.
+Usage: {{ include "rpi.bigquery.credentialPath" . }}   (dot = a bigquery connection)
+*/}}
+{{- define "rpi.bigquery.credentialPath" -}}
+/app/google-creds/bigquery/{{ .name }}.json
+{{- end -}}
+
+{{/*
 Resolve the container image for a service.
 Priority:
   1. overrides.<name>: full URI used verbatim (no tag appended)
@@ -1029,10 +1041,9 @@ Otherwise every helper in this family renders empty and the sidecar is inert.
 {{- define "rpi.cloudSqlProxy.enabled" -}}
 {{- $cfg := (.Values.databases.operational.cloudSqlProxy | default dict) -}}
 {{- $provider := .Values.databases.operational.provider | default "" -}}
-{{- $secretsProvider := .Values.secretsManagement.provider | default "" -}}
 {{- if and (eq (.Values.global.deployment.platform | default "") "google") ($cfg.enabled | default false) (or (eq $provider "postgresql") (eq $provider "sqlserver")) -}}
-{{- if ne $secretsProvider "sdk" -}}
-{{- fail "databases.operational.cloudSqlProxy.enabled=true requires secretsManagement.provider=sdk. The Cloud SQL Auth Proxy assumes the same cloud-native security realm as the SDK secret provider (vault-backed, IAM-bound). It is not supported with secretsManagement.provider=kubernetes." -}}
+{{- if not .Values.cloudIdentity.enabled -}}
+{{- fail "databases.operational.cloudSqlProxy.enabled=true requires cloudIdentity.enabled=true. The Cloud SQL Auth Proxy authenticates to Cloud SQL with the pod's Google identity (Workload Identity, or a mounted service account key under cloudIdentity.google). The secret provider (kubernetes, csi, or sdk) is independent of the proxy." -}}
 {{- end -}}
 true
 {{- end -}}

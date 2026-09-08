@@ -4,7 +4,6 @@ deployment
 values-*
 .claude
 deploy/cli/
-deploy/serverless
 secrets.yaml
 rpi-secrets.yaml
 overrides.yaml
@@ -27,3 +26,4 @@ pre-release.sh
 /PROJECT_STATE.md
 /ROADMAP.md
 /decisions/
+charttests

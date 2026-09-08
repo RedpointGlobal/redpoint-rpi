@@ -15,7 +15,7 @@ Three Azure services back the feature. You provision all three in your own Azure
 | **Azure AI Search** | Holds the vector and keyword index of the tenant's attribute metadata that grounds the model. |
 | **Azure Blob Storage** | Holds the index source documents that RPI generates and that Azure AI Search ingests. |
 
-You provision the three services empty. RPI builds the search index, the vector search, the vector algorithm, and the embeddings on demand when an operator runs **Update AI Model** on a SQL Database Definition. RPI recreates the index on each run, so there is no client-facing configuration of the index schema or vector algorithm, and manual edits to the index are overwritten on the next run.
+You provision the three services empty. RPI builds the search index, the vector search, the vector algorithm, and the embeddings on demand when an operator runs **Update AI Model** on a SQL Database Definition. RPI recreates the index on each run, so there is no client facing configuration of the index schema or vector algorithm, and manual edits to the index are overwritten on the next run.
 
 The feature runs in the same cluster and namespace as the rest of RPI. It is configured through the chart's `redpointAI` values block, and its credentials live in the shared RPI Secret alongside every other RPI secret.
 
@@ -334,14 +334,14 @@ kubectl create secret generic redpoint-rpi-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-For `csi` mode, populate the same keys in your CSI-backed secret store. For `sdk` mode, store them in your cloud vault under the same key names. The chart does not bind `secretKeyRef` entries in SDK mode, and RPI fetches the values at runtime. See [Secrets Management](secrets-management.md).
+For `csi` mode, populate the same keys in your CSI backed secret store. For `sdk` mode, store them in your cloud vault under the same key names. The chart does not bind `secretKeyRef` entries in SDK mode, and RPI fetches the values at runtime. See [Secrets Management](secrets-management.md).
 
 ### What the chart wires
 
 When `redpointAI.enabled` is `true`, the chart emits the `RPI__NLP__*` environment contract:
 
-- The Execution Service, Node Manager, and Integration API receive the full configuration plus the three secret-backed values.
-- The Interaction API receives the three secret-backed values only.
+- The Execution Service, Node Manager, and Integration API receive the full configuration plus the three secret backed values.
+- The Interaction API receives the three secret backed values only.
 
 Apply with your normal upgrade:
 

@@ -289,12 +289,6 @@ spec:
           value: {{ $cfg.serviceHost.portNumber | quote }}
         {{- end }}
         {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
-        {{- if eq .Values.global.deployment.platform "azure" }}
-        {{- if (($dw.bigquery | default dict).enabled | default false) }}
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: "{{ .Values.cloudIdentity.google.configMapFilePath }}/{{ .Values.cloudIdentity.google.keyName }}"
-        {{- end }}
-        {{- end }}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}
         - name: ODBCINI
           value: /odbc-config/odbc.ini
@@ -392,22 +386,7 @@ spec:
           value: {{ $cfg.partitionHandler.offsetPositionTTL | quote }}
         - name: QueueService__PartitionHandler__DeduplicationCacheTTL
           value: {{ $cfg.partitionHandler.deduplicationCacheTTL | quote }}
-        {{- if $cfg.realtimeConfiguration.isDistributed }}
-        - name: InternalCache__Enabled
-          value: "true"
-        - name: InternalCache__MaxNumberRetries
-          value: {{ $cfg.internalCache.maxNumberRetries | quote }}
-        - name: InternalCache__MaxRetryDelay
-          value: {{ $cfg.internalCache.maxRetryDelay | quote }}
-        - name: InternalCache__FailOnCacheConnectionError
-          value: {{ $cfg.internalCache.failOnCacheConnectionError | quote }}
-        - name: InternalCache__StatePersistence__Provider
-          value: {{ $cfg.internalCache.statePersistenceProvider | quote }}
-        - name: InternalCache__StatePersistence__FileSystem__OverrideDirectoryPath
-          value: {{ $cfg.internalCache.stateFileSystem.overrideDirectoryPath | quote }}
-        - name: InternalCache__StatePersistence__FileSystem__DirectoryPathOverride
-          value: {{ $cfg.internalCache.stateFileSystem.directoryPathOverride | quote }}
-        {{- end }}
+        {{- /* Redis coordinates work across Queue Reader replicas; the provider is Redis by application default and the Queue Reader does not use InternalCache state persistence. */}}
         {{- if $cfg.realtimeConfiguration.isDistributed }}
         - name: InternalCache__RedisSettings__IPAddress
           valueFrom:
@@ -581,10 +560,10 @@ spec:
           - name: odbcini
             mountPath: /odbc-config
           {{- range .Values.databases.datawarehouse.bigquery.connections }}
-          {{- if eq .credentialsType "serviceAccount" }}
-          - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
-            mountPath: {{ default $.Values.cloudIdentity.google.configMapFilePath .ConfigMapFilePath }}/{{ default $.Values.cloudIdentity.google.keyName .keyName }}
-            subPath: {{ default $.Values.cloudIdentity.google.keyName .keyName }}
+          {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
+          - name: bigquery-{{ .name }}
+            mountPath: {{ include "rpi.bigquery.credentialPath" . }}
+            subPath: {{ .keyName | default (printf "%s.json" .configMapName) }}
             readOnly: true
           {{- end }}
           {{- end }}
@@ -619,10 +598,10 @@ spec:
         - name: odbcini
           emptyDir: {}
         {{- range .Values.databases.datawarehouse.bigquery.connections }}
-        {{- if eq .credentialsType "serviceAccount" }}
-        - name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+        {{- if and (eq .credentialsType "serviceAccount") .configMapName }}
+        - name: bigquery-{{ .name }}
           configMap:
-            name: {{ default $.Values.cloudIdentity.google.configMapName .configMapName | quote }}
+            name: {{ .configMapName | quote }}
         {{- end }}
         {{- end }}
         {{- end }}
