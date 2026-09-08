@@ -22,3 +22,5 @@
 .vscode/
 # Test assets are local-only and never ship in the packaged chart.
 tests/
+# Documentation screenshots referenced by README/docs; not consumed by any template.
+images/
