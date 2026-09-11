@@ -6,7 +6,7 @@
       "value": "eastus"
     },
     "imageTag": {
-      "value": "7.8.20260903.1449"
+      "value": "7.8.20260910.1532"
     },
     "imageRegistry": {
       "value": "rg1acrpub.azurecr.io/docker/redpointglobal/releases"

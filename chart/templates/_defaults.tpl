@@ -585,7 +585,7 @@ serviceHost:
 userManagement:
   useNativeUserManagement: true
   useExternalUserManagement: false
-microsoftForceLogin: true
+microsoftForceLogin: false
 mapControl:
   enabled: false
   provider: Bing
