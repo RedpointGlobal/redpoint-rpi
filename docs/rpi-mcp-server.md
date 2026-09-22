@@ -53,7 +53,8 @@ The client identifier is not sensitive and is set in values, at `rpiMcpServer.oa
 | `rpiMcpServer.defaultClientId` | `""` | RPI tenant identifier, a GUID. Required when enabled |
 | `rpiMcpServer.authRequired` | `true` | Requires a bearer token on the MCP endpoint |
 | `rpiMcpServer.replicaCount` | `1` | Must be `1` |
-| `rpiMcpServer.proxy.enabled` | `false` | Uses service account proxy credentials from the Secret |
+| `rpiMcpServer.proxy.enabled` | `false` | Uses service account proxy credentials |
+| `rpiMcpServer.proxy.user` | `""` | Service account username. Required when `proxy.enabled` is true |
 | `rpiMcpServer.urlAllowlist` | `""` | Comma separated host domains a caller may target per request. Empty accepts none |
 | `rpiMcpServer.service.port` | `3002` | Service and container port |
 | `ingress.hosts.rpimcpserver` | `rpi-mcpserver` | Hostname for the MCP endpoint, alongside every other service hostname |

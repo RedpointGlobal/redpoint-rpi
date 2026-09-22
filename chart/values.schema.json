@@ -4753,6 +4753,10 @@
             "enabled": {
               "type": "boolean",
               "description": "Use service account proxy credentials from the shared Secret"
+            },
+            "user": {
+              "type": "string",
+              "description": "Service account username for the proxy. Required when proxy.enabled=true. Not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass"
             }
           }
         },

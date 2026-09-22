@@ -8,6 +8,8 @@
 {{- $secCtx := $cfg.securityContext | default dict -}}
 {{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
+{{- $authRequired := true -}}
+{{- if hasKey $cfg "authRequired" }}{{- $authRequired = $cfg.authRequired -}}{{- end -}}
 
 {{- /* The MCP server reads every credential from an environment binding and
        has no cloud vault client, so the sdk provider cannot supply it. The
@@ -21,6 +23,10 @@
        it has no record of. One writer, one replica. */ -}}
 {{- if ne (int ($cfg.replicaCount | default 1)) 1 -}}
 {{- fail "rpiMcpServer.replicaCount must be 1. MCP sessions are held in the server process, so a request routed to another replica resolves to a different session." -}}
+{{- end -}}
+
+{{- if and $cfg.proxy $cfg.proxy.enabled (not $cfg.proxy.user) -}}
+{{- fail "rpiMcpServer.proxy.user is required when rpiMcpServer.proxy.enabled=true. The identifier is not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass." -}}
 {{- end -}}
 
 {{- if not $cfg.oauthClientId -}}
@@ -118,7 +124,7 @@ spec:
         - name: RPI_DEFAULT_CLIENT_ID
           value: {{ $cfg.defaultClientId | quote }}
         - name: AUTH_REQUIRED
-          value: {{ $cfg.authRequired | default true | quote }}
+          value: {{ $authRequired | quote }}
         # The externally reachable origin this server publishes in its OAuth
         # protected resource metadata. Without it the origin is derived from
         # forwarded headers.
@@ -139,10 +145,7 @@ spec:
         - name: RPI_PROXY_ENABLED
           value: "true"
         - name: RPI_PROXY_USER
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: RPI_MCP_Proxy_User
+          value: {{ $proxy.user | quote }}
         - name: RPI_PROXY_PASS
           valueFrom:
             secretKeyRef:

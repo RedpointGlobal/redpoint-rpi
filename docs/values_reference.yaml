@@ -3450,6 +3450,9 @@ rpiMcpServer:
   proxy:
     # Use service account proxy credentials from the shared Secret
     enabled: false
+    # Service account username for the proxy. Required when proxy.enabled=true. Not sensitive;
+    # its password is the Secret key RPI_MCP_Proxy_Pass
+    user: ''
   # Must be 1. MCP sessions are held in the server process
   replicaCount: 1
   # Container resource requests and limits

@@ -147,12 +147,13 @@ stringData:
 The matching client identifier is not sensitive and is set in values, at
 `rpiMcpServer.oauthClientId`.
 
-The proxy credentials are required only when `rpiMcpServer.proxy.enabled: true`:
+The proxy password is required only when `rpiMcpServer.proxy.enabled: true`:
 
 ```yaml
-  RPI_MCP_Proxy_User: "<service-account-username>"
   RPI_MCP_Proxy_Pass: "<service-account-password>"
 ```
+
+Its username is not sensitive and is set in values, at `rpiMcpServer.proxy.user`.
 
 **If Rebrandly is enabled** (`rebrandly.enabled: true`):
 
@@ -575,7 +576,7 @@ aws secretsmanager create-secret \
   --region <your-region>
 ```
 
-Add optional keys as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_SMTP_Username`, `RPI_MCP_OAuth_Client_Secret`, `RPI_MCP_Proxy_User`, `RPI_MCP_Proxy_Pass`.
+Add optional keys as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_MCP_OAuth_Client_Secret`, `RPI_MCP_Proxy_Pass`.
 
 > **Important:** CSI on Amazon uses single underscore (`_`) key names mapped via jmesPath objectAlias. Every `jmesPath` path must exist in the Secrets Manager secret. A missing key causes the entire CSI mount to fail.
 
@@ -673,7 +674,7 @@ secretsManagement:
           key: RealtimeAPI_MongoCache_ConnectionString
 ```
 
-Add optional keys to both `jmesPath` and `secretObjects` as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_SMTP_Username`, `RPI_MCP_OAuth_Client_Secret`, `RPI_MCP_Proxy_User`, `RPI_MCP_Proxy_Pass`.
+Add optional keys to both `jmesPath` and `secretObjects` as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_MCP_OAuth_Client_Secret`, `RPI_MCP_Proxy_Pass`.
 
 #### Sync trigger options
 

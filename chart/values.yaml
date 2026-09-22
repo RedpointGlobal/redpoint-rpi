@@ -1203,7 +1203,7 @@ redpointAI:
 #
 # Required Secret keys (see secrets-management.md):
 #   RPI_MCP_OAuth_Client_Secret
-#   RPI_MCP_Proxy_User, RPI_MCP_Proxy_Pass   (only when proxy.enabled=true)
+#   RPI_MCP_Proxy_Pass                       (only when proxy.enabled=true)
 rpiMcpServer:
   enabled: false
   serviceAccount:
@@ -1229,9 +1229,11 @@ rpiMcpServer:
   replicaCount: 1
 
   # Service account proxy credentials. When disabled the server acts only on
-  # the caller's own token.
+  # the caller's own token. The username is not sensitive and lives here; its
+  # password is the Secret key RPI_MCP_Proxy_Pass.
   proxy:
     enabled: false
+    user: ""
 
   # Comma separated host domains a caller may target per request. Empty means
   # no per request target is accepted.
