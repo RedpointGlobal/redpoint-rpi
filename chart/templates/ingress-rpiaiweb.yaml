@@ -1,10 +1,8 @@
-{{- $mcp := .Values.mcpServers | default dict -}}
-{{- $cfg := $mcp.rpi | default dict -}}
-{{- if $cfg.enabled -}}
+{{- $ws := (.Values.redpointAI | default dict).agentWorkspace | default dict -}}
+{{- if $ws.enabled -}}
 
-{{- $name := "rpi-mcpserver" -}}
+{{- $name := "rpi-aiweb" -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
-{{- $service := $cfg.service | default dict -}}
 
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -12,12 +10,10 @@ metadata:
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "mcpserver") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
-    # Streamable HTTP holds the response open for the life of an MCP call.
-    # nginx buffers responses by default, which stalls the stream until the
-    # call completes, so buffering is off on this route only.
+    # Chat responses stream token by token, so the route must not buffer.
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
 spec:
   ingressClassName: {{ $ingCfg.className }}
@@ -34,7 +30,7 @@ spec:
   {{- end }}
   {{- end }}
   rules:
-    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpimcpserver "domain" $ingCfg.domain) }}
+    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpiaiweb "domain" $ingCfg.domain) }}
       http:
         paths:
         - path: /
@@ -43,5 +39,5 @@ spec:
             service:
               name: {{ $name }}
               port:
-                number: {{ $service.port | default 3002 }}
+                number: 3001
 {{- end }}

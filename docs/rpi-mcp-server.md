@@ -23,17 +23,18 @@ It runs as its own deployment, `rpi-mcpserver`, and serves the MCP protocol over
 |---|---|
 | `secretsManagement.provider` is `kubernetes` or `csi` | The server reads its credentials from environment bindings and has no cloud vault client. Enabling it under `sdk` fails `helm template` with an explanatory error |
 | An Integration API OAuth client | The server authenticates to RPI with a client id and secret you register |
-| `rpiMcpServer.defaultClientId` | The RPI tenant this server serves. Required when enabled, with no inference and no default |
+| `mcpServers.rpi.defaultClientId` | The RPI tenant this server serves. Required when enabled, with no inference and no default |
 
 ## Configuration
 
 Minimum to enable:
 
 ```yaml
-rpiMcpServer:
-  enabled: true
-  oauthClientId: <integration-api-oauth-client-id>
-  defaultClientId: <your-rpi-client-guid>
+mcpServers:
+  rpi:
+    enabled: true
+    oauthClientId: <integration-api-oauth-client-id>
+    defaultClientId: <your-rpi-client-guid>
 ```
 
 Populate the Secret keys in the standard RPI Secret before installing. See [Secrets Management](secrets-management.md).
@@ -42,23 +43,23 @@ Populate the Secret keys in the standard RPI Secret before installing. See [Secr
   RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
 ```
 
-The client identifier is not sensitive and is set in values, at `rpiMcpServer.oauthClientId`.
+The client identifier is not sensitive and is set in values, at `mcpServers.rpi.oauthClientId`.
 
 ### Reference
 
 | Value | Default | Purpose |
 |---|---|---|
-| `rpiMcpServer.enabled` | `false` | Enables the deployment, service, service account and ingress |
-| `rpiMcpServer.oauthClientId` | `""` | Integration API OAuth client identifier. Required when enabled |
-| `rpiMcpServer.defaultClientId` | `""` | RPI tenant identifier, a GUID. Required when enabled |
-| `rpiMcpServer.authRequired` | `true` | Requires a bearer token on the MCP endpoint |
-| `rpiMcpServer.replicaCount` | `1` | Must be `1` |
-| `rpiMcpServer.proxy.enabled` | `false` | Uses service account proxy credentials |
-| `rpiMcpServer.proxy.user` | `""` | Service account username. Required when `proxy.enabled` is true |
-| `rpiMcpServer.urlAllowlist` | `""` | Comma separated host domains a caller may target per request. Empty accepts none |
-| `rpiMcpServer.service.port` | `3002` | Service and container port |
+| `mcpServers.rpi.enabled` | `false` | Enables the deployment, service, service account and ingress |
+| `mcpServers.rpi.oauthClientId` | `""` | Integration API OAuth client identifier. Required when enabled |
+| `mcpServers.rpi.defaultClientId` | `""` | RPI tenant identifier, a GUID. Required when enabled |
+| `mcpServers.rpi.authRequired` | `true` | Requires a bearer token on the MCP endpoint |
+| `mcpServers.rpi.replicaCount` | `1` | Must be `1` |
+| `mcpServers.rpi.proxy.enabled` | `false` | Uses service account proxy credentials |
+| `mcpServers.rpi.proxy.user` | `""` | Service account username. Required when `proxy.enabled` is true |
+| `mcpServers.rpi.urlAllowlist` | `""` | Comma separated host domains a caller may target per request. Empty accepts none |
+| `mcpServers.rpi.service.port` | `3002` | Service and container port |
 | `ingress.hosts.rpimcpserver` | `rpi-mcpserver` | Hostname for the MCP endpoint, alongside every other service hostname |
-| `rpiMcpServer.terminationGracePeriodSeconds` | `240` | Shutdown grace period |
+| `mcpServers.rpi.terminationGracePeriodSeconds` | `240` | Shutdown grace period |
 
 ## Why one replica
 
@@ -68,7 +69,7 @@ The chart therefore fixes the replica count at one and refuses any other value a
 
 ## Ingress behaviour
 
-The hostname lives with every other service hostname, at `ingress.hosts.rpimcpserver`, and follows the same rule as its siblings. A bare value is prepended to `ingress.domain`, and a value containing a dot is used as an FQDN. The route is published whenever `rpiMcpServer.enabled` is true.
+The hostname lives with every other service hostname, at `ingress.hosts.rpimcpserver`, and follows the same rule as its siblings. A bare value is prepended to `ingress.domain`, and a value containing a dot is used as an FQDN. The route is published whenever `mcpServers.rpi.enabled` is true.
 
 The MCP endpoint streams. A tool call holds its response open until the call completes, and some calls poll for up to several minutes.
 

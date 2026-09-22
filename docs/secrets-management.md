@@ -138,22 +138,26 @@ stringData:
   RPI_NLP_MODEL_CONNECTION_STRING: "<model-storage-connection-string>"
 ```
 
-**If the RPI MCP Server is enabled** (`rpiMcpServer.enabled: true`):
+**If the RPI MCP Server is enabled** (`mcpServers.rpi.enabled: true`):
 
 ```yaml
   RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
 ```
 
 The matching client identifier is not sensitive and is set in values, at
-`rpiMcpServer.oauthClientId`.
+`mcpServers.rpi.oauthClientId`.
 
-The proxy password is required only when `rpiMcpServer.proxy.enabled: true`:
+The Agent Workspace session signing key is **not** an operator populated value.
+The chart generates it into the internal `rpi-internal-services` Secret and
+preserves it across upgrades.
+
+The proxy password is required only when `mcpServers.rpi.proxy.enabled: true`:
 
 ```yaml
   RPI_MCP_Proxy_Pass: "<service-account-password>"
 ```
 
-Its username is not sensitive and is set in values, at `rpiMcpServer.proxy.user`.
+Its username is not sensitive and is set in values, at `mcpServers.rpi.proxy.user`.
 
 **If Rebrandly is enabled** (`rebrandly.enabled: true`):
 

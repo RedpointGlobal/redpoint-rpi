@@ -1,0 +1,199 @@
+{{- $ai := .Values.redpointAI | default dict -}}
+{{- $ws := $ai.agentWorkspace | default dict -}}
+{{- if $ws.enabled -}}
+
+{{- $name := "rpi-aiserver" -}}
+{{- $server := $ws.server | default dict -}}
+{{- $storage := $server.storage | default dict -}}
+{{- $nl := $ai.naturalLanguage | default dict -}}
+{{- $mcp := (.Values.mcpServers | default dict).rpi | default dict -}}
+{{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
+
+{{- /* The workspace narrates over the AI infrastructure RPI already configures,
+       so that configuration is the prerequisite rather than a second copy. */ -}}
+{{- if not $ai.enabled -}}
+{{- fail "redpointAI.agentWorkspace.enabled=true requires redpointAI.enabled=true. The workspace inherits its Azure OpenAI endpoint, API version, deployment and credential from the redpointAI configuration and defines none of its own." -}}
+{{- end -}}
+
+{{- /* Its only tool surface is the RPI MCP server, and it takes that server's
+       tenant and OAuth client rather than restating them. */ -}}
+{{- if not $mcp.enabled -}}
+{{- fail "redpointAI.agentWorkspace.enabled=true requires mcpServers.rpi.enabled=true. The workspace has no tool surface without it, and inherits mcpServers.rpi.defaultClientId and mcpServers.rpi.oauthClientId." -}}
+{{- end -}}
+
+{{- if eq .Values.secretsManagement.provider "sdk" -}}
+{{- fail "redpointAI.agentWorkspace.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The workspace resolves its credentials from environment bindings and cannot read a cloud vault." -}}
+{{- end -}}
+
+{{- /* SQLite on one volume, so one writer. */ -}}
+{{- if ne (int ($server.replicaCount | default 1)) 1 -}}
+{{- fail "redpointAI.agentWorkspace.server.replicaCount must be 1. The server owns a SQLite database on a single volume." -}}
+{{- end -}}
+
+{{- /* The server builds https://{resource}.openai.azure.com itself, so it needs
+       the bare resource name while redpointAI holds a full endpoint URL. The
+       first label of that host is the resource; a non standard endpoint must
+       name it explicitly rather than be guessed at. */ -}}
+{{- $apiHost := $nl.ApiBase | default "" | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" -}}
+{{- $derived := "" -}}
+{{- if contains "." $apiHost }}{{- $derived = (splitList "." $apiHost | first) -}}{{- end -}}
+{{- $resourceName := $ws.azureResourceName | default $derived -}}
+{{- if not $resourceName -}}
+{{- fail "redpointAI.agentWorkspace could not derive the Azure OpenAI resource name from redpointAI.naturalLanguage.ApiBase. Set redpointAI.agentWorkspace.azureResourceName explicitly when the endpoint is not https://<resource>.openai.azure.com." -}}
+{{- end -}}
+
+{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "agentworkspace" "cfg" (dict "enabled" true "serviceAccount" ($server.serviceAccount | default (dict "enabled" true)))) }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with $storage.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $storage.size | default "5Gi" | quote }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: api
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+    app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" (dict "serviceAccount" ($server.serviceAccount | default (dict "enabled" true)))) }}
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+      containers:
+      - name: {{ $name }}
+        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        ports:
+        - name: api
+          containerPort: 3000
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "3000"
+        # SQLite on the mounted volume. DATABASE_URL would select PostgreSQL
+        # instead; Phase one keeps the volume.
+        - name: DB_FILE_NAME
+          value: /app/data/redpoint-ai.db
+        - name: AUTH_REQUIRED
+          value: "true"
+        # Generated by the chart and preserved across upgrades. Never an
+        # operator populated value.
+        - name: AUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.internalSecretName" . | quote }}
+              key: RPI_AI_Auth_Secret
+        # Inherited from the RPI AI configuration. Only the values the agent
+        # runtime consumes are passed: the search index, blob storage and
+        # temperature belong to the natural language rule builder.
+        - name: AZURE_OPENAI_RESOURCE_NAME
+          value: {{ $resourceName | quote }}
+        - name: AZURE_OPENAI_API_VERSION
+          value: {{ $nl.ApiVersion | quote }}
+        - name: AZURE_OPENAI_DEPLOYMENT_ID
+          value: {{ $nl.ChatGptEngine | quote }}
+        - name: AZURE_OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: RPI_NLP_API_KEY
+        # Both resolved in namespace. Neither is an operator setting, because
+        # the chart already knows every service name it deploys.
+        - name: SEED_RPI_MCP_URL
+          value: {{ printf "http://rpi-mcpserver:%v/mcp" (($mcp.service | default dict).port | default 3002) | quote }}
+        - name: RPI_INTEGRATION_API_URL
+          value: {{ printf "http://rpi-integrationapi:%v" $intCfg.service.port | quote }}
+        - name: RPI_DEFAULT_CLIENT_ID
+          value: {{ $mcp.defaultClientId | quote }}
+        {{- with $server.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: api
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: api
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ $name }}-data
+      {{- if .Values.nodeSelector.enabled }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - effect: NoSchedule
+          key: {{ .Values.nodeSelector.key }}
+          operator: Equal
+          value: {{ .Values.nodeSelector.value }}
+      {{- end }}
+{{- end }}

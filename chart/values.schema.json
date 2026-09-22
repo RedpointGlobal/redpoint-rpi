@@ -4484,6 +4484,10 @@
             "rpimcpserver": {
               "type": "string",
               "description": "RPI MCP Server hostname or subdomain"
+            },
+            "rpiaiweb": {
+              "type": "string",
+              "description": "Agent workspace web hostname or subdomain"
             }
           }
         },
@@ -4705,96 +4709,183 @@
               "description": "Blob folder name for models"
             }
           }
+        },
+        "agentWorkspace": {
+          "type": "object",
+          "description": "Agent workspace: the chat web application and the agent runtime over the MCP tool servers. Requires redpointAI.enabled and mcpServers.rpi.enabled.",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Deploy the agent workspace"
+            },
+            "azureResourceName": {
+              "type": "string",
+              "description": "Azure OpenAI resource name. Derived from redpointAI.naturalLanguage.ApiBase when empty"
+            },
+            "server": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "replicaCount": {
+                  "type": "integer",
+                  "enum": [
+                    1
+                  ],
+                  "description": "Must be 1. The server owns a SQLite database on a single volume"
+                },
+                "serviceAccount": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Create a dedicated ServiceAccount"
+                    }
+                  }
+                },
+                "storage": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "size": {
+                      "type": "string",
+                      "description": "Volume size for the workspace database"
+                    },
+                    "storageClassName": {
+                      "type": "string",
+                      "description": "Storage class. Empty uses the cluster default"
+                    }
+                  }
+                },
+                "resources": {
+                  "type": "object",
+                  "description": "Container resource requests and limits"
+                }
+              }
+            },
+            "web": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "replicaCount": {
+                  "type": "integer",
+                  "description": "Web replicas"
+                },
+                "serviceAccount": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Create a dedicated ServiceAccount"
+                    }
+                  }
+                },
+                "resources": {
+                  "type": "object",
+                  "description": "Container resource requests and limits"
+                }
+              }
+            }
+          }
         }
       }
     },
-    "rpiMcpServer": {
+    "mcpServers": {
       "type": "object",
-      "description": "RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.",
+      "description": "MCP tool servers. Independent of redpointAI: an MCP server exposes an API as tools and consumes no AI infrastructure.",
       "additionalProperties": false,
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable the RPI MCP Server"
-        },
-        "serviceAccount": {
+        "rpi": {
           "type": "object",
+          "description": "RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.",
           "additionalProperties": false,
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Create a dedicated ServiceAccount"
-            }
-          }
-        },
-        "oauthClientId": {
-          "type": "string",
-          "description": "Integration API OAuth client identifier. Required when enabled. Not sensitive; the matching secret is the Secret key RPI_MCP_OAuth_Client_Secret"
-        },
-        "defaultClientId": {
-          "type": "string",
-          "description": "RPI tenant identifier (GUID) the MCP server serves. Required when enabled"
-        },
-        "authRequired": {
-          "type": "boolean",
-          "description": "Require a bearer token on the MCP endpoint"
-        },
-        "replicaCount": {
-          "type": "integer",
-          "enum": [
-            1
-          ],
-          "description": "Must be 1. MCP sessions are held in the server process"
-        },
-        "proxy": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Use service account proxy credentials from the shared Secret"
+              "description": "Enable the RPI MCP Server"
             },
-            "user": {
+            "serviceAccount": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Create a dedicated ServiceAccount"
+                }
+              }
+            },
+            "oauthClientId": {
               "type": "string",
-              "description": "Service account username for the proxy. Required when proxy.enabled=true. Not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass"
-            }
-          }
-        },
-        "urlAllowlist": {
-          "type": "string",
-          "description": "Comma separated host domains a caller may target per request. Empty accepts none"
-        },
-        "service": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "port": {
-              "type": "integer",
-              "description": "Service and container port"
-            }
-          }
-        },
-        "securityContext": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "runAsUser": {
-              "type": "integer",
-              "description": "Pod runAsUser. Defaults to the image's own runtime user"
+              "description": "Integration API OAuth client identifier. Required when enabled. Not sensitive; the matching secret is the Secret key RPI_MCP_OAuth_Client_Secret"
             },
-            "runAsGroup": {
+            "defaultClientId": {
+              "type": "string",
+              "description": "RPI tenant identifier (GUID) the MCP server serves. Required when enabled"
+            },
+            "authRequired": {
+              "type": "boolean",
+              "description": "Require a bearer token on the MCP endpoint"
+            },
+            "replicaCount": {
               "type": "integer",
-              "description": "Pod runAsGroup"
+              "enum": [
+                1
+              ],
+              "description": "Must be 1. MCP sessions are held in the server process"
+            },
+            "proxy": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Use service account proxy credentials from the shared Secret"
+                },
+                "user": {
+                  "type": "string",
+                  "description": "Service account username for the proxy. Required when proxy.enabled=true. Not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass"
+                }
+              }
+            },
+            "urlAllowlist": {
+              "type": "string",
+              "description": "Comma separated host domains a caller may target per request. Empty accepts none"
+            },
+            "service": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "port": {
+                  "type": "integer",
+                  "description": "Service and container port"
+                }
+              }
+            },
+            "securityContext": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "runAsUser": {
+                  "type": "integer",
+                  "description": "Pod runAsUser. Defaults to the image's own runtime user"
+                },
+                "runAsGroup": {
+                  "type": "integer",
+                  "description": "Pod runAsGroup"
+                }
+              }
+            },
+            "terminationGracePeriodSeconds": {
+              "type": "integer",
+              "description": "Shutdown grace period. Covers the longest tool poll budget"
+            },
+            "resources": {
+              "type": "object",
+              "description": "Container resource requests and limits"
             }
           }
-        },
-        "terminationGracePeriodSeconds": {
-          "type": "integer",
-          "description": "Shutdown grace period. Covers the longest tool poll budget"
-        },
-        "resources": {
-          "type": "object",
-          "description": "Container resource requests and limits"
         }
       }
     },

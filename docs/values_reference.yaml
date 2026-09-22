@@ -420,6 +420,8 @@ ingress:
     rabbitmqconsole: rpi-rabbitmq-console
     # Realtime API hostname or subdomain
     realtime: rpi-realtimeapi
+    # Agent workspace web hostname or subdomain
+    rpiaiweb: rpi-aiweb
     # RPI MCP Server hostname or subdomain
     rpimcpserver: rpi-mcpserver
     # Smart Activation hostname or subdomain
@@ -2756,6 +2758,44 @@ rebrandly:
 
 # Redpoint AI configuration for natural language, cognitive search, and model storage
 redpointAI:
+  # Agent workspace: the chat web application and the agent runtime over the MCP tool servers.
+  # Requires redpointAI.enabled and mcpServers.rpi.enabled.
+  agentWorkspace:
+    # Azure OpenAI resource name. Derived from redpointAI.naturalLanguage.ApiBase when empty
+    azureResourceName: ''
+    # Deploy the agent workspace
+    enabled: false
+    server:
+      # Must be 1. The server owns a SQLite database on a single volume
+      replicaCount: 1
+      # Container resource requests and limits
+      resources:
+        limits:
+          memory: 2Gi
+        requests:
+          cpu: 200m
+          memory: 512Mi
+      serviceAccount:
+        # Create a dedicated ServiceAccount
+        enabled: true
+      storage:
+        # Volume size for the workspace database
+        size: 5Gi
+        # Storage class. Empty uses the cluster default
+        storageClassName: ''
+    web:
+      # Web replicas
+      replicaCount: 1
+      # Container resource requests and limits
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      serviceAccount:
+        # Create a dedicated ServiceAccount
+        enabled: true
   # Azure Cognitive Search settings
   cognitiveSearch:
     # Cognitive Search endpoint URL
@@ -3424,6 +3464,52 @@ cdpcache:
     # Requested volume size (e.g. 100Gi).
     storage: 100Gi
 
+# MCP tool servers. Independent of redpointAI: an MCP server exposes an API as tools and
+# consumes no AI infrastructure.
+mcpServers:
+  # RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over
+  # streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.
+  rpi:
+    # Require a bearer token on the MCP endpoint
+    authRequired: true
+    # RPI tenant identifier (GUID) the MCP server serves. Required when enabled
+    defaultClientId: ''
+    # Enable the RPI MCP Server
+    enabled: false
+    # Integration API OAuth client identifier. Required when enabled. Not sensitive; the
+    # matching secret is the Secret key RPI_MCP_OAuth_Client_Secret
+    oauthClientId: ''
+    proxy:
+      # Use service account proxy credentials from the shared Secret
+      enabled: false
+      # Service account username for the proxy. Required when proxy.enabled=true. Not
+      # sensitive; its password is the Secret key RPI_MCP_Proxy_Pass
+      user: ''
+    # Must be 1. MCP sessions are held in the server process
+    replicaCount: 1
+    # Container resource requests and limits
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    securityContext:
+      # Pod runAsGroup
+      runAsGroup: 1000
+      # Pod runAsUser. Defaults to the image's own runtime user
+      runAsUser: 1000
+    service:
+      # Service and container port
+      port: 3002
+    serviceAccount:
+      # Create a dedicated ServiceAccount
+      enabled: true
+    # Shutdown grace period. Covers the longest tool poll budget
+    terminationGracePeriodSeconds: 240
+    # Comma separated host domains a caller may target per request. Empty accepts none
+    urlAllowlist: ''
+
 # Reporting Service configuration (Sigma integration)
 reportingservice:
   # Sigma Computing reporting integration
@@ -3434,46 +3520,3 @@ reportingservice:
     client_id: 48dd1982ab835ff53177e9cbd7fb5608b1db8c56491a040f2f0843a3bfc6b440
     # Enable Sigma reporting integration
     enabled: false
-
-# RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over
-# streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.
-rpiMcpServer:
-  # Require a bearer token on the MCP endpoint
-  authRequired: true
-  # RPI tenant identifier (GUID) the MCP server serves. Required when enabled
-  defaultClientId: ''
-  # Enable the RPI MCP Server
-  enabled: false
-  # Integration API OAuth client identifier. Required when enabled. Not sensitive; the
-  # matching secret is the Secret key RPI_MCP_OAuth_Client_Secret
-  oauthClientId: ''
-  proxy:
-    # Use service account proxy credentials from the shared Secret
-    enabled: false
-    # Service account username for the proxy. Required when proxy.enabled=true. Not sensitive;
-    # its password is the Secret key RPI_MCP_Proxy_Pass
-    user: ''
-  # Must be 1. MCP sessions are held in the server process
-  replicaCount: 1
-  # Container resource requests and limits
-  resources:
-    limits:
-      memory: 1Gi
-    requests:
-      cpu: 100m
-      memory: 256Mi
-  securityContext:
-    # Pod runAsGroup
-    runAsGroup: 1000
-    # Pod runAsUser. Defaults to the image's own runtime user
-    runAsUser: 1000
-  service:
-    # Service and container port
-    port: 3002
-  serviceAccount:
-    # Create a dedicated ServiceAccount
-    enabled: true
-  # Shutdown grace period. Covers the longest tool poll budget
-  terminationGracePeriodSeconds: 240
-  # Comma separated host domains a caller may target per request. Empty accepts none
-  urlAllowlist: ''
