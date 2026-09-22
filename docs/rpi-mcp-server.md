@@ -32,29 +32,31 @@ Minimum to enable:
 ```yaml
 rpiMcpServer:
   enabled: true
+  oauthClientId: <integration-api-oauth-client-id>
   defaultClientId: <your-rpi-client-guid>
 ```
 
 Populate the Secret keys in the standard RPI Secret before installing. See [Secrets Management](secrets-management.md).
 
 ```yaml
-  RPI_MCP_OAuth_Client_Id: "<integration-api-oauth-client-id>"
   RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
 ```
+
+The client identifier is not sensitive and is set in values, at `rpiMcpServer.oauthClientId`.
 
 ### Reference
 
 | Value | Default | Purpose |
 |---|---|---|
 | `rpiMcpServer.enabled` | `false` | Enables the deployment, service, service account and ingress |
+| `rpiMcpServer.oauthClientId` | `""` | Integration API OAuth client identifier. Required when enabled |
 | `rpiMcpServer.defaultClientId` | `""` | RPI tenant identifier, a GUID. Required when enabled |
 | `rpiMcpServer.authRequired` | `true` | Requires a bearer token on the MCP endpoint |
 | `rpiMcpServer.replicaCount` | `1` | Must be `1` |
 | `rpiMcpServer.proxy.enabled` | `false` | Uses service account proxy credentials from the Secret |
 | `rpiMcpServer.urlAllowlist` | `""` | Comma separated host domains a caller may target per request. Empty accepts none |
 | `rpiMcpServer.service.port` | `3002` | Service and container port |
-| `rpiMcpServer.ingress.enabled` | `true` | Publishes an Ingress for the MCP endpoint |
-| `rpiMcpServer.ingress.host` | `rpi-mcpserver` | Subdomain prepended to `ingress.domain`, or an FQDN when it contains a dot |
+| `ingress.hosts.rpimcpserver` | `rpi-mcpserver` | Hostname for the MCP endpoint, alongside every other service hostname |
 | `rpiMcpServer.terminationGracePeriodSeconds` | `240` | Shutdown grace period |
 
 ## Why one replica
@@ -64,6 +66,8 @@ MCP is a session protocol. A client initialises a session, receives a session id
 The chart therefore fixes the replica count at one and refuses any other value at render. Horizontal scale requires a shared session store in the application, which does not exist today.
 
 ## Ingress behaviour
+
+The hostname lives with every other service hostname, at `ingress.hosts.rpimcpserver`, and follows the same rule as its siblings. A bare value is prepended to `ingress.domain`, and a value containing a dot is used as an FQDN. The route is published whenever `rpiMcpServer.enabled` is true.
 
 The MCP endpoint streams. A tool call holds its response open until the call completes, and some calls poll for up to several minutes.
 

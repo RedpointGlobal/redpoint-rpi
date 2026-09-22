@@ -4480,6 +4480,10 @@
             "smartactivation": {
               "type": "string",
               "description": "Smart Activation hostname or subdomain"
+            },
+            "rpimcpserver": {
+              "type": "string",
+              "description": "RPI MCP Server hostname or subdomain"
             }
           }
         },
@@ -4723,6 +4727,10 @@
             }
           }
         },
+        "oauthClientId": {
+          "type": "string",
+          "description": "Integration API OAuth client identifier. Required when enabled. Not sensitive; the matching secret is the Secret key RPI_MCP_OAuth_Client_Secret"
+        },
         "defaultClientId": {
           "type": "string",
           "description": "RPI tenant identifier (GUID) the MCP server serves. Required when enabled"
@@ -4759,20 +4767,6 @@
             "port": {
               "type": "integer",
               "description": "Service and container port"
-            }
-          }
-        },
-        "ingress": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Publish an Ingress for the MCP endpoint"
-            },
-            "host": {
-              "type": "string",
-              "description": "Subdomain prepended to ingress.domain, or an FQDN when it contains a dot"
             }
           }
         },

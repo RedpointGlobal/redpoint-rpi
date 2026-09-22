@@ -1031,6 +1031,7 @@ ingress:
     queuereader: rpi-queuereader
     rabbitmqconsole: rpi-rabbitmq-console
     smartactivation: rpi-smartActivation
+    rpimcpserver: rpi-mcpserver
 
 # ==========================
 # Network Policy
@@ -1201,12 +1202,17 @@ redpointAI:
 # 'sdk' fails at render rather than starting a pod that serves no tools.
 #
 # Required Secret keys (see secrets-management.md):
-#   RPI_MCP_OAuth_Client_Id, RPI_MCP_OAuth_Client_Secret
+#   RPI_MCP_OAuth_Client_Secret
 #   RPI_MCP_Proxy_User, RPI_MCP_Proxy_Pass   (only when proxy.enabled=true)
 rpiMcpServer:
   enabled: false
   serviceAccount:
     enabled: true
+
+  # The Integration API OAuth client this server authenticates as. Required
+  # whenever rpiMcpServer.enabled=true. The identifier is not sensitive and
+  # lives here; its secret is the Secret key RPI_MCP_OAuth_Client_Secret.
+  oauthClientId: ""
 
   # The RPI tenant identifier (a GUID) this MCP server serves. Required
   # whenever rpiMcpServer.enabled=true; an empty value fails `helm template`.
@@ -1233,12 +1239,6 @@ rpiMcpServer:
 
   service:
     port: 3002
-
-  ingress:
-    enabled: true
-    # Subdomain prepended to ingress.domain, or a value containing a dot used
-    # as an FQDN.
-    host: rpi-mcpserver
 
   # Defaults match the image's own runtime user.
   securityContext:

@@ -420,6 +420,8 @@ ingress:
     rabbitmqconsole: rpi-rabbitmq-console
     # Realtime API hostname or subdomain
     realtime: rpi-realtimeapi
+    # RPI MCP Server hostname or subdomain
+    rpimcpserver: rpi-mcpserver
     # Smart Activation hostname or subdomain
     smartactivation: rpi-smartActivation
   # Ingress controller image override.
@@ -3442,11 +3444,9 @@ rpiMcpServer:
   defaultClientId: ''
   # Enable the RPI MCP Server
   enabled: false
-  ingress:
-    # Publish an Ingress for the MCP endpoint
-    enabled: true
-    # Subdomain prepended to ingress.domain, or an FQDN when it contains a dot
-    host: rpi-mcpserver
+  # Integration API OAuth client identifier. Required when enabled. Not sensitive; the
+  # matching secret is the Secret key RPI_MCP_OAuth_Client_Secret
+  oauthClientId: ''
   proxy:
     # Use service account proxy credentials from the shared Secret
     enabled: false

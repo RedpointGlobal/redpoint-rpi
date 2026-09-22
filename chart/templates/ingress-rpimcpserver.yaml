@@ -1,6 +1,5 @@
 {{- $cfg := .Values.rpiMcpServer | default dict -}}
-{{- $mcpIngress := $cfg.ingress | default dict -}}
-{{- if and $cfg.enabled $mcpIngress.enabled -}}
+{{- if $cfg.enabled -}}
 
 {{- $name := "rpi-mcpserver" -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
@@ -34,7 +33,7 @@ spec:
   {{- end }}
   {{- end }}
   rules:
-    - host: {{ include "rpi.ingress.fqdn" (dict "host" ($mcpIngress.host | default "rpi-mcpserver") "domain" $ingCfg.domain) }}
+    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpimcpserver "domain" $ingCfg.domain) }}
       http:
         paths:
         - path: /
