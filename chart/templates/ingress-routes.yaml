@@ -292,3 +292,90 @@ spec:
         path: /(socket.io/.*) 
         pathType: ImplementationSpecific
 {{- end }}
+{{- $mcpRpi := (.Values.mcpServers | default dict).rpi | default dict }}
+{{- if $mcpRpi.enabled }}
+---
+# Its own object rather than a rule on redpoint-rpi, because response
+# buffering has to be off for the MCP streaming endpoint and annotations
+# apply per Ingress rather than per rule.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rpi-mcpserver
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "rpi-mcpserver" "component" "mcpserver") | nindent 4 }}
+  annotations:
+    {{- include "rpi.ingress.annotations" . | nindent 4 }}
+    # Streamable HTTP holds the response open for the life of an MCP call.
+    # nginx buffers responses by default, which stalls the stream until the
+    # call completes.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: {{ $ingCfg.className }}
+  {{- if eq $ingCfg.certificateSource "kubernetes" }}
+  tls:
+  {{- range $ingCfg.tls }}
+  - secretName: {{ .secretName }}
+    {{- if .hosts }}
+    hosts:
+    {{- range .hosts }}
+      - {{ . }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpimcpserver "domain" $ingCfg.domain) }}
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: rpi-mcpserver
+              port:
+                number: {{ ($mcpRpi.service | default dict).port | default 3002 }}
+{{- end }}
+
+{{- $agentWs := (.Values.redpointAI | default dict).agentWorkspace | default dict }}
+{{- if $agentWs.enabled }}
+---
+# Separate for the same reason as the MCP route: chat responses stream token
+# by token and must not be buffered.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rpi-aiweb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "rpi-aiweb" "component" "agentworkspace") | nindent 4 }}
+  annotations:
+    {{- include "rpi.ingress.annotations" . | nindent 4 }}
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: {{ $ingCfg.className }}
+  {{- if eq $ingCfg.certificateSource "kubernetes" }}
+  tls:
+  {{- range $ingCfg.tls }}
+  - secretName: {{ .secretName }}
+    {{- if .hosts }}
+    hosts:
+    {{- range .hosts }}
+      - {{ . }}
+    {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpiaiweb "domain" $ingCfg.domain) }}
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: rpi-aiweb
+              port:
+                number: 3001
+{{- end }}
