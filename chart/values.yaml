@@ -648,6 +648,9 @@ realtimeapi:
       # internal: chart-managed RabbitMQ | external: BYO RabbitMQ
       # rabbitmqSettings.username defaults to the release namespace; set to override.
       type: internal
+      # rabbitmqSettings:
+      #   # Mount an existing PVC instead of a chart-created volume claim.
+      #   existingClaim: <rabbitmq-pvc>
     amazonmsk:
       bootstrapServers: <my-server1.c2.kafka.us-east-1.amazonaws.com:9198>
 
@@ -887,12 +890,16 @@ queuereader:
     rabbitmqSettings:
       # username defaults to the release namespace; set to override.
       username: ""
+      # Mount an existing PVC instead of a chart-created volume claim.
+      # existingClaim: <rabbitmq-pvc>
   # Redis that coordinates work across Queue Reader replicas (distributed locks,
   # partition offsets, deduplication) when realtimeConfiguration.isDistributed is
   # true. The Queue Reader does not use InternalCache state persistence.
   internalCache:
     redisSettings:
       replicas: 1
+      # Mount an existing PVC instead of a chart-created volume claim.
+      # existingClaim: <redis-pvc>
   errorQueuePath: listenerQueueError
   nonActiveQueuePath: listenerQueueNonActive
   # Optional external integrations. Disabled by default; enable and populate
@@ -1181,6 +1188,73 @@ redpointAI:
   logging:
     # Verbose NLP request/response tracing for diagnostics. Off by default.
     enableTrace: false
+
+
+# ==========================
+# RPI MCP Server
+# ==========================
+# Exposes the RPI Integration API as Model Context Protocol tools over
+# streamable HTTP at /mcp, for AI clients and agent runtimes.
+#
+# Requires secretsManagement.provider 'kubernetes' or 'csi'. The server reads
+# its credentials from environment bindings and has no cloud vault client, so
+# 'sdk' fails at render rather than starting a pod that serves no tools.
+#
+# Required Secret keys (see secrets-management.md):
+#   RPI_MCP_OAuth_Client_Id, RPI_MCP_OAuth_Client_Secret
+#   RPI_MCP_Proxy_User, RPI_MCP_Proxy_Pass   (only when proxy.enabled=true)
+rpiMcpServer:
+  enabled: false
+  serviceAccount:
+    enabled: true
+
+  # The RPI tenant identifier (a GUID) this MCP server serves. Required
+  # whenever rpiMcpServer.enabled=true; an empty value fails `helm template`.
+  # Find it: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients
+  defaultClientId: ""
+
+  # Bearer token validation on the MCP endpoint. Leave on unless the endpoint
+  # is reachable only from inside a trusted boundary.
+  authRequired: true
+
+  # MCP sessions are held in the server process, so a request routed to
+  # another replica resolves to a different session. Any value other than 1
+  # fails at render.
+  replicaCount: 1
+
+  # Service account proxy credentials. When disabled the server acts only on
+  # the caller's own token.
+  proxy:
+    enabled: false
+
+  # Comma separated host domains a caller may target per request. Empty means
+  # no per request target is accepted.
+  urlAllowlist: ""
+
+  service:
+    port: 3002
+
+  ingress:
+    enabled: true
+    # Subdomain prepended to ingress.domain, or a value containing a dot used
+    # as an FQDN.
+    host: rpi-mcpserver
+
+  # Defaults match the image's own runtime user.
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+
+  # Covers the longest tool poll budget, since the server does not drain on
+  # SIGTERM.
+  terminationGracePeriodSeconds: 240
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
 
 # ==========================
 # Smart Activation

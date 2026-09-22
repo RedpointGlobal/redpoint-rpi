@@ -1,0 +1,204 @@
+{{- $cfg := .Values.rpiMcpServer | default dict -}}
+{{- if $cfg.enabled -}}
+
+{{- $name := "rpi-mcpserver" -}}
+{{- $service := $cfg.service | default dict -}}
+{{- $port := $service.port | default 3002 -}}
+{{- $proxy := $cfg.proxy | default dict -}}
+{{- $secCtx := $cfg.securityContext | default dict -}}
+{{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
+{{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
+{{- $mcpIngress := $cfg.ingress | default dict -}}
+
+{{- /* The MCP server reads every credential from an environment binding and
+       has no cloud vault client, so the sdk provider cannot supply it. The
+       chart refuses the combination rather than starting a pod that reports
+       healthy while serving no tools. */ -}}
+{{- if eq .Values.secretsManagement.provider "sdk" -}}
+{{- fail "rpiMcpServer.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The MCP server resolves its credentials from environment bindings and cannot read a cloud vault, so under 'sdk' it would start without credentials and serve no tools." -}}
+{{- end -}}
+
+{{- /* MCP sessions are held in process, so a second replica answers a session
+       it has no record of. One writer, one replica. */ -}}
+{{- if ne (int ($cfg.replicaCount | default 1)) 1 -}}
+{{- fail "rpiMcpServer.replicaCount must be 1. MCP sessions are held in the server process, so a request routed to another replica resolves to a different session." -}}
+{{- end -}}
+
+{{- if not $cfg.defaultClientId -}}
+{{- fail "rpiMcpServer.defaultClientId is required when rpiMcpServer.enabled=true. It is the RPI tenant identifier (a GUID) the MCP server serves: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients." -}}
+{{- end -}}
+
+{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "mcpserver" "cfg" $cfg) }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "mcpserver") | nindent 4 }}
+  {{- $svcAnnotations := include "rpi.mergedAnnotations" (dict "root" . "type" "service") | trim }}
+  {{- if $svcAnnotations }}
+  annotations:
+    {{- $svcAnnotations | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+  - name: http
+    port: {{ $port }}
+    protocol: TCP
+    targetPort: mcp
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "mcpserver") | nindent 4 }}
+    app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+    {{- with .Values.customLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.customAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "mcpserver") | nindent 8 }}
+      {{- $podAnnotations := include "rpi.mergedAnnotations" (dict "root" . "type" "pod") | trim }}
+      {{- if $podAnnotations }}
+      annotations:
+        {{- $podAnnotations | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      # Nothing handles SIGTERM in the server, so a rollout cuts sessions at
+      # shutdown. The grace period covers the longest tool poll budget.
+      terminationGracePeriodSeconds: {{ $cfg.terminationGracePeriodSeconds | default 240 }}
+      securityContext:
+        runAsUser: {{ $secCtx.runAsUser | default 1000 }}
+        runAsGroup: {{ $secCtx.runAsGroup | default 1000 }}
+        runAsNonRoot: true
+      containers:
+      - name: {{ $name }}
+        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        ports:
+        - name: mcp
+          containerPort: {{ $port }}
+          protocol: TCP
+        env:
+        - name: RPI_MCP_HTTP_PORT
+          value: {{ $port | quote }}
+        # The Integration API is reached in namespace. No operator facing URL
+        # exists for it, because the chart already knows the address.
+        - name: RPI_INTEGRATION_API_URL
+          value: {{ printf "http://rpi-integrationapi:%v" $intCfg.service.port | quote }}
+        - name: RPI_DEFAULT_CLIENT_ID
+          value: {{ $cfg.defaultClientId | quote }}
+        - name: AUTH_REQUIRED
+          value: {{ $cfg.authRequired | default true | quote }}
+        {{- if $mcpIngress.enabled }}
+        # The externally reachable origin this server publishes in its OAuth
+        # protected resource metadata. Without it the origin is derived from
+        # forwarded headers.
+        - name: RPI_MCP_PUBLIC_URL
+          value: {{ printf "https://%s" (include "rpi.ingress.fqdn" (dict "host" ($mcpIngress.host | default "rpi-mcpserver") "domain" $ingCfg.domain)) | quote }}
+        {{- end }}
+        {{- with $cfg.urlAllowlist }}
+        - name: RPI_URL_ALLOWLIST
+          value: {{ . | quote }}
+        {{- end }}
+        - name: RPI_OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: RPI_MCP_OAuth_Client_Id
+        - name: RPI_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: RPI_MCP_OAuth_Client_Secret
+        {{- if $proxy.enabled }}
+        - name: RPI_PROXY_ENABLED
+          value: "true"
+        - name: RPI_PROXY_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: RPI_MCP_Proxy_User
+        - name: RPI_PROXY_PASS
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: RPI_MCP_Proxy_Pass
+        {{- else }}
+        - name: RPI_PROXY_ENABLED
+          value: "false"
+        {{- end }}
+        {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
+        {{- with $cfg.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        # The server answers /health while it is running, including when RPI
+        # credentials are absent. In that state it reports mcp: degraded and
+        # /mcp returns a structured 503, which is the intended contract.
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: mcp
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: mcp
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        {{- include "rpi.customCACerts.volumeMount" . | nindent 8 }}
+      volumes:
+      # The root filesystem is read only, so the runtime gets a writable /tmp.
+      - name: tmp
+        emptyDir: {}
+      {{- include "rpi.customCACerts.volume" . | nindent 6 }}
+      {{- if .Values.nodeSelector.enabled }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - effect: NoSchedule
+          key: {{ .Values.nodeSelector.key }}
+          operator: Equal
+          value: {{ .Values.nodeSelector.value }}
+      {{- end }}
+{{- end }}

@@ -1327,6 +1327,10 @@
                       "$ref": "#/definitions/volumeClaimTemplates",
                       "description": "Persistent volume claim template for the chart-managed Realtime RabbitMQ."
                     },
+                    "existingClaim": {
+                      "type": "string",
+                      "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the RabbitMQ data volume. When set, the StatefulSet uses this claim and emits no volumeClaimTemplates. Applies to type internal only."
+                    },
                     "hostname": {
                       "type": "string",
                       "description": "RabbitMQ host. The chart-managed broker name for type internal; the customer broker host for type external."
@@ -3635,6 +3639,10 @@
                   "$ref": "#/definitions/volumeClaimTemplates",
                   "description": "Persistent volume claim template for the chart-managed Queue Reader Redis."
                 },
+                "existingClaim": {
+                  "type": "string",
+                  "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the Redis data volume. When set, the StatefulSet uses this claim and emits no volumeClaimTemplates."
+                },
                 "replicas": {
                   "type": "integer",
                   "description": "Replicas of the chart-managed Queue Reader Redis."
@@ -3663,6 +3671,10 @@
                 "volumeClaimTemplates": {
                   "$ref": "#/definitions/volumeClaimTemplates",
                   "description": "Persistent volume claim template for the chart-managed Queue Reader RabbitMQ."
+                },
+                "existingClaim": {
+                  "type": "string",
+                  "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the RabbitMQ data volume. When set, the StatefulSet uses this claim and emits no volumeClaimTemplates."
                 },
                 "virtualhost": {
                   "type": "string",
@@ -4689,6 +4701,102 @@
               "description": "Blob folder name for models"
             }
           }
+        }
+      }
+    },
+    "rpiMcpServer": {
+      "type": "object",
+      "description": "RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable the RPI MCP Server"
+        },
+        "serviceAccount": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create a dedicated ServiceAccount"
+            }
+          }
+        },
+        "defaultClientId": {
+          "type": "string",
+          "description": "RPI tenant identifier (GUID) the MCP server serves. Required when enabled"
+        },
+        "authRequired": {
+          "type": "boolean",
+          "description": "Require a bearer token on the MCP endpoint"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "enum": [
+            1
+          ],
+          "description": "Must be 1. MCP sessions are held in the server process"
+        },
+        "proxy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Use service account proxy credentials from the shared Secret"
+            }
+          }
+        },
+        "urlAllowlist": {
+          "type": "string",
+          "description": "Comma separated host domains a caller may target per request. Empty accepts none"
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "type": "integer",
+              "description": "Service and container port"
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Publish an Ingress for the MCP endpoint"
+            },
+            "host": {
+              "type": "string",
+              "description": "Subdomain prepended to ingress.domain, or an FQDN when it contains a dot"
+            }
+          }
+        },
+        "securityContext": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runAsUser": {
+              "type": "integer",
+              "description": "Pod runAsUser. Defaults to the image's own runtime user"
+            },
+            "runAsGroup": {
+              "type": "integer",
+              "description": "Pod runAsGroup"
+            }
+          }
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "description": "Shutdown grace period. Covers the longest tool poll budget"
+        },
+        "resources": {
+          "type": "object",
+          "description": "Container resource requests and limits"
         }
       }
     },
