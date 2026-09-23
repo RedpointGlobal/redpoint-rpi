@@ -28,6 +28,159 @@ Twilio webhooks (delivery status, inbound replies, link clicks) are internet-fac
 
 ---
 
+## Prerequisites
+
+The chart deploys the service and wires its configuration. It never creates cloud resources. Everything below must exist before you enable Twilio Messaging, and the names in your values must match what you provisioned. A missing entity is reported at runtime, not at render, and the pod stops rather than retries.
+
+**Always required**
+
+| Item | Notes |
+|:-----|:------|
+| Twilio account | `accountSid` in values, auth token in the shared Secret as `TwilioMessaging_AuthToken` |
+| PostgreSQL database | Reused from the operational database, or supplied by you. See [PostgreSQL](#postgresql-required) |
+| Cloud identity | `cloudIdentity.enabled: true` with the platform binding, since the transport authenticates with workload identity |
+| DNS for the webhook host | `ingress.hosts.twiliomessaging` must resolve, because Twilio calls it |
+| Database schema | The chart runs the schema installer as a pre-install and pre-upgrade hook. The one time `bootstrap` step that creates the role and database is manual, see below |
+
+Redis is chart managed by default and needs nothing. Provision it only when `redisSettings.type: external`.
+
+**Wire format.** Payloads are binary Avro with routing metadata in message attributes. The transport must deliver the body unchanged and preserve those attributes, so do not enable payload wrapping, transformation, or schema validation on any of these resources. Per transport that means raw message delivery on SNS to SQS subscriptions, nothing to configure on Event Hubs, and schemaless topics with pull subscriptions on Pub/Sub.
+
+### Database schema
+
+The schema is applied by a separate installer image, never by the service. Two steps:
+
+1. **Bootstrap, once per environment.** Run the installer's `bootstrap` command with admin credentials to create the role, database and schema. This is manual and is not part of a release.
+2. **Install, every release.** The chart runs this for you as `rpi-twiliomessaging-installer`, a pre-install and pre-upgrade hook Job with its own ServiceAccount so it has an identity on a first install. It authenticates the same way the service does, so it needs the same PostgreSQL grant.
+
+Set `twiliomessaging.installer.enabled: false` only if you apply the schema out of band.
+
+### Azure Event Hubs
+
+Three hubs in one namespace, with consumer groups on each. Defaults are shown; override the values keys if you name them differently.
+
+| Hub, values key | Default name | Consumer groups, values key | Default name |
+|:---|:---|:---|:---|
+| `eventHubs.inputHub.name` | `twilio-messaging-input` | `eventHubs.inputHub.consumerGroup` | `twilio-message-input-send` |
+| `eventHubs.outputHub.name` | `twilio-messaging-output` | `twilioPlugin.eventHubs.deliveryStatusConsumerGroup`<br>`.sendResultConsumerGroup`<br>`.linkClickConsumerGroup`<br>`.inboundMessageConsumerGroup` | `twilio-messaging-output-delivery-status`<br>`-send-result`<br>`-link-click`<br>`-inbound-reply` |
+| `eventHubs.outputInternalHub.name` | `twilio-messaging-output-internal` | `eventHubs.outputInternalHub.deliveryStatusConsumerGroup`<br>`.linkClickConsumerGroup`<br>`.inboundMessageConsumerGroup` | `twilio-messaging-output-internal-delivery-status`<br>`-link-click`<br>`-inbound-reply` |
+
+The output hub consumer groups are read by the Execution Service plugin. The input and output internal ones are read by this service.
+
+Two blob containers are also required, in the account given by `eventHubs.checkpointing.blobServiceUri`:
+
+| Values key | Default | Used by |
+|:---|:---|:---|
+| `eventHubs.checkpointing.blobContainerName` | `sms-send-checkpoints` | Twilio Messaging |
+| `twilioPlugin.eventHubs.checkpointing.blobContainerName` | `rpi-twilio-checkpoints` | Execution Service plugin |
+
+```bash
+RG="<resource-group>"
+NS="<eventhubs-namespace>"
+SA="<storage-account>"
+
+for hub in twilio-messaging-input twilio-messaging-output twilio-messaging-output-internal; do
+  az eventhubs eventhub create --resource-group "$RG" --namespace-name "$NS" --name "$hub"
+done
+
+az eventhubs eventhub consumer-group create --resource-group "$RG" --namespace-name "$NS" \
+  --eventhub-name twilio-messaging-input --name twilio-message-input-send
+
+for cg in delivery-status send-result link-click inbound-reply; do
+  az eventhubs eventhub consumer-group create --resource-group "$RG" --namespace-name "$NS" \
+    --eventhub-name twilio-messaging-output --name "twilio-messaging-output-${cg}"
+done
+
+for cg in delivery-status link-click inbound-reply; do
+  az eventhubs eventhub consumer-group create --resource-group "$RG" --namespace-name "$NS" \
+    --eventhub-name twilio-messaging-output-internal --name "twilio-messaging-output-internal-${cg}"
+done
+
+az storage container create --account-name "$SA" --name sms-send-checkpoints --auth-mode login
+az storage container create --account-name "$SA" --name rpi-twilio-checkpoints --auth-mode login
+```
+
+Partition count on each hub bounds consumer parallelism, so size it for your throughput before creating them.
+
+Grant the workload identity **Azure Event Hubs Data Receiver** and **Azure Event Hubs Data Sender** on the namespace, and **Storage Blob Data Contributor** on the storage account. The Execution Service identity needs the same, because the plugin consumes the output hub.
+
+### AWS SQS and SNS
+
+One input queue, two topics, and seven queues subscribed to them. All queue URLs and topic ARNs are required in values, there are no defaults.
+
+| Values key | Role |
+|:---|:---|
+| `sqs.inputQueueUrl` | Send requests into the service |
+| `sqs.outputTopicArn` | Fan-out consumed by the Execution Service plugin |
+| `sqs.outputInternalTopicArn` | Fan-out consumed by this service |
+| `sqs.outputDeliveryStatusQueueUrl`<br>`sqs.outputLinkClickQueueUrl`<br>`sqs.outputInboundMessageQueueUrl` | Subscribed to the output internal topic |
+| `twilioPlugin.sqs.outputDeliveryStatusQueueUrl`<br>`.outputSendResultQueueUrl`<br>`.outputLinkClickQueueUrl`<br>`.outputInboundMessageQueueUrl` | Subscribed to the output topic |
+
+```bash
+REGION="<region>"
+ACCT="<account-id>"
+
+aws sqs create-queue --queue-name twilio-messaging-input --region "$REGION"
+
+for t in twilio-messaging-output twilio-messaging-output-internal; do
+  aws sns create-topic --name "$t" --region "$REGION"
+done
+
+for q in output-internal-delivery-status output-internal-link-click output-internal-inbound-reply \
+         output-delivery-status output-send-result output-link-click output-inbound-reply; do
+  aws sqs create-queue --queue-name "twilio-messaging-${q}" --region "$REGION"
+done
+```
+
+Subscribe each queue to its topic with `RawMessageDelivery` set to true. Without it the service receives the SNS envelope instead of the message body.
+
+```bash
+aws sns subscribe --region "$REGION" \
+  --topic-arn "arn:aws:sns:${REGION}:${ACCT}:twilio-messaging-output-internal" \
+  --protocol sqs \
+  --notification-endpoint "arn:aws:sqs:${REGION}:${ACCT}:twilio-messaging-output-internal-delivery-status" \
+  --attributes RawMessageDelivery=true
+```
+
+Grant the IRSA role send and receive on the queues and publish on the topics.
+
+### GCP Pub/Sub
+
+Three topics and eight subscriptions. Only `pubsub.projectId` is required in values; the names below are defaults.
+
+| Topic | Subscriptions |
+|:---|:---|
+| `twilio-messaging-input` | `twilio-messaging-input` |
+| `twilio-messaging-output` | `twilio-messaging-output-delivery-status`, `-send-result`, `-link-click`, `-inbound-reply` |
+| `twilio-messaging-output-internal` | `twilio-messaging-output-internal-delivery-status`, `-link-click`, `-inbound-reply` |
+
+```bash
+PROJECT="<gcp-project>"
+
+for t in twilio-messaging-input twilio-messaging-output twilio-messaging-output-internal; do
+  gcloud pubsub topics create "$t" --project "$PROJECT"
+done
+
+gcloud pubsub subscriptions create twilio-messaging-input \
+  --topic twilio-messaging-input --project "$PROJECT"
+
+for s in delivery-status send-result link-click inbound-reply; do
+  gcloud pubsub subscriptions create "twilio-messaging-output-${s}" \
+    --topic twilio-messaging-output --project "$PROJECT"
+done
+
+for s in delivery-status link-click inbound-reply; do
+  gcloud pubsub subscriptions create "twilio-messaging-output-internal-${s}" \
+    --topic twilio-messaging-output-internal --project "$PROJECT"
+done
+```
+
+Leave the topics schemaless and use pull subscriptions. A Pub/Sub schema or message encoding validation rejects the service's own Avro framing, and push delivery with payload unwrapping breaks attribute based routing.
+
+Grant the Workload Identity Federation service account `roles/pubsub.publisher` and `roles/pubsub.subscriber` on the project.
+
+---
+
 ## PostgreSQL (required)
 
 Twilio Messaging requires PostgreSQL. The database name defaults to `twilio_messaging`; create it (and run the schema) on the target server before enabling the service.
@@ -218,6 +371,8 @@ Bulk send files are read from the shared File Output Directory PVC. Enable it (`
 ---
 
 ## Ingress (webhook paths only)
+
+The proxy must forward `X-Forwarded-Proto`, `X-Forwarded-Host` and `X-Forwarded-For`. Twilio signature validation rebuilds the public URL from them, and validation fails if they are missing or rewritten. The bundled nginx ingress sets them by default.
 
 Only the Twilio **webhook** paths are exposed publicly - these are secured by Twilio signature validation. The send, status, and messaging-service routes are **never** published; they remain reachable only inside the cluster through the `ClusterIP` Service. This is enforced by path-scoping the ingress rule (not by exposing the whole host).
 

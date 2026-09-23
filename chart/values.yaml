@@ -952,6 +952,7 @@ twiliomessaging:
   # list to expose nothing publicly (fully cluster-internal).
   ingress:
     publicPaths:
+      - /api/webhook
       - /api/v1/webhook
   # Messaging transport: azureeventhubs | amazonsqs | googlepubsub
   messaging:

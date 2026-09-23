@@ -1,0 +1,142 @@
+{{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
+{{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
+{{- $name := "rpi-twiliomessaging-installer" -}}
+{{- $sdk := eq .Values.secretsManagement.provider "sdk" -}}
+{{- $cloudAuthMode := "Basic" -}}
+{{- if $sdk -}}
+  {{- if eq .Values.global.deployment.platform "azure" -}}{{- $cloudAuthMode = "Azure" -}}
+  {{- else if eq .Values.global.deployment.platform "amazon" -}}{{- $cloudAuthMode = "AWS" -}}
+  {{- else if eq .Values.global.deployment.platform "google" -}}{{- $cloudAuthMode = "GCP" -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if and $cfg.enabled $cfg.installer.enabled }}
+{{/* Own ServiceAccount so the hook has an identity on a first install, before
+     the service's own ServiceAccount is created. */}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "installer") | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    {{- with (include "rpi.mergedAnnotations" (dict "root" . "type" "serviceAccount") | trim) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- with (include "rpi.cloudidentity.saAnnotations" (dict "root" .) | trim) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "installer") | nindent 4 }}
+    app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
+    {{- with .Values.customLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    {{- with .Values.customAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  backoffLimit: {{ $cfg.installer.backoffLimit }}
+  activeDeadlineSeconds: {{ $cfg.installer.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "installer") | nindent 8 }}
+        {{- with (include "rpi.cloudidentity.podLabels" (dict "root" . "svcCloudIdentity" (hasKey $cfg "cloudIdentity" | ternary $cfg.cloudIdentity false)) | trim) }}
+        {{- . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.customLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      restartPolicy: Never
+      serviceAccountName: {{ $name }}
+      {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ $name }}
+        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        args: ["install"]
+        env:
+        - name: Postgres__AuthMode
+          value: {{ $cloudAuthMode | quote }}
+        - name: Postgres__Database
+          value: {{ $cfg.postgres.database | quote }}
+        - name: Postgres__SslMode
+          value: {{ $cfg.postgres.sslMode | quote }}
+        - name: Postgres__Port
+          value: {{ $cfg.postgres.port | quote }}
+        - name: Postgres__Host
+          {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+          value: "127.0.0.1"
+          {{- else if $cfg.postgres.reuseOperational }}
+          value: {{ .Values.databases.operational.server_host | quote }}
+          {{- else }}
+          value: {{ $cfg.postgres.host | quote }}
+          {{- end }}
+        - name: Postgres__Username
+          {{- if $cfg.postgres.reuseOperational }}
+          value: {{ .Values.databases.operational.server_username | quote }}
+          {{- else }}
+          value: {{ $cfg.postgres.username | quote }}
+          {{- end }}
+        {{- if eq $cloudAuthMode "Basic" }}
+        - name: Postgres__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              {{- if $cfg.postgres.reuseOperational }}
+              key: Operations_Database_Server_Password
+              {{- else }}
+              key: TwilioMessaging_Postgres_Password
+              {{- end }}
+        {{- end }}
+        {{- if eq $cloudAuthMode "AWS" }}
+        - name: Rds__Region
+          value: {{ $cfg.rds.region | quote }}
+        {{- end }}
+        {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        resources:
+          {{- toYaml $cfg.installer.resources | nindent 10 }}
+      {{- if .Values.nodeSelector.enabled }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - effect: NoSchedule
+          key: {{ .Values.nodeSelector.key }}
+          operator: Equal
+          value: {{ .Values.nodeSelector.value }}
+      {{- end }}
+{{- end }}

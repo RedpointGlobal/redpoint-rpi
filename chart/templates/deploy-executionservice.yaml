@@ -213,6 +213,8 @@ spec:
         {{/* Twilio plugin configuration. */}}
         - name: Plugins__Twilio__TmsBaseUrl
           value: "http://rpi-twiliomessaging"
+        - name: Plugins__Twilio__MessagingServicesPath
+          value: {{ $tmsCfg.twilioPlugin.messagingServicesPath | quote }}
         {{- if eq $tmsCfg.messaging.provider "azureeventhubs" }}
         - name: Plugins__Twilio__MessagingProvider
           value: "EventHub"

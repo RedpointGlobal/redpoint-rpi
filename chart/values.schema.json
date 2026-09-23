@@ -4142,6 +4142,48 @@
       "description": "Twilio Messaging service (opt-in) - outbound/inbound SMS. Requires PostgreSQL.",
       "additionalProperties": true,
       "properties": {
+        "installer": {
+          "type": "object",
+          "description": "Schema installer Job, run as a pre-install and pre-upgrade hook so the database schema is applied before the service rolls.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean", "description": "Run the schema installer. Disable only when the schema is applied out of band." },
+            "backoffLimit": { "type": "integer" },
+            "activeDeadlineSeconds": { "type": "integer" },
+            "resources": { "type": "object", "additionalProperties": true }
+          }
+        },
+        "secrets": {
+          "type": "object",
+          "description": "Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in kubernetes and csi modes, which bind the shared Secret key.",
+          "additionalProperties": true,
+          "properties": {
+          "azure": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "vaultUri": { "type": "string" },
+              "secretName": { "type": "string" }
+            }
+          },
+          "aws": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "region": { "type": "string" },
+              "secretId": { "type": "string" }
+            }
+          },
+          "gcp": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "projectId": { "type": "string" },
+              "secretId": { "type": "string" }
+            }
+          }
+          }
+        },
         "enabled": {
           "type": "boolean",
           "description": "Enable the Twilio Messaging service"
@@ -4256,6 +4298,10 @@
           "additionalProperties": false,
           "description": "RPI-side Twilio plugin resources, emitted to the Execution Service / Interaction API as Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers derive from the eventHubs/sqs/pubsub blocks; these are the resources RPI owns.",
           "properties": {
+            "messagingServicesPath": {
+              "type": "string",
+              "description": "Relative path to the TMS messaging-services API, resolved against the in-cluster service URL. Carries the API version."
+            },
             "eventHubs": {
               "type": "object",
               "additionalProperties": false,

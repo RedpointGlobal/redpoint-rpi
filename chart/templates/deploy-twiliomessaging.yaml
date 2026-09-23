@@ -44,6 +44,17 @@
 {{- fail "twiliomessaging external Redis on AWS (ElastiCache IAM) requires redisSettings.region and redisSettings.cacheName." }}
 {{- end }}
 {{- end }}
+{{- if $sdk }}
+{{- if and (eq $cloudAuthMode "Azure") (or (not $cfg.secrets.azure.vaultUri) (not $cfg.secrets.azure.secretName)) }}
+{{- fail "twiliomessaging under secretsManagement.provider=sdk on Azure requires twiliomessaging.secrets.azure.vaultUri and secretName (the vault entry holding the Twilio auth token)." }}
+{{- end }}
+{{- if and (eq $cloudAuthMode "AWS") (or (not $cfg.secrets.aws.region) (not $cfg.secrets.aws.secretId)) }}
+{{- fail "twiliomessaging under secretsManagement.provider=sdk on AWS requires twiliomessaging.secrets.aws.region and secretId (the Secrets Manager entry holding the Twilio auth token)." }}
+{{- end }}
+{{- if and (eq $cloudAuthMode "GCP") (or (not $cfg.secrets.gcp.projectId) (not $cfg.secrets.gcp.secretId)) }}
+{{- fail "twiliomessaging under secretsManagement.provider=sdk on Google requires twiliomessaging.secrets.gcp.projectId and secretId (the Secret Manager entry holding the Twilio auth token)." }}
+{{- end }}
+{{- end }}
 {{- if not $cfg.accountSid }}
 {{- fail "twiliomessaging.accountSid is required when twiliomessaging.enabled=true (the Twilio Account SID; the auth token remains the TwilioMessaging_AuthToken Secret key)." }}
 {{- end }}
@@ -365,11 +376,32 @@ spec:
         {{- end }}
 
         # Twilio account (auth token from the shared Secret)
+        - name: Twilio__Client__CredentialType
+          value: "AuthToken"
         - name: Twilio__Client__AccountSid
           value: {{ $cfg.accountSid | quote }}
         - name: Twilio__Client__IsTestCredentials
           value: {{ $cfg.isTestCredentials | quote }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
+        {{- if $sdk }}
+        - name: Secrets__Provider
+          value: {{ $cloudAuthMode | quote }}
+        {{- if eq $cloudAuthMode "Azure" }}
+        - name: Secrets__Azure__VaultUri
+          value: {{ $cfg.secrets.azure.vaultUri | quote }}
+        - name: Secrets__Azure__SecretName
+          value: {{ $cfg.secrets.azure.secretName | quote }}
+        {{- else if eq $cloudAuthMode "AWS" }}
+        - name: Secrets__Aws__Region
+          value: {{ $cfg.secrets.aws.region | quote }}
+        - name: Secrets__Aws__SecretId
+          value: {{ $cfg.secrets.aws.secretId | quote }}
+        {{- else if eq $cloudAuthMode "GCP" }}
+        - name: Secrets__Gcp__ProjectId
+          value: {{ $cfg.secrets.gcp.projectId | quote }}
+        - name: Secrets__Gcp__SecretId
+          value: {{ $cfg.secrets.gcp.secretId | quote }}
+        {{- end }}
+        {{- else }}
         - name: Twilio__Client__AuthToken
           valueFrom:
             secretKeyRef:

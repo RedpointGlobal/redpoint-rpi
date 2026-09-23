@@ -975,7 +975,28 @@ pubsub:
   outputDeliveryStatusSubscriptionId: twilio-messaging-output-internal-delivery-status
   outputLinkClickSubscriptionId: twilio-messaging-output-internal-link-click
   outputInboundMessageSubscriptionId: twilio-messaging-output-internal-inbound-reply
+installer:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+secrets:
+  azure:
+    vaultUri: ""
+    secretName: ""
+  aws:
+    region: ""
+    secretId: ""
+  gcp:
+    projectId: ""
+    secretId: ""
 twilioPlugin:
+  messagingServicesPath: api/v1/messagingService
   eventHubs:
     deliveryStatusConsumerGroup: twilio-messaging-output-delivery-status
     sendResultConsumerGroup: twilio-messaging-output-send-result

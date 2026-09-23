@@ -3527,6 +3527,18 @@ twiliomessaging:
   # Twilio Account SID. The auth token is a secret (shared Secret key
   # TwilioMessaging_AuthToken).
   accountSid: ''
+  batchCompletion:
+    completionThresholdHours: 12
+    parallelMergeDegree: 4
+    pollIntervalSeconds: 60
+  batchIngestion:
+    completeDirectory: /rpifileoutputdir/twilio/batch/complete
+    failedBatchDirectory: /rpifileoutputdir/twilio/batch/failed
+    lockTtlMinutes: 10
+    pollIntervalSeconds: 5
+    processingDirectory: /rpifileoutputdir/twilio/batch/processing
+    watchDirectory: /rpifileoutputdir/twilio/batch/incoming
+  enableProbes: true
   # Enable the Twilio Messaging service
   enabled: false
   # Event Hubs transport settings (messaging.provider=azureeventhubs). Auth via Azure Workload
@@ -3553,18 +3565,43 @@ twiliomessaging:
     # Path prefixes exposed publicly (Twilio webhooks only, signature-validated). All other
     # routes stay cluster-internal. Empty = nothing exposed publicly.
     publicPaths:
+    - /api/webhook
     - /api/v1/webhook
+  # Schema installer Job, run as a pre-install and pre-upgrade hook so the database schema is
+  # applied before the service rolls.
+  installer:
+    activeDeadlineSeconds: 900
+    backoffLimit: 3
+    # Run the schema installer. Disable only when the schema is applied out of band.
+    enabled: true
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
   # True only when the account SID/auth token are Twilio TEST credentials
   isTestCredentials: false
+  logging:
+    aspNetCore: Warning
+    default: Information
   # Messaging transport selector
   messaging:
     # Active messaging transport (chart-standard vocabulary; mapped to each application's own
     # enum at render)
     provider: azureeventhubs
+  podAnnotations: {}
+  podLabels: {}
   # PostgreSQL durable store (twilio_messaging database). Twilio does not support SQL Server.
   postgres:
     # PostgreSQL database name
     database: twilio_messaging
+    # PostgreSQL host (when reuseOperational=false)
+    host: ''
+    maxPoolSize: 20
+    minPoolSize: 2
+    # PostgreSQL port
+    port: 5432
     # Reuse databases.operational when it is postgresql (same server, separate
     # twilio_messaging database). Must be false when databases.operational is SQL Server or
     # when secretsManagement.provider is sdk. Auth mode is derived from
@@ -3573,46 +3610,90 @@ twiliomessaging:
     reuseOperational: true
     # PostgreSQL SSL mode
     sslMode: Require
-    # PostgreSQL host (when reuseOperational=false)
-    host: ''
-    # PostgreSQL port
-    port: null
     # PostgreSQL username (when reuseOperational=false)
     username: ''
   # Pub/Sub transport settings (messaging.provider=googlepubsub). Auth via GCP Workload
   # Identity.
   pubsub:
+    inputSubscriptionId: twilio-messaging-input
+    inputTopicId: twilio-messaging-input
+    outputDeliveryStatusSubscriptionId: twilio-messaging-output-internal-delivery-status
+    outputInboundMessageSubscriptionId: twilio-messaging-output-internal-inbound-reply
+    outputInternalTopicId: twilio-messaging-output-internal
+    outputLinkClickSubscriptionId: twilio-messaging-output-internal-link-click
+    outputTopicId: twilio-messaging-output
     # GCP project ID. Required when messaging.provider=googlepubsub.
     projectId: ''
-    inputTopicId: ''
-    inputSubscriptionId: ''
-    outputTopicId: ''
-    outputInternalTopicId: ''
-    outputDeliveryStatusSubscriptionId: ''
-    outputLinkClickSubscriptionId: ''
-    outputInboundMessageSubscriptionId: ''
+  rds:
+    region: us-east-1
   # Redis (distributed locks / dedup). internal = chart-managed; external = BYO.
   redisSettings:
-    # Redis deployment type: internal (chart-managed) or external (BYO)
-    type: internal
-    # External Redis hostname (required when type=external)
-    hostname: ''
-    # Redis port
-    port: null
-    # Connect to external Redis over TLS (default true for cloud Redis)
-    useTls: false
-    # External Redis user (AWS ElastiCache IAM user id under sdk, or the Basic username under
-    # kubernetes/csi)
-    user: ''
-    # AWS region of the cache (required for external Redis on AWS under sdk - ElastiCache IAM)
-    region: ''
     # AWS ElastiCache replication-group / serverless cache name the IAM token is signed
     # against (required for external Redis on AWS under sdk)
     cacheName: ''
+    # External Redis hostname (required when type=external)
+    hostname: ''
     # AWS ElastiCache serverless cache (only consulted for external Redis on AWS under sdk)
     isServerless: false
+    # Redis port
+    port: 6379
+    # AWS region of the cache (required for external Redis on AWS under sdk - ElastiCache IAM)
+    region: ''
+    resources:
+      limits:
+        cpu: 3000m
+        memory: 3Gi
+      requests:
+        cpu: 50m
+        memory: 256Mi
+    # Redis deployment type: internal (chart-managed) or external (BYO)
+    type: internal
+    # Connect to external Redis over TLS (default true for cloud Redis)
+    useTls: true
+    # External Redis user (AWS ElastiCache IAM user id under sdk, or the Basic username under
+    # kubernetes/csi)
+    user: ''
+    volumeClaimTemplates:
+      accessModes: ReadWriteOnce
+      enabled: false
+      size: 50Gi
+      storageClassName: default
   # Number of Twilio Messaging pod replicas
   replicas: 1
+  # CPU and memory resource requests and limits
+  resources:
+    enabled: true
+    # Resource limits (maximum allocation)
+    limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
+      memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
+    requests:
+      # CPU request (e.g., '500m', '1')
+      cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
+      memory: 256Mi
+  rollout:
+    autoPromotionEnabled: true
+    revisionHistoryLimit: 3
+  # Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in
+  # kubernetes and csi modes, which bind the shared Secret key.
+  secrets:
+    aws:
+      region: ''
+      secretId: ''
+    azure:
+      secretName: ''
+      vaultUri: ''
+    gcp:
+      projectId: ''
+      secretId: ''
+  service:
+    port: 80
+  serviceAccount:
+    enabled: true
   # SQS/SNS transport settings (messaging.provider=amazonsqs). Queue URLs and topic ARNs are
   # operator-supplied.
   sqs:
@@ -3630,10 +3711,33 @@ twiliomessaging:
     outputTopicArn: ''
     # AWS region.
     region: us-east-1
+  terminationGracePeriodSeconds: 120
   # RPI-side Twilio plugin resources, emitted to the Execution Service / Interaction API as
   # Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers derive
   # from the eventHubs/sqs/pubsub blocks; these are the resources RPI owns.
   twilioPlugin:
+    # RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same
+    # storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must
+    # exist in the namespace.
+    eventHubs:
+      checkpointing:
+        # RPI's own checkpoint container. Never shared with the messaging service.
+        blobContainerName: rpi-twilio-checkpoints
+      deliveryStatusConsumerGroup: twilio-messaging-output-delivery-status
+      # Must match the provisioned group name.
+      inboundMessageConsumerGroup: twilio-messaging-output-inbound-reply
+      linkClickConsumerGroup: twilio-messaging-output-link-click
+      sendResultConsumerGroup: twilio-messaging-output-send-result
+    # Relative path to the TMS messaging-services API, resolved against the in-cluster service
+    # URL. Carries the API version.
+    messagingServicesPath: api/v1/messagingService
+    # RPI-owned subscription ids on the output topic, composed with pubsub.projectId into full
+    # resource names.
+    pubsub:
+      outputDeliveryStatusSubscriptionId: twilio-messaging-output-delivery-status
+      outputInboundMessageSubscriptionId: twilio-messaging-output-inbound-reply
+      outputLinkClickSubscriptionId: twilio-messaging-output-link-click
+      outputSendResultSubscriptionId: twilio-messaging-output-send-result
     # RPI-owned queues, each subscribed to the matching service SNS topic with
     # RawMessageDelivery=true. All four are required when messaging.provider=amazonsqs.
     sqs:
@@ -3641,36 +3745,4 @@ twiliomessaging:
       outputInboundMessageQueueUrl: ''
       outputLinkClickQueueUrl: ''
       outputSendResultQueueUrl: ''
-    # RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same
-    # storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must
-    # exist in the namespace.
-    eventHubs:
-      deliveryStatusConsumerGroup: ''
-      sendResultConsumerGroup: ''
-      linkClickConsumerGroup: ''
-      # Must match the provisioned group name.
-      inboundMessageConsumerGroup: ''
-      checkpointing:
-        # RPI's own checkpoint container. Never shared with the messaging service.
-        blobContainerName: ''
-    # RPI-owned subscription ids on the output topic, composed with pubsub.projectId into full
-    # resource names.
-    pubsub:
-      outputDeliveryStatusSubscriptionId: ''
-      outputSendResultSubscriptionId: ''
-      outputLinkClickSubscriptionId: ''
-      outputInboundMessageSubscriptionId: ''
-  # CPU and memory resource requests and limits
-  resources:
-    # Resource requests (guaranteed allocation)
-    requests:
-      # CPU request (e.g., '500m', '1')
-      cpu: ''
-      # Memory request (e.g., '512Mi', '1Gi')
-      memory: ''
-    # Resource limits (maximum allocation)
-    limits:
-      # CPU limit (e.g., '1', '2')
-      cpu: ''
-      # Memory limit (e.g., '1Gi', '3Gi')
-      memory: ''
+  type: deployment

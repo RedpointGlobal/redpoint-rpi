@@ -181,6 +181,8 @@ spec:
         {{- if $tmsCfg.enabled }}
         - name: Plugins__Twilio__TmsBaseUrl
           value: "http://rpi-twiliomessaging"
+        - name: Plugins__Twilio__MessagingServicesPath
+          value: {{ $tmsCfg.twilioPlugin.messagingServicesPath | quote }}
         {{- end }}
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
