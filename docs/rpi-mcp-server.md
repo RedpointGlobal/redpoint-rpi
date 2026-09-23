@@ -46,6 +46,27 @@ That is all. Model configuration comes from `redpointAI`, service addresses are 
 
 `secretsManagement.provider` must be `kubernetes` or `csi`. Anything else fails at render with the reason.
 
+### Choose an identity mode
+
+**Per user**, the default above. Every caller presents its own RPI token and RPI
+applies that person's permissions. Use this whenever the caller is a human.
+
+**Service account**, every call runs as one shared RPI user and per user identity
+is discarded. Use this only for system automation. The endpoint is unauthenticated,
+so publish it accordingly.
+
+```yaml
+mcpServers:
+  rpi:
+    authRequired: false
+    proxy:
+      enabled: true
+      user: <service-account-username>
+```
+
+with `RPI_MCP_Proxy_Pass` added to the Secret. The chat application always uses
+per user identity and is unaffected by this setting.
+
 ### Values
 
 | Value | Default | Purpose |
@@ -83,17 +104,86 @@ Open the chat hostname and sign in with RPI credentials. Each user's own RPI per
 
 Works with Claude Code, Cursor, VS Code, or your own agent.
 
-**Check which mode the deployment runs first.**
+What you send depends on the identity mode the deployment was installed with.
+On a **service account** deployment, send nothing: point the client at the URL
+and skip the rest of this section. On a **per user** deployment, which is the
+default, send one header carrying your own RPI token.
+
+How you obtain that token depends on how the deployment signs users in. Use
+Microsoft Entra ID where the deployment federates to Entra, and RPI credentials
+otherwise.
+
+### Microsoft Entra ID
+
+The deployment must already federate to Entra, which means `MicrosoftEntraID`
+is configured and the API registration exposes the `Interaction.Clients` scope.
+See [Single Sign-On](single-sign-on.md) for that setup. Nothing in the chart
+changes for MCP clients and no override is added.
+
+MCP clients run on a workstation rather than in a browser, so they need their
+own public client registration. Register it once per environment and give the
+identifier to everyone who connects.
+
+1. Go to **Microsoft Entra ID** > **App registrations** > **New registration**.
+2. Name it for the environment, for example `rpi-<environment>-mcp-client`.
+3. Set **Supported account types** to single tenant.
+4. Under **Redirect URI**, choose the **Public client/native (mobile & desktop)** platform and enter `http://localhost`. The Web platform rejects the token exchange for a public client.
+5. Register, then open **Authentication** and confirm **Allow public client flows** is enabled.
+6. Open **API permissions** > **Add a permission** > **APIs my organization uses**. Search for the Application ID URI of your RPI API registration, choose **Delegated permissions** and select `Interaction.Clients`. The **My APIs** tab lists only registrations you own, so it is usually empty here.
+7. Add **Microsoft Graph** delegated `openid`, `profile`, `email` and `offline_access`. The last one is what returns refresh tokens.
+8. Grant admin consent so nobody is prompted on first use.
+9. Record the **Application (client) ID** and **Directory (tenant) ID** from **Overview**.
+
+Leave **Certificates and secrets** empty. A public client has none by design.
+
+Optionally add this registration under **Authorized client applications** on the
+RPI API registration, alongside the interaction client that is already listed
+there.
+
+#### Getting a token
+
+Device code sign in needs no local listener, so it works over SSH and inside a
+container. Start it:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<mcp-host>/mcp
+TENANT=<directory-tenant-id>
+CLIENT=<mcp-client-application-id>
+API=api://<interaction-api-application-id>
+
+DC=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/devicecode" \
+  --data-urlencode "client_id=$CLIENT" \
+  --data-urlencode "scope=$API/Interaction.Clients offline_access openid profile")
+
+DEVICE_CODE=$(echo "$DC" | jq -r .device_code)
+echo "$DC" | jq -r .message
 ```
 
-**401** means each caller brings its own RPI token. **Anything else** means every call runs as the configured service account and no credential is needed.
+Follow the printed instruction in a browser, then exchange the code:
 
-### Getting a token
+```bash
+RESP=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" \
+  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+  --data-urlencode "client_id=$CLIENT" \
+  --data-urlencode "device_code=$DEVICE_CODE")
 
-Only needed for the 401 case. Your own RPI username and password:
+RPI_TOKEN=$(echo "$RESP" | jq -r .access_token)
+RPI_REFRESH=$(echo "$RESP" | jq -r .refresh_token)
+```
+
+The access token lasts about an hour. Renew it without signing in again:
+
+```bash
+curl -s -X POST "https://login.microsoftonline.com/$TENANT/oauth2/v2.0/token" \
+  --data-urlencode "grant_type=refresh_token" \
+  --data-urlencode "client_id=$CLIENT" \
+  --data-urlencode "refresh_token=$RPI_REFRESH" | jq -r .access_token
+```
+
+Each user signs in as themselves, so RPI applies that person's own permissions.
+
+### RPI credentials
+
+Your own RPI username and password:
 
 ```bash
 curl -s -X POST https://<integration-api-host>/connect/token \

@@ -89,6 +89,7 @@ spec:
         values:
           - rpi-realtimeapi-cache
           - rpi-queuereader-cache
+          - rpi-twiliomessaging-cache
           - cdp-cache
   policyTypes:
     - Ingress
