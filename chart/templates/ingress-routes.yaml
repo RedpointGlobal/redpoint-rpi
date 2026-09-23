@@ -353,6 +353,11 @@ metadata:
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # A successful sign in returns the RPI access and refresh tokens encrypted
+    # into the session cookie, which Auth.js chunks across several Set-Cookie
+    # headers. That exceeds nginx's 4k default response header buffer and the
+    # reply is dropped as a 502, so only a FAILED login would ever complete.
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
 spec:
   ingressClassName: {{ $ingCfg.className }}
   {{- if eq $ingCfg.certificateSource "kubernetes" }}
