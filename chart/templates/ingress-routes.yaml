@@ -295,9 +295,7 @@ spec:
 {{- $mcpRpi := (.Values.mcpServers | default dict).rpi | default dict }}
 {{- if $mcpRpi.enabled }}
 ---
-# Its own object rather than a rule on redpoint-rpi, because response
-# buffering has to be off for the MCP streaming endpoint and annotations
-# apply per Ingress rather than per rule.
+# A separate object because annotations apply per Ingress, not per rule.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -307,9 +305,7 @@ metadata:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "rpi-mcpserver" "component" "mcpserver") | nindent 4 }}
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
-    # Streamable HTTP holds the response open for the life of an MCP call.
-    # nginx buffers responses by default, which stalls the stream until the
-    # call completes.
+    # Streamable HTTP holds the response open; buffering stalls it until the call ends.
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
 spec:
   ingressClassName: {{ $ingCfg.className }}
@@ -341,8 +337,7 @@ spec:
 {{- $agentWs := (.Values.redpointAI | default dict).agentWorkspace | default dict }}
 {{- if $agentWs.enabled }}
 ---
-# Separate for the same reason as the MCP route: chat responses stream token
-# by token and must not be buffered.
+# Separate for the same reason as the MCP route; chat responses stream.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -353,10 +348,8 @@ metadata:
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    # A successful sign in returns the RPI access and refresh tokens encrypted
-    # into the session cookie, which Auth.js chunks across several Set-Cookie
-    # headers. That exceeds nginx's 4k default response header buffer and the
-    # reply is dropped as a 502, so only a FAILED login would ever complete.
+    # The session cookie carries the RPI tokens across several Set-Cookie
+    # headers, which exceeds the 4k default and drops the reply as a 502.
     nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
 spec:
   ingressClassName: {{ $ingCfg.className }}

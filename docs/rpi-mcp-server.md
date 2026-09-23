@@ -5,94 +5,138 @@
 
 ## Overview
 
-The **RPI MCP Server** exposes the RPI Integration API as Model Context Protocol tools, so AI clients and agent runtimes can read and act through RPI's documented API surface rather than a bespoke integration.
+The **RPI MCP Server** exposes the RPI Integration API as Model Context Protocol tools, so AI clients can work through RPI's documented API rather than a bespoke integration. It is read through and never writes to an RPI database.
 
-It runs as its own deployment, `rpi-mcpserver`, and serves the MCP protocol over streamable HTTP at `/mcp`. It reads the Integration API in cluster and never writes to an RPI database.
+An optional **agent workspace** adds a chat application on top of the same tools, for users who will not connect an MCP client themselves.
 
-| Aspect | Value |
-|---|---|
-| Service | `rpi-mcpserver` |
-| Port | 3002 |
-| MCP endpoint | `/mcp` |
-| Health endpoint | `/health` |
-| Replicas | one, enforced at render |
+| Workload | What it is | Reached by |
+|---|---|---|
+| `rpi-mcpserver` | the tool surface | MCP clients |
+| `rpi-aiweb` | the chat application | a browser |
+| `rpi-aiserver` | the agent behind the chat | nothing directly |
 
-## Prerequisites
+## Enable it
 
-| Requirement | Why |
-|---|---|
-| `secretsManagement.provider` is `kubernetes` or `csi` | The server reads its credentials from environment bindings and has no cloud vault client. Enabling it under `sdk` fails `helm template` with an explanatory error |
-| An Integration API OAuth client | The server authenticates to RPI with a client id and secret you register |
-| `mcpServers.rpi.defaultClientId` | The RPI tenant this server serves. Required when enabled, with no inference and no default |
-
-## Configuration
-
-Minimum to enable:
+The tool server on its own:
 
 ```yaml
 mcpServers:
   rpi:
     enabled: true
     oauthClientId: <integration-api-oauth-client-id>
-    defaultClientId: <your-rpi-client-guid>
+    defaultClientId: <your-rpi-tenant-guid>
 ```
 
-Populate the Secret keys in the standard RPI Secret before installing. See [Secrets Management](secrets-management.md).
+Add the chat application:
+
+```yaml
+redpointAI:
+  enabled: true
+  agentWorkspace:
+    enabled: true
+```
+
+One Secret key, in the standard RPI Secret. See [Secrets Management](secrets-management.md).
 
 ```yaml
   RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
 ```
 
-The client identifier is not sensitive and is set in values, at `mcpServers.rpi.oauthClientId`.
+That is all. Model configuration comes from `redpointAI`, service addresses are derived, and the session signing key is generated.
 
-### Reference
+`secretsManagement.provider` must be `kubernetes` or `csi`. Anything else fails at render with the reason.
+
+### Values
 
 | Value | Default | Purpose |
 |---|---|---|
-| `mcpServers.rpi.enabled` | `false` | Enables the deployment, service, service account and ingress |
-| `mcpServers.rpi.oauthClientId` | `""` | Integration API OAuth client identifier. Required when enabled |
-| `mcpServers.rpi.defaultClientId` | `""` | RPI tenant identifier, a GUID. Required when enabled |
-| `mcpServers.rpi.authRequired` | `true` | Requires a bearer token on the MCP endpoint |
-| `mcpServers.rpi.replicaCount` | `1` | Must be `1` |
-| `mcpServers.rpi.proxy.enabled` | `false` | Uses service account proxy credentials |
-| `mcpServers.rpi.proxy.user` | `""` | Service account username. Required when `proxy.enabled` is true |
-| `mcpServers.rpi.urlAllowlist` | `""` | Comma separated host domains a caller may target per request. Empty accepts none |
-| `mcpServers.rpi.service.port` | `3002` | Service and container port |
-| `ingress.hosts.rpimcpserver` | `rpi-mcpserver` | Hostname for the MCP endpoint, alongside every other service hostname |
-| `mcpServers.rpi.terminationGracePeriodSeconds` | `240` | Shutdown grace period |
+| `mcpServers.rpi.enabled` | `false` | Deploy the tool server |
+| `mcpServers.rpi.oauthClientId` | `""` | Integration API OAuth client. Required when enabled |
+| `mcpServers.rpi.defaultClientId` | `""` | RPI tenant GUID. Required when enabled |
+| `mcpServers.rpi.authRequired` | `true` | Each caller presents its own RPI token |
+| `mcpServers.rpi.proxy.enabled` | `false` | Run every call as one service account instead |
+| `mcpServers.rpi.proxy.user` | `""` | Service account username. Required with `proxy.enabled`, password in `RPI_MCP_Proxy_Pass` |
+| `redpointAI.agentWorkspace.enabled` | `false` | Deploy the chat application. Requires `redpointAI.enabled` and `mcpServers.rpi.enabled` |
+| `ingress.hosts.rpimcpserver` | `rpi-mcpserver` | Tool server hostname |
+| `ingress.hosts.rpiaiweb` | `rpi-aiweb` | Chat hostname |
 
-## Why one replica
+## Endpoints
 
-MCP is a session protocol. A client initialises a session, receives a session identifier, and sends it with every later call. The server holds that session in its own process. A second replica has no record of a session another replica created, so a request routed there resolves to a different session partway through a conversation.
+Both hostnames follow the same rule as every other service: the value in `ingress.hosts` is prepended to `ingress.domain`, unless it contains a dot, in which case it is used as an FQDN.
 
-The chart therefore fixes the replica count at one and refuses any other value at render. Horizontal scale requires a shared session store in the application, which does not exist today.
-
-## Ingress behaviour
-
-The hostname lives with every other service hostname, at `ingress.hosts.rpimcpserver`, and follows the same rule as its siblings. A bare value is prepended to `ingress.domain`, and a value containing a dot is used as an FQDN. The route is published whenever `mcpServers.rpi.enabled` is true.
-
-The MCP endpoint streams. A tool call holds its response open until the call completes, and some calls poll for up to several minutes.
-
-Two consequences are handled by the chart:
-
-- Response buffering is disabled on this route only, with `nginx.ingress.kubernetes.io/proxy-buffering: "off"`. With buffering on, nginx holds the stream until the call finishes and the client sees a stall.
-- The default proxy read and send timeouts of 3600 seconds comfortably exceed the server's own idle ceiling of 255 seconds. If you override `ingress.annotations`, keep both timeouts above 255 or long running tool calls are cut mid call.
-
-## Degraded mode
-
-When the RPI credentials are absent or invalid the server does not crash. It keeps its listener up, skips tool registration, and reports the condition:
-
-- `/health` returns 200 with `"mcp": "degraded"`, a `reason`, and the list of missing variables.
-- `/mcp` returns a structured JSON-RPC error with HTTP 503, so clients fail fast rather than hang.
-
-The probes follow the server's own contract, so a degraded pod stays in the Service and answers 503 on the protocol endpoint. That is deliberate. A pod reporting healthy while serving no tools is visible in one `curl` of `/health` rather than hidden behind a failed probe.
-
-## Verification
-
-```bash
-kubectl get pods -l app.kubernetes.io/name=rpi-mcpserver -n <namespace>
-kubectl port-forward svc/rpi-mcpserver 3002:3002 -n <namespace>
-curl -s http://localhost:3002/health
+```
+https://<ingress.hosts.rpimcpserver>.<ingress.domain>/mcp
+https://<ingress.hosts.rpiaiweb>.<ingress.domain>/
 ```
 
-A healthy response names the server and reports its mask and version status. A degraded response names the missing variables.
+Confirm what was published:
+
+```bash
+kubectl get ingress -n <namespace>
+```
+
+## Using the chat application
+
+Open the chat hostname and sign in with RPI credentials. Each user's own RPI permissions apply for everything the agent does on their behalf, so two people asking the same question see only what their accounts allow.
+
+## Using an MCP client
+
+Works with Claude Code, Cursor, VS Code, or your own agent.
+
+**Check which mode the deployment runs first.**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<mcp-host>/mcp
+```
+
+**401** means each caller brings its own RPI token. **Anything else** means every call runs as the configured service account and no credential is needed.
+
+### Getting a token
+
+Only needed for the 401 case. Your own RPI username and password:
+
+```bash
+curl -s -X POST https://<integration-api-host>/connect/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode grant_type=password \
+  --data-urlencode "username=$RPI_USER" \
+  --data-urlencode "password=$RPI_PASS" \
+  --data-urlencode "client_id=$RPI_OAUTH_CLIENT_ID" \
+  --data-urlencode "client_secret=$RPI_CLIENT_SECRET" \
+  | sed 's/.*"access_token": *"\([^"]*\)".*/\1/'
+```
+
+Use `--data-urlencode`, not `-d`. With `-d` a `+` in a password is sent as a space and the grant fails as though the password were wrong.
+
+Tokens last one hour. Re-run this and update your client when calls report an expired session.
+
+### Client configuration
+
+`.mcp.json` for Claude Code, `.cursor/mcp.json` for Cursor, `.vscode/mcp.json` for VS Code:
+
+```json
+{
+  "mcpServers": {
+    "rpi": {
+      "type": "http",
+      "url": "https://<mcp-host>/mcp",
+      "headers": { "Authorization": "Bearer ${RPI_TOKEN}" }
+    }
+  }
+}
+```
+
+Or from the command line:
+
+```bash
+claude mcp add --transport http rpi https://<mcp-host>/mcp \
+  --header "Authorization: Bearer $RPI_TOKEN"
+```
+
+Drop the `headers` block entirely in service account mode. Reference the token through an environment variable rather than pasting it, since these files are usually committed.
+
+The client sends only that header. The tenant comes from the server's configuration, so no tenant or client id travels with a call.
+
+### First call
+
+Run the `verify_connection` tool. It reports whether your token was accepted, whether a tenant is selected, and makes a live API call, which separates a credential problem from a badly phrased question. Then try listing clients or audiences.

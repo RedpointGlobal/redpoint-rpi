@@ -100,8 +100,7 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
       {{- end }}
-      # Nothing handles SIGTERM in the server, so a rollout cuts sessions at
-      # shutdown. The grace period covers the longest tool poll budget.
+      # The server does not drain on SIGTERM; this covers the longest tool poll.
       terminationGracePeriodSeconds: {{ $cfg.terminationGracePeriodSeconds | default 240 }}
       securityContext:
         runAsUser: {{ $secCtx.runAsUser | default 1000 }}
@@ -118,17 +117,13 @@ spec:
         env:
         - name: RPI_MCP_HTTP_PORT
           value: {{ $port | quote }}
-        # The Integration API is reached in namespace. No operator facing URL
-        # exists for it, because the chart already knows the address.
         - name: RPI_INTEGRATION_API_URL
           value: {{ printf "http://rpi-integrationapi:%v" $intCfg.service.port | quote }}
         - name: RPI_DEFAULT_CLIENT_ID
           value: {{ $cfg.defaultClientId | quote }}
         - name: AUTH_REQUIRED
           value: {{ $authRequired | quote }}
-        # The externally reachable origin this server publishes in its OAuth
-        # protected resource metadata. Without it the origin is derived from
-        # forwarded headers.
+        # The origin published in OAuth metadata; otherwise taken from forwarded headers.
         - name: RPI_MCP_PUBLIC_URL
           value: {{ printf "https://%s" (include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpimcpserver "domain" $ingCfg.domain)) | quote }}
         {{- with $cfg.urlAllowlist }}
@@ -166,9 +161,7 @@ spec:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
-        # The server answers /health while it is running, including when RPI
-        # credentials are absent. In that state it reports mcp: degraded and
-        # /mcp returns a structured 503, which is the intended contract.
+        # /health answers even without RPI credentials, reporting mcp: degraded.
         livenessProbe:
           httpGet:
             path: /health
