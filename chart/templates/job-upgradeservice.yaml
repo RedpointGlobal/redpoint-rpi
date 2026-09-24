@@ -22,8 +22,10 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
     argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded BeforeHookCreation
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     {{- with .Values.customAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
