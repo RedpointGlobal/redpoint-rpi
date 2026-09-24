@@ -976,6 +976,17 @@ Usage: {{- include "rpi.customCACerts.volume" . | nindent 8 }}
 Custom CA certificate env var (SSL_CERT_FILE).
 Usage: {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
 */}}
+{{/*
+Operator-supplied environment variables applied to every RPI application
+service. Empty by default; infrastructure and CDP workloads never receive them.
+*/}}
+{{- define "rpi.commonEnvVars" -}}
+{{- range .Values.commonEnvVars }}
+- name: {{ .name }}
+  value: {{ .value | quote }}
+{{- end }}
+{{- end -}}
+
 {{- define "rpi.customCACerts.envVar" -}}
 {{- if and .Values.customCACerts .Values.customCACerts.enabled .Values.customCACerts.certFile }}
 - name: SSL_CERT_FILE

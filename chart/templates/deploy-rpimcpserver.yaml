@@ -1,4 +1,4 @@
-{{- $mcp := .Values.mcpServers | default dict -}}
+{{- $mcp := (.Values.redpointAI | default dict).mcpServers | default dict -}}
 {{- $cfg := $mcp.rpi | default dict -}}
 {{- if $cfg.enabled -}}
 
@@ -17,25 +17,25 @@
        chart refuses the combination rather than starting a pod that reports
        healthy while serving no tools. */ -}}
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
-{{- fail "mcpServers.rpi.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The MCP server resolves its credentials from environment bindings and cannot read a cloud vault, so under 'sdk' it would start without credentials and serve no tools." -}}
+{{- fail "redpointAI.mcpServers.rpi.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The MCP server resolves its credentials from environment bindings and cannot read a cloud vault, so under 'sdk' it would start without credentials and serve no tools." -}}
 {{- end -}}
 
 {{- /* MCP sessions are held in process, so a second replica answers a session
        it has no record of. One writer, one replica. */ -}}
 {{- if ne (int ($cfg.replicaCount | default 1)) 1 -}}
-{{- fail "mcpServers.rpi.replicaCount must be 1. MCP sessions are held in the server process, so a request routed to another replica resolves to a different session." -}}
+{{- fail "redpointAI.mcpServers.rpi.replicaCount must be 1. MCP sessions are held in the server process, so a request routed to another replica resolves to a different session." -}}
 {{- end -}}
 
 {{- if and $cfg.proxy $cfg.proxy.enabled (not $cfg.proxy.user) -}}
-{{- fail "mcpServers.rpi.proxy.user is required when mcpServers.rpi.proxy.enabled=true. The identifier is not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass." -}}
+{{- fail "redpointAI.mcpServers.rpi.proxy.user is required when redpointAI.mcpServers.rpi.proxy.enabled=true. The identifier is not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass." -}}
 {{- end -}}
 
 {{- if not $cfg.oauthClientId -}}
-{{- fail "mcpServers.rpi.oauthClientId is required when mcpServers.rpi.enabled=true. It is the Integration API OAuth client identifier the MCP server authenticates as. The matching secret is the Secret key RPI_MCP_OAuth_Client_Secret." -}}
+{{- fail "redpointAI.mcpServers.rpi.oauthClientId is required when redpointAI.mcpServers.rpi.enabled=true. It is the Integration API OAuth client identifier the MCP server authenticates as. The matching secret is the Secret key RPI_MCP_OAuth_Client_Secret." -}}
 {{- end -}}
 
 {{- if not $cfg.defaultClientId -}}
-{{- fail "mcpServers.rpi.defaultClientId is required when mcpServers.rpi.enabled=true. It is the RPI tenant identifier (a GUID) the MCP server serves: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients." -}}
+{{- fail "redpointAI.mcpServers.rpi.defaultClientId is required when redpointAI.mcpServers.rpi.enabled=true. It is the RPI tenant identifier (a GUID) the MCP server serves: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients." -}}
 {{- end -}}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "mcpserver" "cfg" $cfg) }}

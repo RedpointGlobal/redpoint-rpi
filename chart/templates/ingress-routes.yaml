@@ -309,7 +309,7 @@ spec:
         path: /(socket.io/.*) 
         pathType: ImplementationSpecific
 {{- end }}
-{{- $mcpRpi := (.Values.mcpServers | default dict).rpi | default dict }}
+{{- $mcpRpi := ((.Values.redpointAI | default dict).mcpServers | default dict).rpi | default dict }}
 {{- if $mcpRpi.enabled }}
 ---
 # A separate object because annotations apply per Ingress, not per rule.
@@ -351,7 +351,7 @@ spec:
                 number: {{ ($mcpRpi.service | default dict).port | default 3002 }}
 {{- end }}
 
-{{- $agentWs := (.Values.redpointAI | default dict).agentWorkspace | default dict }}
+{{- $agentWs := (.Values.redpointAI | default dict).aiWeb | default dict }}
 {{- if $agentWs.enabled }}
 ---
 # Separate for the same reason as the MCP route; chat responses stream.
@@ -361,7 +361,7 @@ metadata:
   name: rpi-aiweb
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "rpi-aiweb" "component" "agentworkspace") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "rpi-aiweb" "component" "aiweb") | nindent 4 }}
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
     nginx.ingress.kubernetes.io/proxy-buffering: "off"

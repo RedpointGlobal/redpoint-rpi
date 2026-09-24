@@ -188,6 +188,7 @@ spec:
       {{- end }}
       containers:
       - env:
+        {{- with (include "rpi.commonEnvVars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
@@ -735,6 +736,7 @@ spec:
       {{- end }}
       containers:
       - env:
+        {{- with (include "rpi.commonEnvVars" $ | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if $.Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ $.Values.global.deployment.podTimezone | quote }}

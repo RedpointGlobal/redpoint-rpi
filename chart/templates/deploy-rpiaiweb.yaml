@@ -1,14 +1,20 @@
 {{- $ai := .Values.redpointAI | default dict -}}
-{{- $ws := $ai.agentWorkspace | default dict -}}
-{{- if $ws.enabled -}}
+{{- $web := $ai.aiWeb | default dict -}}
+{{- if $web.enabled -}}
 
 {{- $name := "rpi-aiweb" -}}
-{{- $web := $ws.web | default dict -}}
-{{- $mcp := (.Values.mcpServers | default dict).rpi | default dict -}}
+{{- $rt := $ai.agentRuntime | default dict -}}
+{{- $mcp := ($ai.mcpServers | default dict).rpi | default dict -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
 {{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
 
-{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "agentworkspace" "cfg" (dict "enabled" true "serviceAccount" ($web.serviceAccount | default (dict "enabled" true)))) }}
+{{- /* The chat holds the session and proxies every call to the runtime, so it
+       is a front end to that service rather than a deployable on its own. */ -}}
+{{- if not $rt.enabled -}}
+{{- fail "redpointAI.aiWeb.enabled=true requires redpointAI.agentRuntime.enabled=true. The chat has no agent to talk to without it." -}}
+{{- end -}}
+
+{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "aiweb" "cfg" (dict "enabled" true "serviceAccount" ($web.serviceAccount | default (dict "enabled" true)))) }}
 
 ---
 apiVersion: v1
@@ -17,7 +23,7 @@ metadata:
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "aiweb") | nindent 4 }}
 spec:
   ports:
   - name: http
@@ -34,7 +40,7 @@ metadata:
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "aiweb") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
 spec:
   replicas: {{ $web.replicaCount | default 1 }}
@@ -44,7 +50,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 8 }}
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "aiweb") | nindent 8 }}
     spec:
       serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" (dict "serviceAccount" ($web.serviceAccount | default (dict "enabled" true)))) }}
       {{- if .Values.global.deployment.images.imagePullSecret.enabled }}

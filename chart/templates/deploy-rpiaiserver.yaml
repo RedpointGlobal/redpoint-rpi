@@ -1,48 +1,41 @@
 {{- $ai := .Values.redpointAI | default dict -}}
-{{- $ws := $ai.agentWorkspace | default dict -}}
-{{- if $ws.enabled -}}
+{{- $rt := $ai.agentRuntime | default dict -}}
+{{- if $rt.enabled -}}
 
 {{- $name := "rpi-aiserver" -}}
-{{- $server := $ws.server | default dict -}}
-{{- $storage := $server.storage | default dict -}}
-{{- $nl := $ai.naturalLanguage | default dict -}}
-{{- $mcp := (.Values.mcpServers | default dict).rpi | default dict -}}
+{{- $storage := $rt.storage | default dict -}}
+{{- $model := $ai.model | default dict -}}
+{{- $mcp := ($ai.mcpServers | default dict).rpi | default dict -}}
 {{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
 
-{{- /* The workspace narrates over the AI infrastructure RPI already configures,
-       so that configuration is the prerequisite rather than a second copy. */ -}}
-{{- if not $ai.enabled -}}
-{{- fail "redpointAI.agentWorkspace.enabled=true requires redpointAI.enabled=true. The workspace inherits its Azure OpenAI endpoint, API version, deployment and credential from the redpointAI configuration and defines none of its own." -}}
-{{- end -}}
-
-{{- /* Its only tool surface is the RPI MCP server, and it takes that server's
-       tenant and OAuth client rather than restating them. */ -}}
+{{- /* The runtime reaches RPI only through the MCP server, and takes that
+       server's tenant and OAuth client rather than restating them. */ -}}
 {{- if not $mcp.enabled -}}
-{{- fail "redpointAI.agentWorkspace.enabled=true requires mcpServers.rpi.enabled=true. The workspace has no tool surface without it, and inherits mcpServers.rpi.defaultClientId and mcpServers.rpi.oauthClientId." -}}
+{{- fail "redpointAI.agentRuntime.enabled=true requires redpointAI.mcpServers.rpi.enabled=true. The runtime has no tool surface without it, and inherits redpointAI.mcpServers.rpi.defaultClientId and redpointAI.mcpServers.rpi.oauthClientId." -}}
 {{- end -}}
 
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
-{{- fail "redpointAI.agentWorkspace.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The workspace resolves its credentials from environment bindings and cannot read a cloud vault." -}}
+{{- fail "redpointAI.agentRuntime.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The runtime resolves its credentials from environment bindings and cannot read a cloud vault." -}}
 {{- end -}}
 
 {{- /* SQLite on one volume, so one writer. */ -}}
-{{- if ne (int ($server.replicaCount | default 1)) 1 -}}
-{{- fail "redpointAI.agentWorkspace.server.replicaCount must be 1. The server owns a SQLite database on a single volume." -}}
+{{- if ne (int ($rt.replicaCount | default 1)) 1 -}}
+{{- fail "redpointAI.agentRuntime.replicaCount must be 1. The runtime owns a SQLite database on a single volume." -}}
 {{- end -}}
 
 {{- /* The server builds https://{resource}.openai.azure.com itself, so it needs
        the bare resource name while redpointAI holds a full endpoint URL. The
        first label of that host is the resource; a non standard endpoint must
        name it explicitly rather than be guessed at. */ -}}
-{{- $apiHost := $nl.ApiBase | default "" | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" -}}
+{{- $apiHost := $model.ApiBase | default "" | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" -}}
 {{- $derived := "" -}}
 {{- if contains "." $apiHost }}{{- $derived = (splitList "." $apiHost | first) -}}{{- end -}}
-{{- $resourceName := $ws.azureResourceName | default $derived -}}
+{{- $resourceName := $rt.azureResourceName | default $derived -}}
 {{- if not $resourceName -}}
-{{- fail "redpointAI.agentWorkspace could not derive the Azure OpenAI resource name from redpointAI.naturalLanguage.ApiBase. Set redpointAI.agentWorkspace.azureResourceName explicitly when the endpoint is not https://<resource>.openai.azure.com." -}}
+{{- fail "redpointAI.agentRuntime could not derive the Azure OpenAI resource name from redpointAI.model.ApiBase. Set redpointAI.agentRuntime.azureResourceName explicitly when the endpoint is not https://<resource>.openai.azure.com." -}}
 {{- end -}}
 
-{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "agentworkspace" "cfg" (dict "enabled" true "serviceAccount" ($server.serviceAccount | default (dict "enabled" true)))) }}
+{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "agentruntime" "cfg" (dict "enabled" true "serviceAccount" ($rt.serviceAccount | default (dict "enabled" true)))) }}
 
 ---
 apiVersion: v1
@@ -51,7 +44,7 @@ metadata:
   name: {{ $name }}-data
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentruntime") | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteOnce
@@ -69,7 +62,7 @@ metadata:
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentruntime") | nindent 4 }}
 spec:
   ports:
   - name: http
@@ -86,7 +79,7 @@ metadata:
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 4 }}
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentruntime") | nindent 4 }}
     app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
 spec:
   replicas: 1
@@ -98,9 +91,9 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentworkspace") | nindent 8 }}
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "agentruntime") | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" (dict "serviceAccount" ($server.serviceAccount | default (dict "enabled" true)))) }}
+      serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" (dict "serviceAccount" ($rt.serviceAccount | default (dict "enabled" true)))) }}
       {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
       imagePullSecrets:
         - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
@@ -136,9 +129,9 @@ spec:
         - name: AZURE_OPENAI_RESOURCE_NAME
           value: {{ $resourceName | quote }}
         - name: AZURE_OPENAI_API_VERSION
-          value: {{ $nl.ApiVersion | quote }}
+          value: {{ $model.ApiVersion | quote }}
         - name: AZURE_OPENAI_DEPLOYMENT_ID
-          value: {{ $nl.ChatGptEngine | quote }}
+          value: {{ $model.ChatGptEngine | quote }}
         - name: AZURE_OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
@@ -150,7 +143,7 @@ spec:
           value: {{ printf "http://rpi-integrationapi:%v" $intCfg.service.port | quote }}
         - name: RPI_DEFAULT_CLIENT_ID
           value: {{ $mcp.defaultClientId | quote }}
-        {{- with $server.resources }}
+        {{- with $rt.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}

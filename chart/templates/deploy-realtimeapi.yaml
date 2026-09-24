@@ -242,6 +242,7 @@ spec:
           {{- end }}
           {{- end }}
           env:
+          {{- with (include "rpi.commonEnvVars" . | trim) }}{{- . | nindent 10 }}{{- end }}
           {{- if .Values.global.deployment.podTimezone }}
           - name: TZ
             value: {{ .Values.global.deployment.podTimezone | quote }}

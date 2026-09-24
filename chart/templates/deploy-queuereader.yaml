@@ -171,6 +171,7 @@ spec:
       {{- end }}
       containers:
       - env:
+        {{- with (include "rpi.commonEnvVars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- if .Values.global.deployment.podTimezone }}
         - name: TZ
           value: {{ .Values.global.deployment.podTimezone | quote }}
@@ -415,7 +416,7 @@ spec:
               name: {{ include "rpi.secrets.internalSecretName" . | quote }}
               key: QueueService_RabbitMQ_Password
         {{- end }}
-        {{- if .Values.redpointAI.enabled }}
+        {{- if .Values.redpointAI.nlp.enabled }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI__NLP__ApiKey
           valueFrom:
@@ -434,25 +435,25 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
         {{- end }}
         - name: RPI__NLP__ApiBase
-          value: {{ .Values.redpointAI.naturalLanguage.ApiBase | quote }}
+          value: {{ .Values.redpointAI.model.ApiBase | quote }}
         - name: RPI__NLP__ApiVersion
-          value: {{ .Values.redpointAI.naturalLanguage.ApiVersion | quote }}
+          value: {{ .Values.redpointAI.model.ApiVersion | quote }}
         - name: RPI__NLP__ChatGptEngine
-          value: {{ .Values.redpointAI.naturalLanguage.ChatGptEngine | quote }}
+          value: {{ .Values.redpointAI.model.ChatGptEngine | quote }}
         - name: RPI__NLP__ChatGptTemp
-          value: {{ .Values.redpointAI.naturalLanguage.ChatGptTemp | quote }}
+          value: {{ .Values.redpointAI.nlp.ChatGptTemp | quote }}
         - name: RPI__NLP__SearchEndpoint
-          value: {{ .Values.redpointAI.cognitiveSearch.SearchEndpoint | quote }}
+          value: {{ .Values.redpointAI.nlp.cognitiveSearch.SearchEndpoint | quote }}
         - name: RPI__NLP__EmbeddingsModel
-          value: {{ .Values.redpointAI.modelStorage.EmbeddingsModel | quote }}
+          value: {{ .Values.redpointAI.nlp.modelStorage.EmbeddingsModel | quote }}
         - name: RPI__NLP__Model__ModelDimensions
-          value: {{ .Values.redpointAI.modelStorage.ModelDimensions | quote }}
+          value: {{ .Values.redpointAI.nlp.modelStorage.ModelDimensions | quote }}
         - name: RPI__NLP__Model__ContainerName
-          value: {{ .Values.redpointAI.modelStorage.ContainerName | quote }}
+          value: {{ .Values.redpointAI.nlp.modelStorage.ContainerName | quote }}
         - name: RPI__NLP__Model__BlobFolder
-          value: {{ .Values.redpointAI.modelStorage.BlobFolder | quote }}
+          value: {{ .Values.redpointAI.nlp.modelStorage.BlobFolder | quote }}
         - name: RPI__NLP__EnableTrace
-          value: {{ .Values.redpointAI.logging.enableTrace | quote }}
+          value: {{ .Values.redpointAI.nlp.logging.enableTrace | quote }}
         {{- end }}
         {{- range $i, $v := $cfg.systemVariables }}
         - name: SystemVariables__Variables__{{ $i }}__Name

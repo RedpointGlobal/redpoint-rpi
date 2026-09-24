@@ -115,6 +115,15 @@ customCACerts:
 # Annotations applied to all resource types: ServiceAccounts, Services, Deployments, and Pods.
 # Use this for org-wide annotations (cost center, support email, alert routing, etc.).
 commonAnnotations: {}
+
+# Environment variables applied to every RPI application service (including
+# Rebrandly and Twilio Messaging). Chart-managed infrastructure and CDP
+# workloads never receive them. A per-service extraEnvs entry of the same name
+# wins over the value set here.
+#   commonEnvVars:
+#     - name: DT_TAGS
+#       value: "app=rpi environment=prod"
+commonEnvVars: []
 # commonAnnotations:
 #   myorg.com/cost-center: "1234"
 #   myorg.com/support-email: "team@example.com"
@@ -1275,63 +1284,75 @@ nodeProvisioning:
 # Redpoint AI
 # ==========================
 redpointAI:
-  enabled: false
   # Sensitive values (ApiKey, SearchKey, ConnectionString) are stored in the K8s Secret,
   # not here. See Required Secret Keys in secrets-management.md:
   #   RPI_NLP_API_KEY, RPI_NLP_SEARCH_KEY, RPI_NLP_MODEL_CONNECTION_STRING
-  naturalLanguage:
+
+  # The model every capability below uses. Read whenever a capability that
+  # consumes a model is enabled, independently of any one of them.
+  model:
     ApiBase: https://example.openai.azure.com/
     ApiVersion: 2023-07-01-preview
     ChatGptEngine: gpt-5.2
-    ChatGptTemp: 0.5
-  cognitiveSearch:
-    # RPI creates and uses the vector-search profile + config dynamically
-    # when it generates the index (SQL Database Definition > Update AI
-    # Model); no client-facing setting is required for them.
-    SearchEndpoint: https://example.search.windows.net
-  modelStorage:
-    EmbeddingsModel: text-embedding-ada-002
-    ModelDimensions: 1536
-    ContainerName: my_blob_container_name
-    BlobFolder: my_blob_container_folder_name
-  logging:
-    # Verbose NLP request/response tracing for diagnostics. Off by default.
-    enableTrace: false
 
-  # ---- Agent workspace ---------------------------------------------------
-  # The chat surface over the MCP tool servers: a Next.js web application and
-  # the agent runtime behind it. Inherits this section's Azure OpenAI endpoint,
-  # API version, deployment and credential, and requires redpointAI.enabled
-  # and mcpServers.rpi.enabled.
-  #
-  # Required Secret key: RPI_AI_Auth_Secret (openssl rand -base64 32)
-  agentWorkspace:
+  # Natural-language rule building on the RPI services, and everything only it
+  # uses.
+  nlp:
     enabled: false
+    ChatGptTemp: 0.5
+    cognitiveSearch:
+      # RPI creates and uses the vector-search profile + config dynamically
+      # when it generates the index (SQL Database Definition > Update AI
+      # Model); no client-facing setting is required for them.
+      SearchEndpoint: https://example.search.windows.net
+    modelStorage:
+      EmbeddingsModel: text-embedding-ada-002
+      ModelDimensions: 1536
+      ContainerName: my_blob_container_name
+      BlobFolder: my_blob_container_folder_name
+    logging:
+      # Verbose NLP request/response tracing for diagnostics. Off by default.
+      enableTrace: false
 
-    # The server builds https://<resource>.openai.azure.com itself, so it needs
-    # the bare resource name. It is derived from naturalLanguage.ApiBase; set
-    # this only when that endpoint is not the standard Azure form.
-    azureResourceName: ""
-
-    server:
+  mcpServers:
+    # The RPI Integration API tool surface. Requires no AI configuration.
+    rpi:
+      enabled: false
       serviceAccount:
         enabled: true
-      # SQLite on one volume, so one writer. Any other value fails render.
+      # The Integration API OAuth client this server authenticates as. Required
+      # whenever redpointAI.mcpServers.rpi.enabled=true. The identifier is not sensitive and
+      # lives here; its secret is the Secret key RPI_MCP_OAuth_Client_Secret.
+      oauthClientId: ""
+      # The RPI tenant identifier (a GUID) this MCP server serves. Required
+      # whenever redpointAI.mcpServers.rpi.enabled=true; an empty value fails `helm template`.
+      # Find it: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients
+      defaultClientId: ""
+      # Bearer token validation on the MCP endpoint. Leave on unless the endpoint
+      # is reachable only from inside a trusted boundary.
+      authRequired: true
+      # MCP sessions are held in the server process, so a request routed to
+      # another replica resolves to a different session. Any value other than 1
+      # fails at render.
       replicaCount: 1
-      storage:
-        size: 5Gi
-        storageClassName: ""
-      resources:
-        requests:
-          cpu: 200m
-          memory: 512Mi
-        limits:
-          memory: 2Gi
-
-    web:
-      serviceAccount:
-        enabled: true
-      replicaCount: 1
+      # Service account proxy credentials. When disabled the server acts only on
+      # the caller's own token. The username is not sensitive and lives here; its
+      # password is the Secret key RPI_MCP_Proxy_Pass.
+      proxy:
+        enabled: false
+        user: ""
+      # Comma separated host domains a caller may target per request. Empty means
+      # no per request target is accepted.
+      urlAllowlist: ""
+      service:
+        port: 3002
+      # Defaults match the image's own runtime user.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      # Covers the longest tool poll budget, since the server does not drain on
+      # SIGTERM.
+      terminationGracePeriodSeconds: 240
       resources:
         requests:
           cpu: 100m
@@ -1339,69 +1360,37 @@ redpointAI:
         limits:
           memory: 1Gi
 
+  # RPI-native agent runtime. Uses the RPI MCP server as its capability layer
+  # and inherits the model endpoint, version and deployment above.
+  # Required Secret key: RPI_AI_Auth_Secret is generated by the chart.
+  agentRuntime:
+    enabled: false
 
-# ==========================
-# MCP Servers
-# ==========================
-# Exposes the RPI Integration API as Model Context Protocol tools over
-# streamable HTTP at /mcp, for AI clients and agent runtimes.
-#
-# Requires secretsManagement.provider 'kubernetes' or 'csi'. The server reads
-# its credentials from environment bindings and has no cloud vault client, so
-# 'sdk' fails at render rather than starting a pod that serves no tools.
-#
-# Required Secret keys (see secrets-management.md):
-#   RPI_MCP_OAuth_Client_Secret
-#   RPI_MCP_Proxy_Pass                       (only when proxy.enabled=true)
-mcpServers:
-  # The RPI Integration API tool surface. Requires no AI configuration.
-  rpi:
+    # The server builds https://<resource>.openai.azure.com itself, so it needs
+    # the bare resource name. Derived from model.ApiBase; set this
+    # only when that endpoint is not the standard Azure form.
+    azureResourceName: ""
+
+    serviceAccount:
+      enabled: true
+    # SQLite on one volume, so one writer. Any other value fails render.
+    replicaCount: 1
+    storage:
+      size: 5Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+
+  # Optional browser client for the agent runtime.
+  aiWeb:
     enabled: false
     serviceAccount:
       enabled: true
-
-    # The Integration API OAuth client this server authenticates as. Required
-    # whenever mcpServers.rpi.enabled=true. The identifier is not sensitive and
-    # lives here; its secret is the Secret key RPI_MCP_OAuth_Client_Secret.
-    oauthClientId: ""
-
-    # The RPI tenant identifier (a GUID) this MCP server serves. Required
-    # whenever mcpServers.rpi.enabled=true; an empty value fails `helm template`.
-    # Find it: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients
-    defaultClientId: ""
-
-    # Bearer token validation on the MCP endpoint. Leave on unless the endpoint
-    # is reachable only from inside a trusted boundary.
-    authRequired: true
-
-    # MCP sessions are held in the server process, so a request routed to
-    # another replica resolves to a different session. Any value other than 1
-    # fails at render.
     replicaCount: 1
-
-    # Service account proxy credentials. When disabled the server acts only on
-    # the caller's own token. The username is not sensitive and lives here; its
-    # password is the Secret key RPI_MCP_Proxy_Pass.
-    proxy:
-      enabled: false
-      user: ""
-
-    # Comma separated host domains a caller may target per request. Empty means
-    # no per request target is accepted.
-    urlAllowlist: ""
-
-    service:
-      port: 3002
-
-    # Defaults match the image's own runtime user.
-    securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-
-    # Covers the longest tool poll budget, since the server does not drain on
-    # SIGTERM.
-    terminationGracePeriodSeconds: 240
-
     resources:
       requests:
         cpu: 100m

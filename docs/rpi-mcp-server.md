@@ -5,44 +5,61 @@
 
 ## Overview
 
-The **RPI MCP Server** exposes the RPI Integration API as Model Context Protocol tools, so AI clients can work through RPI's documented API rather than a bespoke integration. It is read through and never writes to an RPI database.
+The **RPI MCP Server** exposes the RPI Integration API as Model Context Protocol tools, so AI clients can work through RPI's documented API rather than a bespoke integration. It reads through the Integration API and never writes to an RPI database.
 
-An optional **agent workspace** adds a chat application on top of the same tools, for users who will not connect an MCP client themselves.
+Two optional workloads build on it. The **agent runtime** is an RPI native agent that reaches RPI only through those tools, and the **chat application** is a browser client for that runtime.
 
-| Workload | What it is | Reached by |
-|---|---|---|
-| `rpi-mcpserver` | the tool surface | MCP clients |
-| `rpi-aiweb` | the chat application | a browser |
-| `rpi-aiserver` | the agent behind the chat | nothing directly |
+| Workload | What it is | Reached by | Setting |
+|---|---|---|---|
+| `rpi-mcpserver` | the tool surface | MCP clients | `redpointAI.mcpServers.rpi.enabled` |
+| `rpi-aiserver` | the agent runtime | the chat application, or your own client in namespace | `redpointAI.agentRuntime.enabled` |
+| `rpi-aiweb` | the chat application | a browser | `redpointAI.aiWeb.enabled` |
+
+Each is enabled on its own, and each one depends only on the one below it. The tool server stands alone, the runtime requires the tool server, and the chat requires the runtime. A deployment that wants tools for its own MCP clients installs one workload and nothing else.
+
+A tool server exposes an API and consumes no model, so it needs no AI configuration at all. The agent runtime does consume a model, and reads `redpointAI.model` plus the `RPI_NLP_API_KEY` Secret key, which is the one model configuration every Redpoint AI capability shares. The search index, blob storage and temperature live under `redpointAI.nlp` because only natural language rule building uses them. This follows the platform rule that AI infrastructure is configured once and inherited.
 
 ## Enable it
 
 The tool server on its own:
 
 ```yaml
-mcpServers:
-  rpi:
+redpointAI:
+  mcpServers:
+    rpi:
+      enabled: true
+      oauthClientId: <integration-api-oauth-client-id>
+      defaultClientId: <your-rpi-tenant-guid>
+```
+
+Add the agent runtime, which needs the shared model settings to be real values:
+
+```yaml
+redpointAI:
+  model:
+    ApiBase: https://<your-openai-name>.openai.azure.com/
+    ApiVersion: 2023-07-01-preview
+    ChatGptEngine: <chat-model-deployment-name>
+  agentRuntime:
     enabled: true
-    oauthClientId: <integration-api-oauth-client-id>
-    defaultClientId: <your-rpi-tenant-guid>
 ```
 
 Add the chat application:
 
 ```yaml
 redpointAI:
-  enabled: true
-  agentWorkspace:
+  aiWeb:
     enabled: true
 ```
 
-One Secret key, in the standard RPI Secret. See [Secrets Management](secrets-management.md).
+Two Secret keys, in the standard RPI Secret. See [Secrets Management](secrets-management.md).
 
 ```yaml
   RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
+  RPI_NLP_API_KEY: "<azure-openai-api-key>"
 ```
 
-That is all. Model configuration comes from `redpointAI`, service addresses are derived, and the session signing key is generated.
+`RPI_NLP_API_KEY` is the same key natural language rule building uses, and is needed only when the agent runtime is deployed. Service addresses are derived and the session signing key is generated.
 
 `secretsManagement.provider` must be `kubernetes` or `csi`. Anything else fails at render with the reason.
 
@@ -56,12 +73,13 @@ is discarded. Use this only for system automation. The endpoint is unauthenticat
 so publish it accordingly.
 
 ```yaml
-mcpServers:
-  rpi:
-    authRequired: false
-    proxy:
-      enabled: true
-      user: <service-account-username>
+redpointAI:
+  mcpServers:
+    rpi:
+      authRequired: false
+      proxy:
+        enabled: true
+        user: <service-account-username>
 ```
 
 with `RPI_MCP_Proxy_Pass` added to the Secret. The chat application always uses
@@ -71,19 +89,26 @@ per user identity and is unaffected by this setting.
 
 | Value | Default | Purpose |
 |---|---|---|
-| `mcpServers.rpi.enabled` | `false` | Deploy the tool server |
-| `mcpServers.rpi.oauthClientId` | `""` | Integration API OAuth client. Required when enabled |
-| `mcpServers.rpi.defaultClientId` | `""` | RPI tenant GUID. Required when enabled |
-| `mcpServers.rpi.authRequired` | `true` | Each caller presents its own RPI token |
-| `mcpServers.rpi.proxy.enabled` | `false` | Run every call as one service account instead |
-| `mcpServers.rpi.proxy.user` | `""` | Service account username. Required with `proxy.enabled`, password in `RPI_MCP_Proxy_Pass` |
-| `redpointAI.agentWorkspace.enabled` | `false` | Deploy the chat application. Requires `redpointAI.enabled` and `mcpServers.rpi.enabled` |
+| `redpointAI.mcpServers.rpi.enabled` | `false` | Deploy the tool server |
+| `redpointAI.mcpServers.rpi.oauthClientId` | `""` | Integration API OAuth client. Required when enabled |
+| `redpointAI.mcpServers.rpi.defaultClientId` | `""` | RPI tenant GUID. Required when enabled |
+| `redpointAI.mcpServers.rpi.authRequired` | `true` | Each caller presents its own RPI token |
+| `redpointAI.mcpServers.rpi.proxy.enabled` | `false` | Run every call as one service account instead |
+| `redpointAI.mcpServers.rpi.proxy.user` | `""` | Service account username. Required with `proxy.enabled`, password in `RPI_MCP_Proxy_Pass` |
+| `redpointAI.agentRuntime.enabled` | `false` | Deploy the agent runtime. Requires `redpointAI.mcpServers.rpi.enabled` |
+| `redpointAI.agentRuntime.azureResourceName` | `""` | Azure OpenAI resource name. Derived from `redpointAI.model.ApiBase` unless that endpoint is not the standard Azure form |
+| `redpointAI.agentRuntime.storage.size` | `5Gi` | Volume holding the runtime database |
+| `redpointAI.aiWeb.enabled` | `false` | Deploy the chat application. Requires `redpointAI.agentRuntime.enabled` |
 | `ingress.hosts.rpimcpserver` | `rpi-mcpserver` | Tool server hostname |
 | `ingress.hosts.rpiaiweb` | `rpi-aiweb` | Chat hostname |
 
+The tool server and the agent runtime are each fixed at one replica and refuse any other value at render. The tool server holds protocol sessions in process, and the runtime owns a database on a single volume.
+
 ## Endpoints
 
-Both hostnames follow the same rule as every other service: the value in `ingress.hosts` is prepended to `ingress.domain`, unless it contains a dot, in which case it is used as an FQDN.
+The tool server and the chat application are published. The agent runtime is reached in namespace and has no ingress.
+
+Both published hostnames follow the same rule as every other service: the value in `ingress.hosts` is prepended to `ingress.domain`, unless it contains a dot, in which case it is used as an FQDN.
 
 ```
 https://<ingress.hosts.rpimcpserver>.<ingress.domain>/mcp

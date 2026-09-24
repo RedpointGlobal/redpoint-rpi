@@ -129,7 +129,7 @@ az cognitiveservices account create \
   --kind OpenAI --sku S0 --custom-domain "$OPENAI" --yes
 
 # chat model deployment. The deployment NAME is what you set in
-# redpointAI.naturalLanguage.ChatGptEngine.
+# redpointAI.model.ChatGptEngine.
 az cognitiveservices account deployment create \
   -n "$OPENAI" -g "$RG" \
   --deployment-name "$CHAT_DEPLOYMENT" \
@@ -256,7 +256,7 @@ Redpoint validates Redpoint AI against the following Azure OpenAI chat deploymen
 
 **Embeddings model.** `text-embedding-ada-002`, which produces 1536-dimension vectors.
 
-The deployment name you choose for the chat model is the value you set in `redpointAI.naturalLanguage.ChatGptEngine`. The embeddings deployment name is the value you set in `redpointAI.modelStorage.EmbeddingsModel`.
+The deployment name you choose for the chat model is the value you set in `redpointAI.model.ChatGptEngine`. The embeddings deployment name is the value you set in `redpointAI.nlp.modelStorage.EmbeddingsModel`.
 
 ### Azure AI Search
 
@@ -289,27 +289,31 @@ These three values become the Kubernetes Secret entries in Step 3.
 
 ### Values
 
-Enable Redpoint AI and set the endpoints, model, and storage values in your overrides:
+Enable natural language rule building and set the endpoints, model, and storage values in your overrides:
 
 ```yaml
 redpointAI:
-  enabled: true
-  naturalLanguage:
+  model:
     ApiBase: https://<your-openai-name>.openai.azure.com/   # Azure OpenAI endpoint
     ApiVersion: 2023-07-01-preview                          # Azure OpenAI API version
     ChatGptEngine: gpt-5.1                                  # chat model deployment name
+  nlp:
+    enabled: true
     ChatGptTemp: 0.5                                        # 0.0 (deterministic) to 2.0 (creative)
-  cognitiveSearch:
-    SearchEndpoint: https://<your-search-name>.search.windows.net
-  modelStorage:
-    EmbeddingsModel: text-embedding-ada-002                 # embeddings deployment name
-    ModelDimensions: 1536                                   # must match the embedding model (ada-002 is 1536)
-    ContainerName: redpoint-ai                              # Blob container
-    BlobFolder: redpoint-ai                                 # Blob folder for the index source documents
-    EnableTrace: false                                      # verbose OpenAI-call tracing (see Step 5)
+    cognitiveSearch:
+      SearchEndpoint: https://<your-search-name>.search.windows.net
+    modelStorage:
+      EmbeddingsModel: text-embedding-ada-002               # embeddings deployment name
+      ModelDimensions: 1536                                 # must match the embedding model (ada-002 is 1536)
+      ContainerName: redpoint-ai                            # Blob container
+      BlobFolder: redpoint-ai                               # Blob folder for the index source documents
+    logging:
+      enableTrace: false                                    # verbose OpenAI-call tracing (see Step 5)
 ```
 
-The only Azure AI Search values you provide are `cognitiveSearch.SearchEndpoint` and the search admin key (held as a secret). There is no vector-search profile, vector-search configuration, or index field definition to set; RPI generates the index, its vector search profile, and the vector algorithm when it runs Update AI Model.
+`redpointAI.model` is the model configuration every Redpoint AI capability shares, so it sits outside `nlp`. Everything only natural language rule building uses sits inside it.
+
+The only Azure AI Search values you provide are `nlp.cognitiveSearch.SearchEndpoint` and the search admin key (held as a secret). There is no vector-search profile, vector-search configuration, or index field definition to set; RPI generates the index, its vector search profile, and the vector algorithm when it runs Update AI Model.
 
 > The search endpoint and admin key exist as soon as you create the empty Azure AI Search service in Step 1, so you can complete the YAML before any index exists. RPI does not need to generate the index first; it builds the index on the first Update AI Model run.
 
@@ -338,7 +342,7 @@ For `csi` mode, populate the same keys in your CSI backed secret store. For `sdk
 
 ### What the chart wires
 
-When `redpointAI.enabled` is `true`, the chart emits the `RPI__NLP__*` environment contract:
+When `redpointAI.nlp.enabled` is `true`, the chart emits the `RPI__NLP__*` environment contract:
 
 - The Execution Service, Node Manager, and Integration API receive the full configuration plus the three secret backed values.
 - The Interaction API receives the three secret backed values only.
@@ -393,7 +397,7 @@ kubectl exec -n <ns> deploy/rpi-executionservice -- printenv | grep '^RPI__NLP__
 
 ### Tracing
 
-Set `redpointAI.modelStorage.EnableTrace` to `true` for diagnostics. On each call to the OpenAI API during Update AI Model, RPI logs the following to the RPI Server Log as errors (informational tracing, not a failure):
+Set `redpointAI.nlp.logging.enableTrace` to `true` for diagnostics. On each call to the OpenAI API during Update AI Model, RPI logs the following to the RPI Server Log as errors (informational tracing, not a failure):
 
 - a JSON representation of all `RPI_NLP_` settings, with keys partially obfuscated,
 - the endpoint called,
@@ -420,9 +424,9 @@ Turn tracing off for normal operation.
 | Update AI Model fails reading attribute data, or returns "no samples" for attributes | The data source the SQL Database Definition maps to is unreachable from the cluster, or its connection or timeout is misconfigured. | Confirm the data source or warehouse connection is configured and reachable from the cluster. Increase `DataWarehouseTimeout` for large tables. |
 | Cannot reach Azure endpoints, or calls time out | Cluster egress to Azure OpenAI, Azure AI Search, or Blob is blocked. | Allow outbound access from the cluster to all three endpoints (see Prerequisites). Check egress firewall/NAT, and any private-endpoint or DNS configuration. |
 | Poor or incorrect rule results | Stale index, or temperature too high. | Re-run Update AI Model after attribute changes. Lower `ChatGptTemp` (for example, `0.3`) for more deterministic output. |
-| NLP env vars missing on a pod | `redpointAI.enabled` is false, or the pod is not a consuming service. | Set `redpointAI.enabled` to `true`. Only the Execution Service, Node Manager, and Integration API receive the full configuration; the Interaction API receives the secret keys only. |
+| NLP env vars missing on a pod | `redpointAI.nlp.enabled` is false, or the pod is not a consuming service. | Set `redpointAI.nlp.enabled` to `true`. Only the Execution Service, Node Manager, and Integration API receive the full configuration; the Interaction API receives the secret keys only. |
 
-To capture the exact OpenAI request and response, enable `EnableTrace` (see Step 5) and inspect the RPI Server Log.
+To capture the exact OpenAI request and response, enable `nlp.logging.enableTrace` (see Step 5) and inspect the RPI Server Log.
 
 </details>
 
@@ -435,20 +439,22 @@ secretsManagement:
   provider: kubernetes            # or csi or sdk
 
 redpointAI:
-  enabled: true
-  naturalLanguage:
+  model:
     ApiBase: https://acme-rpi-openai.openai.azure.com/
     ApiVersion: 2023-07-01-preview
     ChatGptEngine: gpt-5.1        # chat model deployment name
+  nlp:
+    enabled: true
     ChatGptTemp: 0.5
-  cognitiveSearch:
-    SearchEndpoint: https://acme-rpi-search.search.windows.net
-  modelStorage:
-    EmbeddingsModel: text-embedding-ada-002
-    ModelDimensions: 1536
-    ContainerName: redpoint-ai
-    BlobFolder: prod
-    EnableTrace: false
+    cognitiveSearch:
+      SearchEndpoint: https://acme-rpi-search.search.windows.net
+    modelStorage:
+      EmbeddingsModel: text-embedding-ada-002
+      ModelDimensions: 1536
+      ContainerName: redpoint-ai
+      BlobFolder: prod
+    logging:
+      enableTrace: false
 ```
 
 ```
@@ -464,9 +470,9 @@ Checklist:
 - [ ] Azure AI Search on Basic tier or higher (vector search), sized for your attribute volume.
 - [ ] Storage account and container reachable from the cluster.
 - [ ] The three secret keys populated via your secrets provider.
-- [ ] `redpointAI.enabled` set to `true` and values applied.
+- [ ] `redpointAI.nlp.enabled` set to `true` and values applied.
 - [ ] Update AI Model run on each relevant SQL Database Definition.
-- [ ] `EnableTrace` set to `false` in steady state.
+- [ ] `nlp.logging.enableTrace` set to `false` in steady state.
 
 </details>
 
@@ -475,17 +481,17 @@ Checklist:
 
 | Helm value | Environment variable | Required | Notes |
 |:-----------|:---------------------|:---------|:------|
-| `redpointAI.enabled` | gate | yes | Master toggle. Default `false`. |
-| `naturalLanguage.ApiBase` | `RPI__NLP__ApiBase` | yes | Azure OpenAI endpoint. |
-| `naturalLanguage.ApiVersion` | `RPI__NLP__ApiVersion` | yes | For example, `2023-07-01-preview`. |
-| `naturalLanguage.ChatGptEngine` | `RPI__NLP__ChatGptEngine` | yes | Chat model deployment name. |
-| `naturalLanguage.ChatGptTemp` | `RPI__NLP__ChatGptTemp` | yes | `0.0` to `2.0`. Default `0.5`. |
-| `cognitiveSearch.SearchEndpoint` | `RPI__NLP__SearchEndpoint` | yes | Azure AI Search endpoint. |
-| `modelStorage.EmbeddingsModel` | `RPI__NLP__EmbeddingsModel` | yes | Embeddings deployment name. |
-| `modelStorage.ModelDimensions` | `RPI__NLP__Model__ModelDimensions` | yes | `1536` for ada-002. |
-| `modelStorage.ContainerName` | `RPI__NLP__Model__ContainerName` | yes | Blob container. |
-| `modelStorage.BlobFolder` | `RPI__NLP__Model__BlobFolder` | yes | Blob folder for the index source documents. |
-| `modelStorage.EnableTrace` | `RPI__NLP__EnableTrace` | no | Verbose tracing. Default `false`. |
+| `redpointAI.nlp.enabled` | gate | yes | Enables natural language rule building. Default `false`. |
+| `model.ApiBase` | `RPI__NLP__ApiBase` | yes | Azure OpenAI endpoint. Shared with every other Redpoint AI capability. |
+| `model.ApiVersion` | `RPI__NLP__ApiVersion` | yes | For example, `2023-07-01-preview`. Shared. |
+| `model.ChatGptEngine` | `RPI__NLP__ChatGptEngine` | yes | Chat model deployment name. Shared. |
+| `nlp.ChatGptTemp` | `RPI__NLP__ChatGptTemp` | yes | `0.0` to `2.0`. Default `0.5`. |
+| `nlp.cognitiveSearch.SearchEndpoint` | `RPI__NLP__SearchEndpoint` | yes | Azure AI Search endpoint. |
+| `nlp.modelStorage.EmbeddingsModel` | `RPI__NLP__EmbeddingsModel` | yes | Embeddings deployment name. |
+| `nlp.modelStorage.ModelDimensions` | `RPI__NLP__Model__ModelDimensions` | yes | `1536` for ada-002. |
+| `nlp.modelStorage.ContainerName` | `RPI__NLP__Model__ContainerName` | yes | Blob container. |
+| `nlp.modelStorage.BlobFolder` | `RPI__NLP__Model__BlobFolder` | yes | Blob folder for the index source documents. |
+| `nlp.logging.enableTrace` | `RPI__NLP__EnableTrace` | no | Verbose tracing. Default `false`. |
 | `RPI_NLP_API_KEY` (Secret) | `RPI__NLP__ApiKey` | yes | Azure OpenAI key. |
 | `RPI_NLP_SEARCH_KEY` (Secret) | `RPI__NLP__SearchKey` | yes | Search admin key. |
 | `RPI_NLP_MODEL_CONNECTION_STRING` (Secret) | `RPI__NLP__Model__ConnectionString` | yes | Blob connection string. |

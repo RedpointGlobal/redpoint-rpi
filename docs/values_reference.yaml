@@ -2757,35 +2757,71 @@ rebrandly:
   # services use StatefulSet.
   type: deployment
 
-# Redpoint AI configuration for natural language, cognitive search, and model storage
+# Redpoint AI. Each capability is enabled on its own; the model endpoint, API version,
+# deployment and credential here are shared by every capability that consumes a model.
 redpointAI:
-  # Agent workspace: the chat web application and the agent runtime over the MCP tool servers.
-  # Requires redpointAI.enabled and mcpServers.rpi.enabled.
-  agentWorkspace:
-    # Azure OpenAI resource name. Derived from redpointAI.naturalLanguage.ApiBase when empty
+  # Agent runtime: the RPI native agent service over the MCP tool server. Requires
+  # redpointAI.mcpServers.rpi.enabled.
+  agentRuntime:
+    # Azure OpenAI resource name. Derived from redpointAI.model.ApiBase when empty
     azureResourceName: ''
-    # Deploy the agent workspace
+    # Deploy the agent runtime
     enabled: false
-    server:
-      # Must be 1. The server owns a SQLite database on a single volume
-      replicaCount: 1
-      # Container resource requests and limits
-      resources:
-        limits:
-          memory: 2Gi
-        requests:
-          cpu: 200m
-          memory: 512Mi
-      serviceAccount:
-        # Create a dedicated ServiceAccount
-        enabled: true
-      storage:
-        # Volume size for the workspace database
-        size: 5Gi
-        # Storage class. Empty uses the cluster default
-        storageClassName: ''
-    web:
-      # Web replicas
+    # Must be 1. The runtime owns a SQLite database on a single volume
+    replicaCount: 1
+    # Container resource requests and limits
+    resources:
+      limits:
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+    serviceAccount:
+      # Create a dedicated ServiceAccount
+      enabled: true
+    storage:
+      # Volume size for the runtime database
+      size: 5Gi
+      # Storage class. Empty uses the cluster default
+      storageClassName: ''
+  # Chat web application over the agent runtime. Requires redpointAI.agentRuntime.enabled.
+  aiWeb:
+    # Deploy the chat web application
+    enabled: false
+    # Web replicas
+    replicaCount: 1
+    # Container resource requests and limits
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    serviceAccount:
+      # Create a dedicated ServiceAccount
+      enabled: true
+  # MCP tool servers. A tool server exposes an API as Model Context Protocol tools and
+  # consumes no model, so it is configured independently of the AI infrastructure.
+  mcpServers:
+    # RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over
+    # streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.
+    rpi:
+      # Require a bearer token on the MCP endpoint
+      authRequired: true
+      # RPI tenant identifier (GUID) the MCP server serves. Required when enabled
+      defaultClientId: ''
+      # Enable the RPI MCP Server
+      enabled: false
+      # Integration API OAuth client identifier. Required when enabled. Not sensitive; the
+      # matching secret is the Secret key RPI_MCP_OAuth_Client_Secret
+      oauthClientId: ''
+      proxy:
+        # Use service account proxy credentials from the shared Secret
+        enabled: false
+        # Service account username for the proxy. Required when proxy.enabled=true. Not
+        # sensitive; its password is the Secret key RPI_MCP_Proxy_Pass
+        user: ''
+      # Must be 1. MCP sessions are held in the server process
       replicaCount: 1
       # Container resource requests and limits
       resources:
@@ -2794,39 +2830,54 @@ redpointAI:
         requests:
           cpu: 100m
           memory: 256Mi
+      securityContext:
+        # Pod runAsGroup
+        runAsGroup: 1000
+        # Pod runAsUser. Defaults to the image's own runtime user
+        runAsUser: 1000
+      service:
+        # Service and container port
+        port: 3002
       serviceAccount:
         # Create a dedicated ServiceAccount
         enabled: true
-  # Azure Cognitive Search settings
-  cognitiveSearch:
-    # Cognitive Search endpoint URL
-    SearchEndpoint: 'https://example.search.windows.net'
-  # Enable Redpoint AI features
-  enabled: false
-  # RedpointAI logging settings
-  logging:
-    # Verbose NLP request/response tracing for diagnostics (default false)
-    enableTrace: false
-  # Model storage settings
-  modelStorage:
-    # Blob folder name for models
-    BlobFolder: my_blob_container_folder_name
-    # Blob container name for models
-    ContainerName: my_blob_container_name
-    # Embeddings model name
-    EmbeddingsModel: text-embedding-ada-002
-    # Model embedding dimensions
-    ModelDimensions: 1536
-  # Natural language AI settings (OpenAI / Azure OpenAI)
-  naturalLanguage:
+      # Shutdown grace period. Covers the longest tool poll budget
+      terminationGracePeriodSeconds: 240
+      # Comma separated host domains a caller may target per request. Empty accepts none
+      urlAllowlist: ''
+  # The model every Redpoint AI capability uses. Read whenever a capability that consumes a
+  # model is enabled.
+  model:
     # OpenAI API base URL
     ApiBase: 'https://example.openai.azure.com/'
     # OpenAI API version
     ApiVersion: 2023-07-01-preview
     # ChatGPT model engine name
     ChatGptEngine: gpt-5.2
+  # Natural language rule building on the RPI services, and everything only it uses.
+  nlp:
     # ChatGPT temperature setting
     ChatGptTemp: 0.5
+    # Azure Cognitive Search settings
+    cognitiveSearch:
+      # Cognitive Search endpoint URL
+      SearchEndpoint: 'https://example.search.windows.net'
+    # Enable natural language rule building
+    enabled: false
+    # RedpointAI logging settings
+    logging:
+      # Verbose NLP request/response tracing for diagnostics (default false)
+      enableTrace: false
+    # Model storage settings
+    modelStorage:
+      # Blob folder name for models
+      BlobFolder: my_blob_container_folder_name
+      # Blob container name for models
+      ContainerName: my_blob_container_name
+      # Embeddings model name
+      EmbeddingsModel: text-embedding-ada-002
+      # Model embedding dimensions
+      ModelDimensions: 1536
 
 # Smart Activation (CDP) master toggle and secrets
 smartActivation:
@@ -3465,51 +3516,8 @@ cdpcache:
     # Requested volume size (e.g. 100Gi).
     storage: 100Gi
 
-# MCP tool servers. Independent of redpointAI: an MCP server exposes an API as tools and
-# consumes no AI infrastructure.
-mcpServers:
-  # RPI MCP Server: exposes the RPI Integration API as Model Context Protocol tools over
-  # streamable HTTP. Requires secretsManagement.provider 'kubernetes' or 'csi'.
-  rpi:
-    # Require a bearer token on the MCP endpoint
-    authRequired: true
-    # RPI tenant identifier (GUID) the MCP server serves. Required when enabled
-    defaultClientId: ''
-    # Enable the RPI MCP Server
-    enabled: false
-    # Integration API OAuth client identifier. Required when enabled. Not sensitive; the
-    # matching secret is the Secret key RPI_MCP_OAuth_Client_Secret
-    oauthClientId: ''
-    proxy:
-      # Use service account proxy credentials from the shared Secret
-      enabled: false
-      # Service account username for the proxy. Required when proxy.enabled=true. Not
-      # sensitive; its password is the Secret key RPI_MCP_Proxy_Pass
-      user: ''
-    # Must be 1. MCP sessions are held in the server process
-    replicaCount: 1
-    # Container resource requests and limits
-    resources:
-      limits:
-        memory: 1Gi
-      requests:
-        cpu: 100m
-        memory: 256Mi
-    securityContext:
-      # Pod runAsGroup
-      runAsGroup: 1000
-      # Pod runAsUser. Defaults to the image's own runtime user
-      runAsUser: 1000
-    service:
-      # Service and container port
-      port: 3002
-    serviceAccount:
-      # Create a dedicated ServiceAccount
-      enabled: true
-    # Shutdown grace period. Covers the longest tool poll budget
-    terminationGracePeriodSeconds: 240
-    # Comma separated host domains a caller may target per request. Empty accepts none
-    urlAllowlist: ''
+# Environment variables applied to every RPI application service. Name and value only.
+commonEnvVars: []
 
 # Reporting Service configuration (Sigma integration)
 reportingservice:

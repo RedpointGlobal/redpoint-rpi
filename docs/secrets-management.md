@@ -130,7 +130,7 @@ stringData:
   AWS_Secret_Access_Key: "<secret-key>"
 ```
 
-**If Redpoint AI is enabled** (`redpointAI.enabled: true`):
+**If natural language rule building is enabled** (`redpointAI.nlp.enabled: true`):
 
 ```yaml
   RPI_NLP_API_KEY: "<azure-openai-api-key>"
@@ -138,26 +138,27 @@ stringData:
   RPI_NLP_MODEL_CONNECTION_STRING: "<model-storage-connection-string>"
 ```
 
-**If the RPI MCP Server is enabled** (`mcpServers.rpi.enabled: true`):
+**If the RPI MCP Server is enabled** (`redpointAI.mcpServers.rpi.enabled: true`):
 
 ```yaml
   RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
 ```
 
 The matching client identifier is not sensitive and is set in values, at
-`mcpServers.rpi.oauthClientId`.
+`redpointAI.mcpServers.rpi.oauthClientId`.
 
-The Agent Workspace session signing key is **not** an operator populated value.
-The chart generates it into the internal `rpi-internal-services` Secret and
-preserves it across upgrades.
-
-The proxy password is required only when `mcpServers.rpi.proxy.enabled: true`:
+The proxy password is required only when `redpointAI.mcpServers.rpi.proxy.enabled: true`:
 
 ```yaml
   RPI_MCP_Proxy_Pass: "<service-account-password>"
 ```
 
-Its username is not sensitive and is set in values, at `mcpServers.rpi.proxy.user`.
+Its username is not sensitive and is set in values, at `redpointAI.mcpServers.rpi.proxy.user`.
+
+**If the agent runtime is enabled** (`redpointAI.agentRuntime.enabled: true`) it reads
+`RPI_NLP_API_KEY` above, which is the same Azure OpenAI key natural language rule building
+uses. Its session signing key is **not** an operator populated value: the chart generates it
+into the internal `rpi-internal-services` Secret and preserves it across upgrades.
 
 **If Rebrandly is enabled** (`rebrandly.enabled: true`):
 
@@ -1338,7 +1339,7 @@ The chart templates reference specific keys from the `redpoint-rpi-secrets` K8s 
 
 **SMTP** (if `SMTPSettings.UseCredentials: true`): `SMTP_Password`
 
-**Redpoint AI** (if `redpointAI.enabled: true`):
+**Redpoint AI** (if `redpointAI.nlp.enabled: true`):
 
 | Key | Description |
 |:----|:------------|
