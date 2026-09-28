@@ -138,22 +138,22 @@ stringData:
   RPI_NLP_MODEL_CONNECTION_STRING: "<model-storage-connection-string>"
 ```
 
-**If the RPI MCP Server is enabled** (`redpointAI.mcpServers.rpi.enabled: true`):
+**If the RPI MCP Server is enabled** (`redpointAI.mcp.enabled: true`):
 
 ```yaml
-  RPI_MCP_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
+  RPI_AI_OAuth_Client_Secret: "<integration-api-oauth-client-secret>"
 ```
 
-The matching client identifier is not sensitive and is set in values, at
-`redpointAI.mcpServers.rpi.oauthClientId`.
+Its identifier is set at `redpointAI.mcp.oauthClientId`. The server registers no tools
+without both.
 
-The proxy password is required only when `redpointAI.mcpServers.rpi.proxy.enabled: true`:
+**If it also runs in proxy mode** (`redpointAI.mcp.auth.proxy.enabled: true`):
 
 ```yaml
   RPI_MCP_Proxy_Pass: "<service-account-password>"
 ```
 
-Its username is not sensitive and is set in values, at `redpointAI.mcpServers.rpi.proxy.user`.
+The service account username is set at `redpointAI.mcp.auth.proxy.user`.
 
 **If the agent runtime is enabled** (`redpointAI.agentRuntime.enabled: true`) it reads
 `RPI_NLP_API_KEY` above, which is the same Azure OpenAI key natural language rule building
@@ -581,7 +581,7 @@ aws secretsmanager create-secret \
   --region <your-region>
 ```
 
-Add optional keys as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_MCP_OAuth_Client_Secret`, `RPI_MCP_Proxy_Pass`.
+Add optional keys as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_AI_OAuth_Client_Secret`, `RPI_MCP_Proxy_Pass`.
 
 > **Important:** CSI on Amazon uses single underscore (`_`) key names mapped via jmesPath objectAlias. Every `jmesPath` path must exist in the Secrets Manager secret. A missing key causes the entire CSI mount to fail.
 
@@ -679,7 +679,7 @@ secretsManagement:
           key: RealtimeAPI_MongoCache_ConnectionString
 ```
 
-Add optional keys to both `jmesPath` and `secretObjects` as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_MCP_OAuth_Client_Secret`, `RPI_MCP_Proxy_Pass`.
+Add optional keys to both `jmesPath` and `secretObjects` as needed: `Rebrandly_ApiKey`, `Rebrandly_RedisPassword`, `RPI_AI_OAuth_Client_Secret`, `RPI_MCP_Proxy_Pass`.
 
 #### Sync trigger options
 

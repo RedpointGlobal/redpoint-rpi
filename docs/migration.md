@@ -21,7 +21,7 @@ v7.8 is designed to preserve existing v7.7 configuration. Most existing override
 | Realtime API | Expanded geolocation, identity, profile/ML processing, integration, and operational configuration |
 | Interaction API | Expanded auth/security, logging, integration, and operational configuration |
 | Queue Reader | Expanded logging, integration, distributed-processing, and operational configuration |
-| Redpoint AI | Restructured into a shared model block plus capabilities enabled on their own. New MCP tool server, agent runtime, and chat application |
+| Redpoint AI | Restructured into a shared model block plus capabilities enabled on their own. New MCP tool server and agent runtime |
 | RPI NLP | Trace logging for NLP request/response diagnostics |
 | Twilio Messaging | New opt-in SMS service with its own PostgreSQL store, Redis, and message transport |
 | Common environment variables | Set environment variables on every RPI application service from one place |
@@ -143,13 +143,12 @@ executionservice:
 
 `redpointAI` is now a shared model block plus capabilities that are each enabled on their own. `redpointAI.model` holds the endpoint, API version and deployment that every capability consuming a model reads, with the credential in the shared RPI Secret. Everything a single capability owns lives under that capability.
 
-Natural language rule building is unchanged in behavior and moves to `redpointAI.nlp`. Three capabilities are new:
+Natural language rule building is unchanged in behavior and moves to `redpointAI.nlp`. Two capabilities are new:
 
 | Capability | Setting | What it does | Requires |
 |:---|:---|:---|:---|
-| MCP tool server | `redpointAI.mcpServers.rpi.enabled` | Publishes the RPI Integration API as Model Context Protocol tools for AI clients | Nothing else |
+| MCP tool server | `redpointAI.mcp.enabled` | Publishes the RPI Integration API as Model Context Protocol tools for AI clients | Nothing else |
 | Agent runtime | `redpointAI.agentRuntime.enabled` | An RPI native agent that reaches RPI through those tools | MCP tool server |
-| Chat application | `redpointAI.aiWeb.enabled` | A browser client for the agent runtime | Agent runtime |
 
 A tool server exposes an API and consumes no model, so `redpointAI.model` is not required for it.
 
@@ -157,18 +156,34 @@ A tool server exposes an API and consumes no model, so `redpointAI.model` is not
 redpointAI:
   model:
     ApiBase: https://<your-openai-name>.openai.azure.com/
-    ApiVersion: 2023-07-01-preview
+    ApiVersion: <azure-openai-api-version>
     ChatGptEngine: <chat-model-deployment-name>
   nlp:
     enabled: true
-  mcpServers:
-    rpi:
-      enabled: true
-      oauthClientId: <integration-api-oauth-client-id>
-      defaultClientId: <your-rpi-tenant-guid>
+  mcp:
+    enabled: true
+    defaultClientId: <your-rpi-tenant-guid>
+    oauthClientId: <integration-api-oauth-client-id>
 ```
 
+Enabling a capability also needs its Secret key: `RPI_AI_OAuth_Client_Secret` for the tool server, `RPI_NLP_API_KEY` for the agent runtime and for natural language rule building.
+
 Existing v7.7 overrides must be rewritten. The Upgrade Checklist below carries the full path mapping. See [Redpoint AI](redpoint-ai.md) and [RPI MCP Server](rpi-mcp-server.md).
+
+The MCP tool server and the agent runtime are new in v7.8, so a v7.7 `overrides.yaml` has nothing to map. If you trialled them on a pre-release chart, these were renamed:
+
+| Pre-release | v7.8 |
+|:---|:---|
+| `redpointAI.mcpServers.rpi.*` | `redpointAI.mcp.*` |
+| `redpointAI.mcpServers.rpi.authRequired` | `redpointAI.mcp.auth.required` |
+| `redpointAI.mcpServers.rpi.oauthClientId` | `redpointAI.mcp.oauthClientId` |
+| `redpointAI.mcpServers.rpi.proxy.enabled` | `redpointAI.mcp.auth.proxy.enabled` |
+| `redpointAI.mcpServers.rpi.proxy.user` | `redpointAI.mcp.auth.proxy.user` |
+| `redpointAI.mcpServers.rpi.urlAllowlist` | Removed |
+| `redpointAI.agentRuntime.storage.storageClassName` | Removed. The class follows `global.deployment.platform` |
+| `redpointAI.aiWeb.*` | Removed |
+
+`serviceAccount`, `replicaCount`, `service.port`, `securityContext`, `resources` and `terminationGracePeriodSeconds` are now chart-owned on both capabilities. Any name in the left column is rejected at install, with the path named.
 
 ### RPI NLP trace logging
 
@@ -242,13 +257,13 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 </thead>
 <tbody>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;VectorSearchProfile</code><br><code>&nbsp;&nbsp;VectorSearchConfig</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;cognitiveSearch:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;VectorSearchProfile</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;VectorSearchConfig</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;enabled</code><br><code>&nbsp;&nbsp;naturalLanguage</code><br><code>&nbsp;&nbsp;cognitiveSearch</code><br><code>&nbsp;&nbsp;modelStorage</code><br><code>&nbsp;&nbsp;logging</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;enabled</code><br><code>&nbsp;&nbsp;naturalLanguage</code><br><code>&nbsp;&nbsp;cognitiveSearch</code><br><code>&nbsp;&nbsp;modelStorage</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Restructured. Each Redpoint AI capability is now enabled on its own. <code>redpointAI.model</code> holds the model every capability shares, and everything only natural-language rule building uses moved under <code>redpointAI.nlp</code>. See the mapping below</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Rewrite the block using the mapping below</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects the old setting and the upgrade will not render</td>
@@ -291,7 +306,6 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 | `redpointAI.naturalLanguage.ChatGptTemp` | `redpointAI.nlp.ChatGptTemp` |
 | `redpointAI.cognitiveSearch.SearchEndpoint` | `redpointAI.nlp.cognitiveSearch.SearchEndpoint` |
 | `redpointAI.modelStorage.*` | `redpointAI.nlp.modelStorage.*` |
-| `redpointAI.logging.enableTrace` | `redpointAI.nlp.logging.enableTrace` |
 
 The environment contract the RPI services consume is unchanged, so this is an overrides edit only. Secret keys are unchanged.
 

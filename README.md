@@ -30,7 +30,7 @@ This chart deploys RPI on Kubernetes using Helm.
 | [Custom Plugins](docs/plugins.md) | Realtime API plugins: decision, event, form, visitor profile, geolocation |
 | [Redpoint AI](docs/redpoint-ai.md) | Natural-language basic selection rules - Azure OpenAI, AI Search, Blob Storage |
 | [Twilio Messaging](docs/twilio-messaging.md) | Opt-in SMS service - PostgreSQL store, Redis, Event Hubs/SQS/Pub-Sub transport |
-| [RPI MCP Server](docs/rpi-mcp-server.md) | Model Context Protocol tools over the RPI Integration API, and the optional chat application |
+| [RPI MCP Server](docs/rpi-mcp-server.md) | Model Context Protocol tools over the RPI Integration API, and the optional agent runtime |
 | [Automation](docs/readme-terraform.md) | CI/CD, vault setup, ArgoCD, Flux |
 
 ## RPI AI
@@ -40,13 +40,12 @@ Redpoint AI is a set of capabilities that share one model configuration. The end
 | Capability | Setting | What it does | Requires |
 |:---|:---|:---|:---|
 | Natural language rules | `redpointAI.nlp.enabled` | Builds basic selection rules from plain English inside RPI | Nothing else |
-| MCP tool server | `redpointAI.mcpServers.rpi.enabled` | Publishes the RPI Integration API as Model Context Protocol tools for AI clients | Nothing else |
+| MCP tool server | `redpointAI.mcp.enabled` | Publishes the RPI Integration API as Model Context Protocol tools for AI clients | Nothing else |
 | Agent runtime | `redpointAI.agentRuntime.enabled` | An RPI native agent that reaches RPI through those tools | MCP tool server |
-| Chat application | `redpointAI.aiWeb.enabled` | A browser client for the agent runtime | Agent runtime |
 
-A tool server exposes an API and consumes no model, so it needs no model configuration. The other three do.
+A tool server exposes an API and consumes no model, so it needs no model configuration. The other two do.
 
-Guides: [Redpoint AI](docs/redpoint-ai.md) for natural language rules, [RPI MCP Server](docs/rpi-mcp-server.md) for the tool server, agent runtime and chat application.
+Guides: [Redpoint AI](docs/redpoint-ai.md) for natural language rules, [RPI MCP Server](docs/rpi-mcp-server.md) for the tool server and agent runtime.
 
 ## Resources
 

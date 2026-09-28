@@ -1,38 +1,40 @@
 {{- $ai := .Values.redpointAI | default dict -}}
-{{- $rt := $ai.agentRuntime | default dict -}}
-{{- if $rt.enabled -}}
+{{- $rtUser := $ai.agentRuntime | default dict -}}
+{{- if $rtUser.enabled -}}
 
 {{- $name := "rpi-aiserver" -}}
-{{- $storage := $rt.storage | default dict -}}
+{{- $rt := mustMergeOverwrite (fromYaml (include "rpi.defaults.rpiaiserver" .)) $rtUser -}}
 {{- $model := $ai.model | default dict -}}
-{{- $mcp := ($ai.mcpServers | default dict).rpi | default dict -}}
+{{- $mcp := $ai.mcp | default dict -}}
+{{- $storage := $rt.storage | default dict -}}
 {{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
 
-{{- /* The runtime reaches RPI only through the MCP server, and takes that
-       server's tenant and OAuth client rather than restating them. */ -}}
 {{- if not $mcp.enabled -}}
-{{- fail "redpointAI.agentRuntime.enabled=true requires redpointAI.mcpServers.rpi.enabled=true. The runtime has no tool surface without it, and inherits redpointAI.mcpServers.rpi.defaultClientId and redpointAI.mcpServers.rpi.oauthClientId." -}}
+{{- fail "redpointAI.agentRuntime.enabled=true requires redpointAI.mcp.enabled=true. The runtime has no tool surface without it, and inherits redpointAI.mcp.defaultClientId." -}}
 {{- end -}}
 
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
 {{- fail "redpointAI.agentRuntime.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The runtime resolves its credentials from environment bindings and cannot read a cloud vault." -}}
 {{- end -}}
 
-{{- /* SQLite on one volume, so one writer. */ -}}
-{{- if ne (int ($rt.replicaCount | default 1)) 1 -}}
+{{- if ne (int $rt.replicaCount) 1 -}}
 {{- fail "redpointAI.agentRuntime.replicaCount must be 1. The runtime owns a SQLite database on a single volume." -}}
 {{- end -}}
 
-{{- /* The server builds https://{resource}.openai.azure.com itself, so it needs
-       the bare resource name while redpointAI holds a full endpoint URL. The
-       first label of that host is the resource; a non standard endpoint must
-       name it explicitly rather than be guessed at. */ -}}
+{{- /* The resource name is the first label of the endpoint host. */ -}}
 {{- $apiHost := $model.ApiBase | default "" | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" -}}
 {{- $derived := "" -}}
 {{- if contains "." $apiHost }}{{- $derived = (splitList "." $apiHost | first) -}}{{- end -}}
 {{- $resourceName := $rt.azureResourceName | default $derived -}}
 {{- if not $resourceName -}}
 {{- fail "redpointAI.agentRuntime could not derive the Azure OpenAI resource name from redpointAI.model.ApiBase. Set redpointAI.agentRuntime.azureResourceName explicitly when the endpoint is not https://<resource>.openai.azure.com." -}}
+{{- end -}}
+
+{{- /* Self hosted falls through to the cluster's default class. */ -}}
+{{- $storageClass := "" -}}
+{{- if eq .Values.global.deployment.platform "azure" }}{{- $storageClass = "managed-csi" -}}
+{{- else if eq .Values.global.deployment.platform "amazon" }}{{- $storageClass = "gp3" -}}
+{{- else if eq .Values.global.deployment.platform "google" }}{{- $storageClass = "standard-rwo" -}}
 {{- end -}}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "agentruntime" "cfg" (dict "enabled" true "serviceAccount" ($rt.serviceAccount | default (dict "enabled" true)))) }}
@@ -48,12 +50,12 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  {{- with $storage.storageClassName }}
+  {{- with $storageClass }}
   storageClassName: {{ . | quote }}
   {{- end }}
   resources:
     requests:
-      storage: {{ $storage.size | default "5Gi" | quote }}
+      storage: {{ $storage.size | default "50Gi" | quote }}
 
 ---
 apiVersion: v1
@@ -124,8 +126,8 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.internalSecretName" . | quote }}
               key: RPI_AI_Auth_Secret
-        # Inherited from redpointAI. The search index, blob storage and
-        # temperature belong to the rule builder and are not passed.
+        # Inherited from redpointAI. Search index, blob storage and
+        # temperature belong to nlp.
         - name: AZURE_OPENAI_RESOURCE_NAME
           value: {{ $resourceName | quote }}
         - name: AZURE_OPENAI_API_VERSION
@@ -138,7 +140,7 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: RPI_NLP_API_KEY
         - name: SEED_RPI_MCP_URL
-          value: {{ printf "http://rpi-mcpserver:%v/mcp" (($mcp.service | default dict).port | default 3002) | quote }}
+          value: {{ printf "http://rpi-mcpserver:%v/mcp" 3002 | quote }}
         - name: RPI_INTEGRATION_API_URL
           value: {{ printf "http://rpi-integrationapi:%v" $intCfg.service.port | quote }}
         - name: RPI_DEFAULT_CLIENT_ID

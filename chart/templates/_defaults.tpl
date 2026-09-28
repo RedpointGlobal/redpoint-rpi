@@ -1331,3 +1331,45 @@ resources:
     memory: 128Mi
 {{- end -}}
 
+{{/*
+RPI MCP server. Operator-facing settings live in `redpointAI.mcp`; the
+deployment plumbing lives here, as it does for every other service.
+Single replica: MCP sessions are held in the server process, so a request routed
+to another replica resolves to a different session.
+Grace period covers the longest tool poll, since the server does not drain on SIGTERM.
+*/}}
+{{- define "rpi.defaults.rpimcpserver" -}}
+serviceAccount:
+  enabled: true
+replicaCount: 1
+service:
+  port: 3002
+terminationGracePeriodSeconds: 240
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+{{- end -}}
+
+{{/*
+RPI agent runtime. Operator-facing settings live in `redpointAI.agentRuntime`.
+Single replica: the runtime owns a SQLite database on one volume, so one writer.
+*/}}
+{{- define "rpi.defaults.rpiaiserver" -}}
+serviceAccount:
+  enabled: true
+replicaCount: 1
+service:
+  port: 3000
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    memory: 2Gi
+{{- end -}}

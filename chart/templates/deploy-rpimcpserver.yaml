@@ -1,41 +1,41 @@
-{{- $mcp := (.Values.redpointAI | default dict).mcpServers | default dict -}}
-{{- $cfg := $mcp.rpi | default dict -}}
-{{- if $cfg.enabled -}}
+{{- $ai := .Values.redpointAI | default dict -}}
+{{- $user := $ai.mcp | default dict -}}
+{{- if $user.enabled -}}
 
 {{- $name := "rpi-mcpserver" -}}
-{{- $service := $cfg.service | default dict -}}
-{{- $port := $service.port | default 3002 -}}
-{{- $proxy := $cfg.proxy | default dict -}}
-{{- $secCtx := $cfg.securityContext | default dict -}}
+{{- $d := fromYaml (include "rpi.defaults.rpimcpserver" .) -}}
+{{- $cfg := mustMergeOverwrite $d $user -}}
+{{- $port := $cfg.service.port -}}
+{{- $auth := $cfg.auth | default dict -}}
+{{- $proxy := $auth.proxy | default dict -}}
+{{- $secCtx := $cfg.securityContext -}}
 {{- $intCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "integrationapi")) -}}
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
 {{- $authRequired := true -}}
-{{- if hasKey $cfg "authRequired" }}{{- $authRequired = $cfg.authRequired -}}{{- end -}}
+{{- if hasKey $auth "required" }}{{- $authRequired = $auth.required -}}{{- end -}}
 
-{{- /* The MCP server reads every credential from an environment binding and
-       has no cloud vault client, so the sdk provider cannot supply it. The
-       chart refuses the combination rather than starting a pod that reports
-       healthy while serving no tools. */ -}}
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
-{{- fail "redpointAI.mcpServers.rpi.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The MCP server resolves its credentials from environment bindings and cannot read a cloud vault, so under 'sdk' it would start without credentials and serve no tools." -}}
+{{- fail "redpointAI.mcp.enabled=true requires secretsManagement.provider 'kubernetes' or 'csi'. The MCP server resolves its credentials from environment bindings and cannot read a cloud vault, so under 'sdk' it would start without credentials and serve no tools." -}}
 {{- end -}}
 
-{{- /* MCP sessions are held in process, so a second replica answers a session
-       it has no record of. One writer, one replica. */ -}}
-{{- if ne (int ($cfg.replicaCount | default 1)) 1 -}}
-{{- fail "redpointAI.mcpServers.rpi.replicaCount must be 1. MCP sessions are held in the server process, so a request routed to another replica resolves to a different session." -}}
-{{- end -}}
-
-{{- if and $cfg.proxy $cfg.proxy.enabled (not $cfg.proxy.user) -}}
-{{- fail "redpointAI.mcpServers.rpi.proxy.user is required when redpointAI.mcpServers.rpi.proxy.enabled=true. The identifier is not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass." -}}
-{{- end -}}
-
-{{- if not $cfg.oauthClientId -}}
-{{- fail "redpointAI.mcpServers.rpi.oauthClientId is required when redpointAI.mcpServers.rpi.enabled=true. It is the Integration API OAuth client identifier the MCP server authenticates as. The matching secret is the Secret key RPI_MCP_OAuth_Client_Secret." -}}
+{{- if ne (int $cfg.replicaCount) 1 -}}
+{{- fail "redpointAI.mcp.replicaCount must be 1. MCP sessions are held in the server process, so a request routed to another replica resolves to a different session." -}}
 {{- end -}}
 
 {{- if not $cfg.defaultClientId -}}
-{{- fail "redpointAI.mcpServers.rpi.defaultClientId is required when redpointAI.mcpServers.rpi.enabled=true. It is the RPI tenant identifier (a GUID) the MCP server serves: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients." -}}
+{{- fail "redpointAI.mcp.defaultClientId is required when redpointAI.mcp.enabled=true. It is the RPI tenant identifier (a GUID) the tooling serves: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients." -}}
+{{- end -}}
+
+{{- /* The server registers no tools without both OAuth variables, even
+       when it never mints a token. */ -}}
+{{- if not $cfg.oauthClientId -}}
+{{- fail "redpointAI.mcp.oauthClientId is required when redpointAI.mcp.enabled=true. It is the Integration API OAuth application the server is registered as; without it the server starts with no tools. The matching secret is the Secret key RPI_AI_OAuth_Client_Secret." -}}
+{{- end -}}
+
+{{- if $proxy.enabled -}}
+{{- if not $proxy.user -}}
+{{- fail "redpointAI.mcp.auth.proxy.user is required when redpointAI.mcp.auth.proxy.enabled=true. The identifier is not sensitive; its password is the Secret key RPI_MCP_Proxy_Pass." -}}
+{{- end -}}
 {{- end -}}
 
 {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "mcpserver" "cfg" $cfg) }}
@@ -100,7 +100,7 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
       {{- end }}
-      # The server does not drain on SIGTERM; this covers the longest tool poll.
+      # The server does not drain on SIGTERM; covers the longest tool poll.
       terminationGracePeriodSeconds: {{ $cfg.terminationGracePeriodSeconds | default 240 }}
       securityContext:
         runAsUser: {{ $secCtx.runAsUser | default 1000 }}
@@ -123,20 +123,16 @@ spec:
           value: {{ $cfg.defaultClientId | quote }}
         - name: AUTH_REQUIRED
           value: {{ $authRequired | quote }}
-        # The origin published in OAuth metadata; otherwise taken from forwarded headers.
+        # Origin published in OAuth metadata, else taken from forwarded headers.
         - name: RPI_MCP_PUBLIC_URL
           value: {{ printf "https://%s" (include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.rpimcpserver "domain" $ingCfg.domain)) | quote }}
-        {{- with $cfg.urlAllowlist }}
-        - name: RPI_URL_ALLOWLIST
-          value: {{ . | quote }}
-        {{- end }}
         - name: RPI_OAUTH_CLIENT_ID
           value: {{ $cfg.oauthClientId | quote }}
         - name: RPI_OAUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: RPI_MCP_OAuth_Client_Secret
+              key: RPI_AI_OAuth_Client_Secret
         {{- if $proxy.enabled }}
         - name: RPI_PROXY_ENABLED
           value: "true"
@@ -161,7 +157,7 @@ spec:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
-        # /health answers even without RPI credentials, reporting mcp: degraded.
+        # /health answers without RPI credentials, reporting mcp: degraded.
         livenessProbe:
           httpGet:
             path: /health
@@ -181,7 +177,7 @@ spec:
           mountPath: /tmp
         {{- include "rpi.customCACerts.volumeMount" . | nindent 8 }}
       volumes:
-      # The root filesystem is read only, so the runtime gets a writable /tmp.
+      # Writable /tmp for the read only root filesystem.
       - name: tmp
         emptyDir: {}
       {{- include "rpi.customCACerts.volume" . | nindent 6 }}
