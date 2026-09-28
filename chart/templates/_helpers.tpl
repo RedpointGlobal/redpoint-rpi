@@ -16,22 +16,6 @@ Create a default fully qualified app name.
 
 {{/*
 Common component labels for an RPI resource.
-Usage: {{ include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "api") }}
-
-Contract:
-  required:
-    .root       -- chart root context
-    .component  -- component label (e.g. "api", "worker", "intelligence",
-                   "database", "messaging", "storage",
-                   "networkutils", "controller", "node-provisioning",
-                   "datawarehouse"). Identifier
-                   label; missing values silently drift in Argo CD
-                   because the API server strips empty-string labels.
-  optional:
-    .name       -- service identifier. Defaults to the chart's
-                   fullname when omitted (only the root chart itself
-                   uses the default; per-service templates always
-                   pass .name).
 */}}
 {{- define "redpoint-rpi.componentLabels" -}}
 {{- $root := required "redpoint-rpi.componentLabels: .root is required" .root -}}
@@ -44,13 +28,6 @@ app.kubernetes.io/component: {{ $component }}
 
 {{/*
 Common component labels for a Smart Activation resource.
-Usage: {{ include "smartactivation.componentLabels" (dict "root" . "name" $name) }}
-
-Contract:
-  required:
-    .root  -- chart root context
-  optional:
-    .name  -- service identifier. Defaults to the chart's fullname.
 */}}
 {{- define "smartactivation.componentLabels" -}}
 {{- $root := required "smartactivation.componentLabels: .root is required" .root -}}
@@ -61,18 +38,6 @@ app.kubernetes.io/part-of: smartactivation
 
 {{/*
 Pod-level security context.
-Usage: {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
-
-Contract:
-  required:
-    .sc  -- merged security context dict from rpi.merged.securityContext
-  optional:
-    .noFsGroup            -- bool. When true, suppress the fsGroup field
-                             (used by services that mount volumes which
-                             must not inherit a group ownership change,
-                             e.g. RabbitMQ StatefulSets on the rabbit
-                             image's reserved UID).
-    .noSupplementalGroups -- bool. When true, suppress supplementalGroups.
 */}}
 {{- define "rpi.pod.securityContext" -}}
 {{- $sc := required "rpi.pod.securityContext: .sc is required" .sc -}}
@@ -95,11 +60,6 @@ securityContext:
 
 {{/*
 Container-level security context.
-Usage: {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
-
-Contract:
-  required:
-    .sc  -- merged security context dict from rpi.merged.securityContext
 */}}
 {{- define "rpi.container.securityContext" -}}
 {{- $sc := required "rpi.container.securityContext: .sc is required" .sc -}}
@@ -122,12 +82,6 @@ securityContext:
 
 {{/*
 Topology spread constraints.
-Usage: {{ include "redpoint-rpi.topologySpreadConstraints" (dict "root" . "name" "rpi-realtimeapi") }}
-
-Contract:
-  required:
-    .root  -- chart root context (for the merged topologySpreadConstraints)
-    .name  -- service identifier emitted in the matchLabels selector
 */}}
 {{- define "redpoint-rpi.topologySpreadConstraints" -}}
 {{- $root := required "redpoint-rpi.topologySpreadConstraints: .root is required" .root -}}
@@ -146,17 +100,6 @@ topologySpreadConstraints:
 
 {{/*
 Container probes (liveness, readiness, startup) from merged config.
-Usage: {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" true) | nindent 8 }}
-
-Contract:
-  required:
-    .liveness   -- merged liveness probe dict from rpi.merged.livenessProbe
-    .readiness  -- merged readiness probe dict from rpi.merged.readinessProbe
-    .startup    -- merged startup probe dict from rpi.merged.startupProbe
-  optional:
-    .enabled    -- bool. When omitted or true, render the probe block.
-                   Pass false to suppress all probes for a service
-                   (e.g. deploymentapi.enableProbes: false).
 */}}
 {{- define "rpi.block.probes" -}}
 {{- $_ := required "rpi.block.probes: .liveness is required"  .liveness  -}}
@@ -240,29 +183,11 @@ false
 {{- end }}
 
 {{/* ============================================================
-     MERGE HELPERS
-     ============================================================
-     Each helper merges: defaults + user values (user wins).
-     Usage in templates:
-       {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+MERGE HELPERS
      ============================================================ */}}
 
-{{/* --- Component merge helpers ---
-     Merge order: service defaults → global resources → per-service user values.
-     Global .Values.resources sets a baseline for all services.
-     Per-service overrides (e.g. .Values.interactionapi.resources) win.
-*/}}
-
 {{/*
-Resolve a service's merged config: per-service defaults from _defaults.tpl,
-overlaid with chart-wide resources, overlaid with operator overrides.
-Usage: {{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
-
-Contract:
-  required:
-    .root  -- chart root context
-    .name  -- service key (matches a top-level .Values.<name> block and a
-              "rpi.defaults.<name>" defines block in _defaults.tpl)
+Resolve a service's merged config.
 */}}
 {{- define "rpi.merged.service" -}}
 {{- $root := required "rpi.merged.service: .root is required" .root -}}
@@ -279,19 +204,7 @@ Contract:
 {{/* --- Shared resource blocks (reduces duplication across deploy-*.yaml files) --- */}}
 
 {{/*
-ServiceAccount block for per-service mode. Renders nothing when the
-chart is in shared-SA mode or when the service / SA is disabled.
-Usage: {{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
-
-Contract:
-  required:
-    .root       -- chart root context
-    .name       -- ServiceAccount metadata.name
-    .component  -- component label propagated to componentLabels
-                   (empty values silently drift in Argo CD because the
-                   Kubernetes API server strips empty-string labels)
-    .cfg        -- merged service config dict (provides .serviceAccount.enabled,
-                   .enabled)
+ServiceAccount block for per-service mode.
 */}}
 {{- define "rpi.block.serviceAccount" -}}
 {{- $root := required "rpi.block.serviceAccount: .root is required" .root -}}
@@ -326,15 +239,6 @@ metadata:
 
 {{/*
 PodDisruptionBudget block.
-Usage: {{- include "rpi.block.pdb" (dict "root" . "name" $name "component" "api" "cfg" $cfg) }}
-
-Contract:
-  required:
-    .root       -- chart root context
-    .name       -- PDB metadata.name + selector matchLabels identifier
-    .component  -- component label propagated to componentLabels
-    .cfg        -- merged service config dict (provides
-                   .podDisruptionBudget.enabled, .podDisruptionBudget.minAvailable)
 */}}
 {{- define "rpi.block.pdb" -}}
 {{- $root := required "rpi.block.pdb: .root is required" .root -}}
@@ -359,15 +263,6 @@ spec:
 
 {{/*
 Pod scheduling block: nodeSelector, tolerations, anti-affinity, topology spread.
-Usage: {{- include "rpi.block.scheduling" (dict "root" . "name" $name "topo" $topo) | nindent 6 }}
-
-Contract:
-  required:
-    .root  -- chart root context (provides .Values.nodeSelector,
-              .Values.tolerations, .Values.podAntiAffinity)
-    .name  -- service identifier emitted in pod-anti-affinity +
-              topology-spread matchLabels selectors
-    .topo  -- merged topologySpreadConstraints dict
 */}}
 {{- define "rpi.block.scheduling" -}}
 {{- $root := required "rpi.block.scheduling: .root is required" .root -}}
@@ -453,8 +348,7 @@ topologySpreadConstraints:
 {{- end -}}
 
 {{/*
-Resolve ingress annotations. If the user sets ingress.annotations, those
-are used as-is (full replacement). Otherwise returns sensible defaults.
+Resolve ingress annotations.
 */}}
 {{- define "rpi.ingress.annotations" -}}
 {{- if $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
@@ -491,9 +385,6 @@ nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
 {{/*
 Resolve a host entry to an FQDN.
-If the host value contains a dot, it is treated as a FQDN and returned as-is.
-Otherwise it is treated as a subdomain and appended to the domain.
-Usage: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.callbackapi "domain" $ingCfg.domain) }}
 */}}
 {{- define "rpi.ingress.fqdn" -}}
 {{- if contains "." .host -}}
@@ -505,14 +396,10 @@ Usage: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.callbackapi "dom
 
 {{/* ============================================================
      CLOUD IDENTITY HELPERS
-     ============================================================
-     Shared helpers for pod-to-cloud authentication and secrets.
-     Eliminates duplication across all deploy-*.yaml templates.
      ============================================================ */}}
 
 {{/*
 Validate that cloudIdentity is enabled when using sdk or csi secrets.
-Call this once from any top-level template to catch misconfiguration early.
 */}}
 {{- define "rpi.validateConfig" -}}
 {{- if or (eq .Values.secretsManagement.provider "sdk") (eq .Values.secretsManagement.provider "csi") -}}
@@ -524,10 +411,6 @@ Call this once from any top-level template to catch misconfiguration early.
 
 {{/*
 Service mesh pod annotations.
-When serviceMesh is enabled with Linkerd, merges default annotations with
-any user overrides from serviceMesh.podAnnotations. User values win.
-Per-service opt-out: set serviceMesh: false on the service to skip mesh annotations.
-Usage: {{- include "rpi.serviceMesh.podAnnotations" (dict "root" . "svcServiceMesh" ($cfg.serviceMesh | default true)) | nindent 8 }}
 */}}
 {{- define "rpi.serviceMesh.podAnnotations" -}}
 {{- $root := .root -}}
@@ -546,8 +429,6 @@ Usage: {{- include "rpi.serviceMesh.podAnnotations" (dict "root" . "svcServiceMe
 
 {{/*
 ServiceAccount annotations for cloud identity.
-Renders the appropriate annotation based on global.deployment.platform.
-Usage: {{- include "rpi.cloudidentity.saAnnotations" . | nindent 4 }}
 */}}
 {{- define "rpi.cloudidentity.saAnnotations" -}}
 {{- $root := . -}}
@@ -566,10 +447,6 @@ eks.amazonaws.com/role-arn: {{ $root.Values.cloudIdentity.amazon.roleArn | quote
 
 {{/*
 Pod labels for cloud identity (Azure Workload Identity webhook).
-In shared mode: always added.
-In per-service mode: only added when the service has cloudIdentity: true.
-Usage (shared mode or backward compat): {{- include "rpi.cloudidentity.podLabels" . | nindent 8 }}
-Usage (per-service):  {{- include "rpi.cloudidentity.podLabels" (dict "root" . "svcCloudIdentity" $cfg.cloudIdentity) | nindent 8 }}
 */}}
 {{- define "rpi.cloudidentity.podLabels" -}}
 {{- $root := .root -}}
@@ -582,7 +459,6 @@ azure.workload.identity/use: "true"
 
 {{/*
 Cloud identity env vars (IRSA for Amazon, Google credentials path).
-Usage: {{- include "rpi.cloudidentity.envvars" . | nindent 10 }}
 */}}
 {{- define "rpi.cloudidentity.envvars" -}}
 {{- if .Values.cloudIdentity.enabled -}}
@@ -604,7 +480,6 @@ Usage: {{- include "rpi.cloudidentity.envvars" . | nindent 10 }}
 
 {{/*
 Amazon access key env vars (when using static keys instead of IRSA).
-Usage: {{- include "rpi.cloudidentity.awsAccessKeyEnvvars" . | nindent 10 }}
 */}}
 {{- define "rpi.cloudidentity.awsAccessKeyEnvvars" -}}
 {{- if .Values.cloudIdentity.enabled -}}
@@ -628,13 +503,7 @@ Usage: {{- include "rpi.cloudidentity.awsAccessKeyEnvvars" . | nindent 10 }}
 {{- end -}}
 
 {{/*
-RPI native-auth account policy env vars (password policy + account lockout),
-shared by the Interaction and Integration APIs (one user store, one policy;
-the Interaction API is the identity provider). Password-policy defaults
-mirror the application's own; lockout settings emit only when set, so the
-application defaults apply otherwise. Operators override under
-interactionapi.passwordPolicy / interactionapi.accountLockout.
-Usage: {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
+RPI native-auth account policy env vars.
 */}}
 {{- define "rpi.auth.accountPolicy.envvars" -}}
 {{- $ia := .Values.interactionapi | default dict -}}
@@ -663,9 +532,7 @@ Usage: {{- include "rpi.auth.accountPolicy.envvars" . | nindent 8 }}
 {{- end }}
 
 {{/*
-SDK vault env vars. Only when secretsManagement.provider == "sdk".
-Configures the app to read secrets from the cloud vault at runtime.
-Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
+SDK vault env vars.
 */}}
 {{- define "rpi.secrets.sdk.envvars" -}}
 {{- if eq .Values.secretsManagement.provider "sdk" -}}
@@ -713,9 +580,7 @@ Usage: {{- include "rpi.secrets.sdk.envvars" . | nindent 10 }}
 {{- end -}}
 
 {{/*
-Resolve the K8s secret name. Each provider reads from its own
-secretName field so customers can keep distinct names per mode.
-Usage: {{ include "rpi.secrets.secretName" . }}
+Resolve the K8s secret name.
 */}}
 {{- define "rpi.secrets.secretName" -}}
 {{- $provider := .Values.secretsManagement.provider | default "kubernetes" -}}
@@ -731,8 +596,6 @@ Usage: {{ include "rpi.secrets.secretName" . }}
 
 {{/*
 Secret name for internal chart-managed services (Redis, RabbitMQ).
-Always uses rpi-internal-services - auto-generated by the chart regardless of provider.
-Usage: {{ include "rpi.secrets.internalSecretName" . }}
 */}}
 {{- define "rpi.secrets.internalSecretName" -}}
 rpi-internal-services
@@ -740,11 +603,6 @@ rpi-internal-services
 
 {{/*
 Snowflake volume definition.
-For CSI inline mount (secretProviderClassName set): one CSI volume.
-For K8s Secret mount: one volume per unique secretName.
-  - Per-key secretName: each key entry can have its own secretName
-  - Fallback: uses the top-level sf.secretName for keys without their own
-Usage: {{- include "rpi.snowflake.volume" . | nindent 8 }}
 */}}
 {{- define "rpi.snowflake.volume" -}}
 {{- $sf := .Values.databases.datawarehouse.snowflake -}}
@@ -770,9 +628,6 @@ Usage: {{- include "rpi.snowflake.volume" . | nindent 8 }}
 
 {{/*
 Snowflake volume mount.
-For CSI inline mount: mounts the directory (CSI places files by objectAlias).
-For K8s Secret mount: mounts each key with subPath from its secret's volume.
-Usage: {{- include "rpi.snowflake.volumeMount" . | nindent 10 }}
 */}}
 {{- define "rpi.snowflake.volumeMount" -}}
 {{- $sf := .Values.databases.datawarehouse.snowflake -}}
@@ -791,21 +646,6 @@ Usage: {{- include "rpi.snowflake.volumeMount" . | nindent 10 }}
 
 {{/*
 Resolve the ServiceAccount name a pod should mount.
-Usage: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
-
-Resolution order:
-  1. Per-service override (cfg.serviceAccountName) when set
-  2. Shared SA name (cloudIdentity.serviceAccount.name) when mode=shared
-  3. The service's own name (per-service mode default)
-
-Contract:
-  required:
-    .root  -- chart root context (for cloudIdentity.serviceAccount config)
-    .name  -- service identifier used as the per-service SA name when
-              mode=per-service
-  optional:
-    .cfg   -- merged service config dict. When provided and it carries
-              a .serviceAccountName field, that wins over chart-wide mode.
 */}}
 {{- define "rpi.serviceAccountName" -}}
 {{- $root := required "rpi.serviceAccountName: .root is required" .root -}}
@@ -824,7 +664,6 @@ Contract:
 
 {{/*
 Google ConfigMap volume mount (for services that need the SA JSON file).
-Usage: {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 10 }}
 */}}
 {{- define "rpi.cloudidentity.googleVolumeMounts" -}}
 {{- if .Values.cloudIdentity.enabled -}}
@@ -840,7 +679,6 @@ Usage: {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 10 }}
 
 {{/*
 Google ConfigMap volume definition.
-Usage: {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
 */}}
 {{- define "rpi.cloudidentity.googleVolumes" -}}
 {{- if .Values.cloudIdentity.enabled -}}
@@ -855,12 +693,7 @@ Usage: {{- include "rpi.cloudidentity.googleVolumes" . | nindent 8 }}
 {{- end -}}
 
 {{/*
-BigQuery credential file path for a connection. BigQuery credentials live in
-their own filesystem namespace, isolated from the platform Google credential,
-keyed by the connection name so each connection is unique even when connections
-share a ConfigMap. The ConfigMap and its data key are chosen separately
-(configMapName / keyName); this is only where the credential is mounted.
-Usage: {{ include "rpi.bigquery.credentialPath" . }}   (dot = a bigquery connection)
+BigQuery credential file path for a connection.
 */}}
 {{- define "rpi.bigquery.credentialPath" -}}
 /app/google-creds/bigquery/{{ .name }}.json
@@ -868,17 +701,6 @@ Usage: {{ include "rpi.bigquery.credentialPath" . }}   (dot = a bigquery connect
 
 {{/*
 Resolve the container image for a service.
-Priority:
-  1. overrides.<name>: full URI used verbatim (no tag appended)
-  2. nameOverrides.<name>: constructs {registry}/{nameOverride}:{tag}
-  3. default: constructs {registry}/{name}:{tag}
-Usage: {{ include "rpi.image" (dict "root" . "name" $name) }}
-
-Contract:
-  required:
-    .root  -- chart root context (for global.deployment.images config)
-    .name  -- service key used to look up overrides / nameOverrides /
-              default image name
 */}}
 {{- define "rpi.image" -}}
 {{- $root := required "rpi.image: .root is required" .root -}}
@@ -901,13 +723,7 @@ Contract:
 {{- end -}}
 
 {{/*
-Pod anti-affinity block. Renders the full affinity: stanza.
-Usage: {{- include "rpi.podAntiAffinity" (dict "root" . "name" $name) | nindent 6 }}
-
-Contract:
-  required:
-    .root  -- chart root context (for chart-wide podAntiAffinity config)
-    .name  -- service identifier emitted in the matchLabels selector
+Pod anti-affinity block.
 */}}
 {{- define "rpi.podAntiAffinity" -}}
 {{- $root := required "rpi.podAntiAffinity: .root is required" .root -}}
@@ -937,7 +753,6 @@ affinity:
 
 {{/*
 Custom CA certificate volume mount.
-Usage: {{- include "rpi.customCACerts.volumeMount" . | nindent 10 }}
 */}}
 {{- define "rpi.customCACerts.volumeMount" -}}
 {{- if and .Values.customCACerts .Values.customCACerts.enabled }}
@@ -951,7 +766,6 @@ Usage: {{- include "rpi.customCACerts.volumeMount" . | nindent 10 }}
 
 {{/*
 Custom CA certificate volume definition.
-Usage: {{- include "rpi.customCACerts.volume" . | nindent 8 }}
 */}}
 {{- define "rpi.customCACerts.volume" -}}
 {{- if and .Values.customCACerts .Values.customCACerts.enabled }}
@@ -974,11 +788,9 @@ Usage: {{- include "rpi.customCACerts.volume" . | nindent 8 }}
 
 {{/*
 Custom CA certificate env var (SSL_CERT_FILE).
-Usage: {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
 */}}
 {{/*
-Operator-supplied environment variables applied to every RPI application
-service. Empty by default; infrastructure and CDP workloads never receive them.
+Operator-supplied environment variables applied to every RPI application service.
 */}}
 {{- define "rpi.commonEnvVars" -}}
 {{- range .Values.commonEnvVars }}
@@ -996,15 +808,6 @@ service. Empty by default; infrastructure and CDP workloads never receive them.
 
 {{/*
 Render merged annotations for a specific resource type.
-Merges commonAnnotations + type-specific overrides (serviceAccountAnnotations,
-serviceAnnotations) and emits the YAML map.
-Usage: {{- include "rpi.mergedAnnotations" (dict "root" . "type" "serviceAccount") }}
-
-Contract:
-  required:
-    .root  -- chart root context
-    .type  -- "serviceAccount" or "service". An unknown type emits only
-              the common annotations (no per-type overlay).
 */}}
 {{- define "rpi.mergedAnnotations" -}}
 {{- $root := required "rpi.mergedAnnotations: .root is required" .root -}}
@@ -1024,9 +827,6 @@ Contract:
 
 {{/*
 KEY_VAULT_NAME env var for CDP services.
-When smartActivation is enabled and secretsManagement provider is sdk,
-extracts the vault name from the vaultUri (e.g. https://myvault.vault.azure.net/ -> myvault).
-Usage: {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
 */}}
 {{- define "rpi.cdp.keyVaultEnv" -}}
 {{- if and .Values.smartActivation.enabled (eq .Values.secretsManagement.provider "sdk") -}}
@@ -1042,11 +842,6 @@ Usage: {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
 
 {{/*
 Cloud SQL Auth Proxy (GKE / PostgreSQL only).
-Sidecar + env-var override activate only when all of:
-  - global.deployment.platform equals "google"
-  - databases.operational.cloudSqlProxy.enabled equals true
-  - databases.operational.provider equals "postgresql"
-Otherwise every helper in this family renders empty and the sidecar is inert.
 */}}
 
 {{- define "rpi.cloudSqlProxy.enabled" -}}
@@ -1061,10 +856,7 @@ true
 {{- end -}}
 
 {{/*
-Native K8s sidecar container spec for Cloud SQL Auth Proxy. Emitted as an
-element of initContainers[] with restartPolicy: Always (K8s >= 1.29 native
-sidecar pattern with clean startup/shutdown ordering relative to the main app).
-Usage: {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 6 }}
+Cloud SQL Auth Proxy sidecar container spec.
 */}}
 {{- define "rpi.block.cloudSqlProxy.sidecar" -}}
 {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" -}}
@@ -1117,13 +909,7 @@ Usage: {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 6 }}
 {{- end -}}
 
 {{/*
-Operational database type consumed by the RPI services. SQL Server is the
-product default and emits nothing. PostgreSQL emits PostgreSQL, or
-GoogleCloudSQLPostgreSQL when databases.operational.googleWorkloadIdentity
-selects Cloud SQL authentication via GKE Workload Identity (Application
-Default Credentials). The Workload Identity path requires platform=google,
-cloudIdentity enabled, and no Cloud SQL Auth Proxy: the proxy and native
-ADC authentication are alternative ways to reach the same instance.
+Operational database type consumed by the RPI services.
 */}}
 {{- define "rpi.operationalDatabaseType.envvar" -}}
 {{- $db := .Values.databases.operational -}}
@@ -1149,10 +935,7 @@ ADC authentication are alternative ways to reach the same instance.
 {{- end -}}
 
 {{/*
-Effective RabbitMQ username for the Realtime queue provider. The
-operator-set realtimeapi.queueProvider.rabbitmq.rabbitmqSettings.username
-wins; otherwise the release namespace applies (matching the generated
-internal-services credential convention).
+Effective RabbitMQ username for the Realtime queue provider.
 */}}
 {{- define "rpi.realtime.rabbitmqUsername" -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
@@ -1160,10 +943,7 @@ internal-services credential convention).
 {{- end -}}
 
 {{/*
-Effective internal-queue (RabbitMQ) username for the queue reader. The
-operator-set queuereader.internalQueues.rabbitmqSettings.username wins;
-otherwise the release namespace applies (matching the generated
-internal-services credential convention).
+Effective internal-queue (RabbitMQ) username for the queue reader.
 */}}
 {{- define "rpi.queuereader.internalQueueUsername" -}}
 {{- $qrCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "queuereader")) -}}
@@ -1171,11 +951,7 @@ internal-services credential convention).
 {{- end -}}
 
 {{/*
-Effective Realtime cache provider. The operator-set
-realtimeapi.cacheProvider.provider wins; when unset, the platform default
-applies (google: googlebigtable; azure, amazon, selfhosted: mongodb).
-Every template that branches on the cache provider consumes this helper,
-so a DataMap cache always resolves to a concrete provider.
+Effective Realtime cache provider.
 */}}
 {{- define "rpi.realtime.cacheProvider" -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
@@ -1189,10 +965,7 @@ mongodb
 {{- end -}}
 
 {{/*
-Effective Realtime queue provider. The operator-set
-realtimeapi.queueProvider.provider wins; when unset, the platform default
-applies (azure: azureservicebus; amazon: amazonsqs; google: googlepubsub;
-selfhosted: rabbitmq).
+Effective Realtime queue provider.
 */}}
 {{- define "rpi.realtime.queueProvider" -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
@@ -1210,12 +983,7 @@ rabbitmq
 {{- end -}}
 
 {{/*
-Per-client Realtime API address overrides (RealtimeAPIClientOverrides__<n>__*),
-consumed by the Interaction API and Execution Service. Each entry routes one
-client (tenant) GUID to a specific Realtime API base address. Only meaningful
-when multiple Realtime API instances exist, so emission requires
-realtimeapi.multitenant=true; a populated list on a single-tenant deployment
-fails at render rather than being silently ignored. Empty list emits nothing.
+Per-client Realtime API address overrides.
 */}}
 {{- define "rpi.realtime.clientOverrides" -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}

@@ -4,7 +4,10 @@
 # Only set the values you need to customize. All internal
 # defaults (health probes, security contexts, logging levels,
 # service ports, rollout strategies, etc.) are managed by the
-# chart via _defaults.tpl.
+# chart.
+#
+# Configuration examples and guidance:
+# https://rpi-helm-assistant.redpointcdp.com/reference/
 # ============================================================
 
 # ==========================
@@ -31,18 +34,8 @@ global:
       # {registry}/net-utils:{tag}. Override via overrides or nameOverrides below.
       # Image resolution priority: overrides > nameOverrides > default ({registry}/{service-name}:{tag})
       #
-      # overrides: Full URI per service, used verbatim (no registry/tag appended).
-      #   Use when images are in different registries or have custom tags.
-      # overrides:
-      #   rpi-interactionapi: 123456789.dkr.ecr.us-east-1.amazonaws.com/rpi:interactionapi-7.7.20260220.1524
-      #   rpi-redis: 123456789.dkr.ecr.us-east-1.amazonaws.com/rpi:rediscache-7.7.20260220.1524
-      #
-      # nameOverrides: Replaces just the image name, keeps global registry and tag.
-      #   Use when images are in the same registry with the same tag but different names.
-      #   Result: {registry}/{nameOverride}:{tag}
-      # nameOverrides:
-      #   rpi-deploymentapi: redpoint-interaction-configuration-editor
-      #   rpi-interactionapi: redpoint-interaction-client
+      # overrides: full URI per service, used verbatim (no registry/tag appended).
+      # nameOverrides: replaces the image name only, keeping registry and tag.
     # Optional: set the pod's timezone (e.g., "America/New_York"); leave empty to use default UTC
     podTimezone: "" #
 
@@ -61,27 +54,8 @@ resources:
 # ==========================
 # Per-Service Overridable Settings
 # ==========================
-# These settings are defined in _defaults.tpl and can be overridden per service.
+# Overridable per service.
 # Example: deploymentapi.enableProbes, executionservice.replicas, etc.
-#
-# Common per-service settings:
-#   enableProbes: true          # Set to false to disable all probes (liveness, readiness, startup)
-#   replicas: 1                 # Number of pod replicas
-#   enableRPIAuthentication: true
-#   enableSwagger: true
-#   serviceMesh: true/false     # Per-service Linkerd opt-out
-#   cloudIdentity: true/false   # Per-service cloud identity opt-in (per-service mode only)
-#   autoscaling:
-#     enabled: false
-#     type: hpa
-#     minReplicas: 2
-#     maxReplicas: 5
-#   resources:
-#     requests: { cpu: 50m, memory: 256Mi }
-#     limits: { memory: 3Gi }
-#   logging:
-#     default: Error
-#     database: Error
 
 # ==========================
 # Pod Anti-Affinity
@@ -118,11 +92,7 @@ commonAnnotations: {}
 
 # Environment variables applied to every RPI application service (including
 # Rebrandly and Twilio Messaging). Chart-managed infrastructure and CDP
-# workloads never receive them. A per-service extraEnvs entry of the same name
-# wins over the value set here.
-#   commonEnvVars:
-#     - name: DT_TAGS
-#       value: "app=rpi environment=prod"
+# workloads never receive them.
 commonEnvVars: []
 # commonAnnotations:
 #   myorg.com/cost-center: "1234"
@@ -228,12 +198,6 @@ databases:
           largeResultsDataSetId: _bqodbc_temp_tables
           largeResultsTempTableExpirationTime: "3600000"
         # Workload Identity (keyless) connection:
-        # - name: gbq-tenant1
-        #   projectId: gbq-tenant1
-        #   sqlDialect: 1
-        #   OAuthMechanism: 3
-        #   credentialsType: workloadIdentity
-        #   allowLargeResults: 0
 
     # Snowflake
     snowflake:
@@ -250,22 +214,16 @@ databases:
       keys:
         - keyName: my-snowflake-rsakey.p8
           secretName: snowflake-rsa-private-key
-      # Multi-tenant example:
-      # keys:
-      #   - keyName: tenant1-private-key.p8
-      #     secretName: snowflake-tenant1-key
-      #   - keyName: tenant2-private-key.p8
-      #     secretName: snowflake-tenant2-key
 
 
 # ============================================================
 # Cloud Identity
 # ============================================================
 # Pod-to-cloud authentication. Required for sdk and csi secrets modes.
-# The authentication mechanism is derived from global.deployment.platform:
-#   azure  -> Azure Workload Identity (ServiceAccount annotation + pod label)
-#   google -> GCP Workload Identity (ServiceAccount annotation)
-#   amazon -> IRSA (ServiceAccount annotation + env vars)
+# The authentication mechanism follows global.deployment.platform:
+#   azure  -> Azure Workload Identity
+#   google -> GCP Workload Identity
+#   amazon -> IRSA
 # ============================================================
 cloudIdentity:
   enabled: false
@@ -344,7 +302,6 @@ secretsManagement:
       secretTagKey: ""
   # --------------------------------------------------------
   # CSI - CSI driver syncs vault to K8s Secret (provider: csi)
-  # Pods consume secrets via secretKeyRef (same as kubernetes mode)
   # --------------------------------------------------------
   csi:
     # The K8s secret name created by the CSI driver
@@ -407,27 +364,6 @@ secretsManagement:
       objects:
         - objectName: "V7-ConnectionString-Operations"
           objectType: secret
-    # ----------------------------------------------------
-    # Example: AWS Secrets Manager with jmesPath extraction
-    # ----------------------------------------------------
-    # - name: redpoint-secret-class
-    #   provider: aws
-    #   objectsContent: |
-    #     - objectName: "arn:aws:secretsmanager:us-east-1:123456789:secret/rpi-db-creds"
-    #       objectType: secretsmanager
-    #       jmesPath:
-    #         - path: username
-    #           objectAlias: db_username
-    #         - path: password
-    #           objectAlias: db_password
-    #   secretObjects:
-    #     - secretName: redpoint-rpi-secrets
-    #       type: Opaque
-    #       data:
-    #         - key: db_username
-    #           objectName: db_username
-    #         - key: db_password
-    #           objectName: db_password
 
 # ==========================
 # Storage
@@ -446,20 +382,7 @@ storage:
     reclaimPolicy: Delete       # Delete | Retain
     volumeBindingMode: Immediate
     mountOptions: []
-    # mountOptions:
-    #   - iam
     parameters: {}
-    # Example: AWS EFS
-    # parameters:
-    #   provisioningMode: efs-ap
-    #   fileSystemId: fs-0123456789abcdef0
-    #   directoryPerms: "755"
-    #   uid: "7777"
-    #   gid: "7777"
-    #   basePath: /rpi
-    #   subPathPattern: shared-data
-    #   ensureUniqueDirectory: "false"
-    #   reuseAccessPoint: "true"
 
   persistentVolumeClaims:
     FileOutputDirectory:
@@ -478,31 +401,9 @@ storage:
   # Dynamic PVCs (no PV needed - the CSI driver auto-provisions storage)
   # Use with a StorageClass that supports dynamic provisioning (e.g., EFS with efs-ap mode).
   dynamicPVCs: []
-  # dynamicPVCs:
-  #   - claimName: rpi-claim
-  #     storageClassName: redpoint-rpi
-  #     accessModes: [ReadWriteMany]
-  #     storage: 5Gi
 
   # Create PV + PVC pairs (for CSI-backed storage with static provisioning)
   persistentVolumes: []
-  # persistentVolumes:
-  #   - name: rpi-blob-storage
-  #     capacity: 100Gi
-  #     accessModes: [ReadWriteMany]
-  #     storageClassName: blob-fuse
-  #     reclaimPolicy: Retain
-  #     mountOptions:
-  #       - -o allow_other
-  #       - --file-cache-timeout-in-seconds=120
-  #     csi:
-  #       driver: blob.csi.azure.com
-  #       volumeHandle: unique-volume-handle
-  #       volumeAttributes:
-  #         containerName: rpi-data
-  #         storageAccount: mystorageaccount
-  #     pvc:
-  #       claimName: rpi-blob-pvc
 
 # ==========================
 # Realtime API
@@ -516,9 +417,6 @@ realtimeapi:
   # specific Realtime API base address; clients not listed use the
   # cluster-wide address.
   clientAddressOverrides: []
-  # clientAddressOverrides:
-  #   - clientId: 00000000-0000-0000-0000-000000000000
-  #     address: https://realtime-eu.example.com
   authentication:
     # Supported: basic, oauth
     type: basic
@@ -531,23 +429,16 @@ realtimeapi:
       accessTokenLifetimeSeconds: 360
       refreshTokenLifetimeSeconds: 360
   CORSOrigins: ["*"]
-  # Realtime server visitor cookie (defaults shown; uncomment to override).
-  # RealtimeServerCookieDomain is optional: unset leaves the cookie host-only.
-  # RealtimeServerCookieEnabled: false
-  # RealtimeServerCookieName: rg-visitor
-  # RealtimeServerCookieExpires: 60
-  # RealtimeServerCookieHttpOnly: false
-  # RealtimeServerCookieDomain: ".example.com"
+  # Realtime server visitor cookie. RealtimeServerCookieDomain is optional:
+  # unset leaves the cookie host-only.
   # Number of days to persist web events. Override as needed.
   EventDaysToPersistOverride: 365
 
   # Geolocation settings for real-time weather / location enrichment.
-  # Disabled by default. When enabled, the settings below are applied AND the
-  # provider APIKey becomes required: supply it via the shared RPI Secret key
-  # `RealtimeAPI_Geolocation_APIKey` (kubernetes/csi) or the cloud vault (sdk).
-  # Enabling the feature without that key makes the Realtime API pod fail fast
-  # (by design). To use your own provider instead of native Azure, author a
-  # plugin and set pluginAssembly / pluginType / pluginSettings (and the ipLookup
+  # When enabled, the provider APIKey is required: supply it via the shared RPI
+  # Secret key `RealtimeAPI_Geolocation_APIKey` (kubernetes/csi) or the cloud
+  # vault (sdk). To use a provider other than native Azure, author a plugin and
+  # set pluginAssembly / pluginType / pluginSettings (and the ipLookup
   # equivalents).
   geolocation:
     enabled: false
@@ -559,10 +450,7 @@ realtimeapi:
     # Custom geolocation provider plugin (leave blank to use the native provider)
     pluginAssembly: ""
     pluginType: ""
-    # Plugin settings as a list of key/value pairs, e.g.:
-    #   pluginSettings:
-    #     - key: Endpoint
-    #       value: "https://..."
+    # Plugin settings as a list of key/value pairs.
     pluginSettings: []
     # Optional IP-address-based geolocation lookup
     ipLookup:
@@ -606,11 +494,7 @@ realtimeapi:
       # Authentication mechanism for MongoDB Atlas.
       #   default  - username/password in the connection string
       #   iamRole  - AWS IAM via MONGODB-AWS (passwordless auth on Amazon EKS)
-      #             Requires roleArn below. The chart adds the eks.amazonaws.com/role-arn
-      #             annotation to the Realtime API's ServiceAccount and injects AWS env vars
-      #             (AWS_STS_REGIONAL_ENDPOINTS, AWS_DEFAULT_REGION) into the pod.
-      #             The EKS Pod Identity Agent injects container credentials automatically.
-      #             The MongoDB driver authenticates using the pod's IAM role.
+      #             Requires roleArn below.
       #             Prerequisites:
       #               1. Add the IAM role ARN as a database user in Atlas (Database Access → AWS IAM)
       #               2. The IAM role needs a trust policy for your EKS cluster's OIDC provider
@@ -703,7 +587,7 @@ callbackapi:
   # Enable multitenancy for per-client instances
   multitenancy:
     enabled: false
-  # Per-tenant instances rendered when multitenancy is enabled. Every instance uses callbackapi.replicas.
+  # Per-tenant instances, used when multitenancy is enabled. Every instance uses callbackapi.replicas.
   instances:
     - name: "tenant1"
   #  - name: "client2"
@@ -863,19 +747,15 @@ deploymentapi:
   enabled: true
   replicas: 1
   # Use external (Keycloak) user management for the Deployment API's install-time
-  # user lookups. Off by default (native). When true, the chart emits the
-  # ClusterEnvironment.UserManagement + Keycloak settings (ClientSecret from the
-  # shared Secret key CDP_Keycloak_Client_Secret).
+  # user lookups. Off by default (native). When true, the Keycloak settings apply
+  # and the client secret is read from the shared Secret key
+  # CDP_Keycloak_Client_Secret.
   useExternalUserManagement: false
   # OIDC authentication for the Deployment API endpoints. Disabled by default.
   # When enabled, all four values below are required (the render fails if any
   # is missing); there are no defaults.
   authentication:
     enabled: false
-    # issuer: https://login.example.com/realms/rpi
-    # hostAddress: https://deployment.example.com
-    # audience: rpi-deploymentapi
-    # clientId: rpi-deploymentapi
   # Use exported tenant template files for new tenant creation
   templateTenant:
     useTemplateFiles: false
@@ -974,14 +854,8 @@ twiliomessaging:
     # internal: chart-managed Redis, password auto-generated into rpi-internal-services (nothing to set).
     # external: BYO cloud Redis (Azure Cache, ElastiCache, Memorystore) - supply the endpoint below.
     type: internal
-    # External BYO Redis (only when type=external):
-    # hostname: my-redis.redis.cache.windows.net
-    # useTls: true
-    #   AWS ElastiCache under sdk (IAM) additionally requires:
-    # region: us-east-1
-    # cacheName: my-elasticache
-    # user: my-iam-user            # AWS IAM user id (or the Basic username under kubernetes/csi)
-    # isServerless: false          # AWS serverless cache
+    # type=external requires the endpoint settings; AWS ElastiCache under sdk
+    # (IAM) additionally requires region, cacheName, user and isServerless.
   # PostgreSQL durable store (hard requirement; database twilio_messaging).
   # Auth follows secretsManagement.provider: kubernetes/csi authenticate with a password
   # from the shared Secret (TwilioMessaging_Postgres_Password, or the operational DB
@@ -1035,13 +909,12 @@ twiliomessaging:
   # Pub/Sub (messaging.provider=googlepubsub; auth via GCP Workload Identity)
   pubsub:
     projectId: ""
-  # RPI-side integration, emitted to the Execution Service and Interaction API as
-  # Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers
-  # (namespace, hub names, region, input queue / topic) come from the blocks above; the
-  # values here are the resources RPI owns and must be provisioned separately: RPI's
-  # consumer groups on eventHubs.outputHub, RPI's own checkpoint container (never the
-  # service's), and RPI's output queues / subscriptions. Consumer-group, container, and
-  # subscription names have twilio-messaging-* defaults; override to match provisioning.
+  # Twilio resources owned by RPI, applied when twiliomessaging.enabled=true.
+  # Shared transport identifiers (namespace, hub names, region, input queue /
+  # topic) come from the blocks above. These must be provisioned separately:
+  # RPI's consumer groups on eventHubs.outputHub, RPI's own checkpoint container,
+  # and RPI's output queues / subscriptions. Names default to twilio-messaging-*;
+  # override to match provisioning.
   twilioPlugin:
     # RPI-owned queues (messaging.provider=amazonsqs), each subscribed to the matching
     # service SNS topic with RawMessageDelivery=true. All four are required.
@@ -1122,13 +995,10 @@ ingress:
     enabled: false
   mode: public                            # public | private
   certificateSource: kubernetes           # kubernetes | acm
-  # TLS entries (rendered when certificateSource=kubernetes)
+  # TLS entries. Applies when certificateSource=kubernetes
   # Add entries with explicit hosts lists for multi-cert setups
   tls:
     - secretName: ingress-tls
-    # - secretName: certsecrets             # additional cert for FQDN hosts
-    #   hosts:
-    #     - mpulse.example.com
   domain: example.com
   subnetName: <my-ingress-vpc-subnet-name>  # required if mode=private
   certificateArn: your_acm_certificate_arn  # required if certificateSource=acm
@@ -1165,53 +1035,15 @@ serviceMesh:
   # Pod annotations added to all RPI deployments when service mesh is enabled.
   # Defaults: inject=enabled, skip-outbound-ports=443, proxy-outbound-connect-timeout=240000ms
   # Override or add annotations here; these merge with (and override) the defaults.
-  # To disable injection for a specific service, set podAnnotations on that service:
-  #   deploymentapi:
-  #     podAnnotations:
-  #       linkerd.io/inject: disabled
+  # To disable injection for one service, set podAnnotations on that service.
   podAnnotations: {}
-  # podAnnotations:
-  #   linkerd.io/inject: enabled
-  #   config.linkerd.io/skip-outbound-ports: "443,587"
-  #   config.linkerd.io/proxy-outbound-connect-timeout: "300000ms"
-  #   config.linkerd.io/proxy-cpu-request: "100m"
   # Shared defaults for all servers. Per-server values override these.
   serverDefaults: {}
-  # serverDefaults:
-  #   port: 8080
-  #   proxyProtocol: HTTP/1
-  #   allowUnauthenticated: true
-  #   networks:
-  #     - cidr: 10.0.0.0/8
-  #
   # L7 traffic policy per service.
   # podSelector is auto-derived from the name if not set (e.g., name "aks-rpi-realtimeapi"
   # produces podSelector app.kubernetes.io/name: rpi-realtimeapi).
   # Per-server values override serverDefaults.
   servers: []
-  # Minimal example (using serverDefaults for shared settings):
-  # servers:
-  #   - name: aks-rpi-interactionapi
-  #   - name: aks-rpi-executionservice
-  #     allowUnauthenticated: false
-  #   - name: aks-rpi-nodemanager
-  #     allowUnauthenticated: false
-  #   - name: aks-rpi-realtimeapi
-  #   - name: aks-rpi-callbackapi
-  #   - name: aks-rpi-integrationapi
-  #   - name: aks-rpi-deploymentapi
-  #   - name: aks-rpi-queuereader
-  #
-  # Full example (explicit per-server settings):
-  # servers:
-  #   - name: aks-rpi-realtimeapi
-  #     podSelector:
-  #       app.kubernetes.io/name: rpi-realtimeapi
-  #     port: 8080
-  #     proxyProtocol: HTTP/1
-  #     allowUnauthenticated: true
-  #     networks:
-  #       - cidr: 10.0.0.0/8
 
 # ==========================
 # Node Scheduling
@@ -1240,32 +1072,9 @@ nodeProvisioning:
     nodePool:
       name: redpoint-nodepool
       labels: {}
-      # labels:
-      #   workload: redpoint-api
       taints: []
-      # taints:
-      #   - key: workload
-      #     value: redpoint-api
-      #     effect: NoSchedule
       startupTaints: []
-      # startupTaints:
-      #   - key: efs.csi.aws.com/agent-not-ready
-      #     value: "true"
-      #     effect: NoSchedule
       requirements: []
-      # requirements:
-      #   - key: karpenter.k8s.aws/instance-family
-      #     operator: In
-      #     values: ["m7i"]
-      #   - key: karpenter.k8s.aws/instance-size
-      #     operator: In
-      #     values: ["4xlarge"]
-      #   - key: kubernetes.io/arch
-      #     operator: In
-      #     values: ["amd64"]
-      #   - key: karpenter.sh/capacity-type
-      #     operator: In
-      #     values: ["on-demand"]
       expireAfter: 360h
       nodeClassRef:
         group: karpenter.k8s.aws
@@ -1411,9 +1220,6 @@ cdpcache:
 # ==========================
 # Custom Labels and Annotations
 # ==========================
-# customLabels:
-#   environment: "prod"
-#   team: "marketing"
 customLabels: {}
 
 # Pod-only labels (applied to pod template only, not Deployment metadata).

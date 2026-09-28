@@ -13,11 +13,9 @@
 
 # Global settings shared across all chart components
 global:
-  # Core deployment configuration
   deployment:
     # Container image settings for all RPI services
     images:
-      # Kubernetes image pull policy
       imagePullPolicy: Always
       # Image pull secret for private registries
       imagePullSecret:
@@ -56,7 +54,7 @@ customAnnotations: {}
 # Custom labels applied to all chart resources
 customLabels: {}
 
-# Labels applied to pod templates only (not Deployment metadata)
+# Labels applied to pods
 podLabels: {}
 
 # Additional annotations for Services (merged with commonAnnotations)
@@ -121,21 +119,20 @@ databases:
       secretProviderClassName: ''
   # Operational database connection settings
   operational:
-    # Google Cloud SQL Auth Proxy sidecar (GKE only; activates when platform=google,
-    # provider=postgresql, and enabled=true)
+    # Google Cloud SQL Auth Proxy (GKE only; requires platform=google and provider=postgresql)
     cloudSqlProxy:
       additionalArgs: []
       # Use IAM database authentication instead of password auth
       autoIamAuthn: false
       # Cloud SQL instance connection name in the form 'project:region:instance'
       connectionName: ''
-      # Enable the Cloud SQL Auth Proxy sidecar
+      # Enable the Cloud SQL Auth Proxy
       enabled: false
       # Cloud SQL Auth Proxy container image (verbatim URI)
       image: 'gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.2'
       # Connect to the Cloud SQL private IP (requires VPC peering)
       privateIp: true
-      # Resource requests and limits for the Cloud SQL Auth Proxy sidecar.
+      # Resource requests and limits for the Cloud SQL Auth Proxy.
       resources:
         # Resource limits (maximum allocation)
         limits:
@@ -169,7 +166,6 @@ databases:
     pulse_logging_database_name: <my-logging-database-name>
     # Database server hostname or IP address
     server_host: <my-database-server-host>
-    # Database server username
     server_username: <my-database-server-username>
 
 # How secrets are provided to pods: kubernetes (K8s Secret), sdk (cloud vault at runtime), or
@@ -181,7 +177,6 @@ secretsManagement:
     secretName: redpoint-rpi-secrets
     # SecretProviderClass definitions for CSI driver
     secretProviderClasses:
-    # SecretProviderClass name.
     - name: my-secret-class-1
       # Vault object to mount.
       objects:
@@ -214,7 +209,6 @@ secretsManagement:
           secretName: secret1
           # Kubernetes Secret type (e.g. Opaque, kubernetes.io/tls).
           type: kubernetes.io/tls
-    # SecretProviderClass name.
     - name: my-secret-class-2
       # Vault object to mount.
       objects:
@@ -299,10 +293,9 @@ cloudIdentity:
     tenantId: your-azure-tenant-id
   # Enable cloud identity for pod authentication to cloud services
   enabled: false
-  # Platform-level Google Cloud identity for the RPI platform. Rendered only when
-  # global.deployment.platform is google and used by Google platform services such as Cloud
-  # Storage, Secret Manager, Pub/Sub, and Cloud SQL proxy. BigQuery authentication is
-  # configured independently under databases.datawarehouse.bigquery.
+  # Platform-level Google Cloud identity, used when global.deployment.platform is google by
+  # Cloud Storage, Secret Manager, Pub/Sub, and the Cloud SQL proxy. BigQuery authentication
+  # is configured independently under databases.datawarehouse.bigquery.
   google:
     # Mount path for the ConfigMap
     configMapFilePath: /app/google-creds
@@ -319,7 +312,6 @@ cloudIdentity:
   serviceAccount:
     # shared: one SA for all pods. per-service: each service gets its own SA.
     mode: per-service
-    # Name of the ServiceAccount
     name: redpoint-rpi
 
 # Mount custom CA certificates into all pods
@@ -340,13 +332,9 @@ SMTPSettings:
   EnableSSL: true
   # SMTP server hostname
   SMTP_Address: your_smtp_host
-  # SMTP server port
   SMTP_Port: 587
-  # Sender email address
   SMTP_SenderAddress: noreply-rpi@example.com
-  # Sender display name
   SMTP_SenderName: Redpoint Global
-  # SMTP authentication username
   SMTP_Username: your_smtp_server_username
   # Use authentication credentials for SMTP
   UseCredentials: true
@@ -357,7 +345,6 @@ OpenIdProviders:
   audience: 'api://00000000-0000-0000-0000-000000000000'
   # OpenID authorization endpoint URL
   authorizationHost: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/v2.0'
-  # OpenID client ID
   clientID: 00000000-0000-0000-0000-000000000000
   # Enable refresh token support
   enableRefreshTokens: true
@@ -397,7 +384,6 @@ ingress:
   certificateSource: kubernetes
   # Ingress class name override (defaults to release namespace)
   className: rpi-namespace
-  # Ingress controller configuration
   controller:
     # Deploy a chart-managed ingress controller (false if supplying your own)
     enabled: false
@@ -434,7 +420,6 @@ ingress:
     image: 'registry.k8s.io/ingress-nginx/controller:v1.14.3@sha256:82917be97c0939f6ada1717bb39aa7e66c229d6cfb10dcfc8f1bd42f9efe0f81'
   # Ingress mode: public (internet-facing) or private (internal only)
   mode: public
-  # Private link configuration
   privateLink:
     # Azure Private Link settings
     azure:
@@ -442,21 +427,19 @@ ingress:
       enabled: false
   # VPC subnet name (required if mode=private)
   subnetName: <my-ingress-vpc-subnet-name>
-  # TLS configuration entries (rendered when certificateSource=kubernetes)
+  # TLS configuration entries. Applies when certificateSource=kubernetes
   tls:
   # Kubernetes TLS secret name
   - secretName: ingress-tls
   # Custom ingress annotations (replaces defaults when set)
   annotations: {}
 
-# Kubernetes Network Policy configuration
 networkPolicy:
   # Allow DNS egress from every service pod when the network policy is enabled.
   allowDNS: true
   # Enable Kubernetes network policies
   enabled: false
 
-# Service mesh configuration
 serviceMesh:
   # Enable service mesh integration
   enabled: false
@@ -477,27 +460,21 @@ storage:
   persistentVolumeClaims:
     # PVC for data management upload directory
     DataManagementUploadDirectory:
-      # PVC claim name
       claimName: rpdmuploaddirectory
       # Enable this PVC
       enabled: false
-      # Mount path in the container
       mountPath: /rpdmuploaddirectory
     # PVC for file output directory
     FileOutputDirectory:
-      # PVC claim name
       claimName: rpifileoutputdir
       # Enable this PVC
       enabled: false
-      # Mount path in the container
       mountPath: /rpifileoutputdir
     # PVC for realtime plugins
     Plugins:
-      # PVC claim name
       claimName: realtimeplugins
       # Enable this PVC
       enabled: false
-      # Mount path in the container
       mountPath: /app/plugins
   # Create PV + PVC pairs (for CSI-backed storage)
   persistentVolumes: []
@@ -507,13 +484,11 @@ storage:
     enabled: false
     # Mount options for the chart-managed StorageClass.
     mountOptions: []
-    # Name of the StorageClass
     name: redpoint-rpi
     # Provisioner-specific parameters
     parameters: {}
     # CSI provisioner (e.g., efs.csi.aws.com)
     provisioner: ''
-    # Reclaim policy
     reclaimPolicy: Delete
     # Volume binding mode of the chart-managed StorageClass (Immediate or
     # WaitForFirstConsumer).
@@ -534,11 +509,9 @@ tolerations:
   effect: NoSchedule
   # Enable tolerations
   enabled: false
-  # Toleration key
   key: app
   # Toleration operator (e.g., Equal, Exists)
   operator: Equal
-  # Toleration value
   value: redpoint-rpi
 
 # Pod anti-affinity settings applied to all services
@@ -552,7 +525,7 @@ podAntiAffinity:
   # Weight for preferred anti-affinity (1-100, ignored for required)
   weight: 100
 
-# Global topology spread constraints overrides (merged with defaults from _defaults.tpl)
+# Global topology spread constraints overrides
 topologySpreadConstraints:
   # Spread each service's pods across the topology key below.
   enabled: true
@@ -567,9 +540,7 @@ topologySpreadConstraints:
 nodeProvisioning:
   # Enable node provisioning
   enabled: false
-  # Karpenter NodePool configuration
   karpenter:
-    # nodePool settings.
     nodePool:
       # Node consolidation settings.
       disruption:
@@ -623,7 +594,7 @@ resources:
     # Memory request (e.g., '512Mi', '1Gi')
     memory: 256Mi
 
-# Global pod security context overrides (merged with defaults from _defaults.tpl)
+# Global pod security context overrides
 securityContext:
   # Allow the process to gain more privileges than its parent.
   allowPrivilegeEscalation: false
@@ -654,7 +625,7 @@ securityContext:
   # AppArmor profile applied to the container; empty for none.
   appArmorProfile: ''
 
-# Global liveness probe overrides (merged with defaults from _defaults.tpl)
+# Global liveness probe overrides
 livenessProbe:
   # Emit the probe on every service container.
   enabled: true
@@ -667,7 +638,7 @@ livenessProbe:
   # Seconds before a probe attempt times out.
   timeoutSeconds: 5
 
-# Global readiness probe overrides (merged with defaults from _defaults.tpl)
+# Global readiness probe overrides
 readinessProbe:
   # Emit the probe on every service container.
   enabled: true
@@ -680,7 +651,7 @@ readinessProbe:
   # Seconds before a probe attempt times out.
   timeoutSeconds: 5
 
-# Global startup probe overrides (merged with defaults from _defaults.tpl)
+# Global startup probe overrides
 startupProbe:
   # Emit the probe on every service container.
   enabled: true
@@ -722,9 +693,7 @@ diagnosticsMode:
     enabled: false
     # SFTP server hostname
     sftpHost: <your-sftp-host>
-    # SFTP port
     sftpPort: '22'
-    # SFTP username
     sftpUsername: <your-sftp-username>
     # Transfer diagnostics over SFTP rather than plain FTP
     useSftp: true
@@ -769,10 +738,7 @@ validationPods:
   # List of validation pod deployment definitions
   deployments: []
 
-# Automatic database upgrade job - calls the upgrade endpoint after an image tag change. The
-# net-utils image resolves through the canonical rpi.image helper; override via
-# global.deployment.images.overrides.net-utils or global.deployment.images.nameOverrides.net-
-# utils.
+# Automatic database upgrade job - calls the upgrade endpoint after an image tag change.
 databaseUpgrade:
   # Seconds the database-upgrade Job may run before Kubernetes terminates it.
   activeDeadlineSeconds: 900
@@ -875,7 +841,6 @@ interactionapi:
       enabled: false
       # Loggly log ingest endpoint.
       httpsEndpoint: 'https://logs-01.loggly.com'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -891,7 +856,6 @@ interactionapi:
       enabled: false
       # New Relic log ingest endpoint.
       httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -914,7 +878,6 @@ interactionapi:
     address: ''
     # Enable the Mercury integration.
     enabled: false
-    # Mercury username.
     username: ''
   # Force interactive login for Microsoft Entra ID authentication.
   microsoftForceLogin: false
@@ -957,13 +920,11 @@ interactionapi:
     url: 'https://www.redpointglobal.com/feed/productfeed'
   # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
   pubSub:
-    # Azure PubSub settings.
     azureSettings:
       # Azure Web PubSub endpoint URL.
       endpoint: ''
     # Enable Web PubSub.
     enabled: false
-    # PubSub provider.
     provider: Azure
   # Native-auth refresh token lifetime in seconds.
   refreshTokenLifetimeSeconds: 36000
@@ -992,7 +953,6 @@ interactionapi:
     autoPromotionEnabled: true
     # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -1080,7 +1040,7 @@ integrationapi:
   # Extra labels added to this service's pods.
   podLabels: {}
   # Read timeout in milliseconds that the Smart Activation services use when calling the
-  # Integration API (emitted only on those pods).
+  # Integration API.
   read_timeout: '300000'
   # Number of Integration API pod replicas
   replicas: 1
@@ -1107,7 +1067,6 @@ integrationapi:
     autoPromotionEnabled: true
     # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -1287,8 +1246,7 @@ executionservice:
     fileSystem:
       # State directory path used when OverrideDirectoryPath is true.
       DirectoryPathOverride: /rpifileoutputdirectory
-      # When true, inject the state directory path override env vars; when false (default)
-      # they are not injected.
+      # Override the state directory path.
       OverrideDirectoryPath: false
     # Maximum cache connection retry attempts.
     maxNumberRetries: 100
@@ -1362,7 +1320,6 @@ executionservice:
       enabled: false
       # Loggly log ingest endpoint.
       httpsEndpoint: 'https://logs-01.loggly.com'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -1378,7 +1335,6 @@ executionservice:
       enabled: false
       # New Relic log ingest endpoint.
       httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -1395,7 +1351,6 @@ executionservice:
     address: ''
     # Enable the Mercury integration.
     enabled: false
-    # Mercury username.
     username: ''
   # Operational database resilience settings.
   operationalDatabase:
@@ -1416,13 +1371,11 @@ executionservice:
   # Azure Web PubSub. Disabled by default; set enabled: true and populate Secret key
   # PubSub_ConnectionString.
   pubSub:
-    # Azure PubSub settings.
     azureSettings:
       # Azure Web PubSub endpoint URL.
       endpoint: ''
     # Enable Web PubSub.
     enabled: false
-    # PubSub provider.
     provider: Azure
   # Number of Execution Service pod replicas
   replicas: 1
@@ -1457,7 +1410,6 @@ executionservice:
     maxRetryDelay: '00:01:00'
     # Seed-service in-memory cache size.
     memoryCacheSize: '10'
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -1530,7 +1482,6 @@ nodemanager:
       enabled: false
       # Loggly log ingest endpoint.
       httpsEndpoint: 'https://logs-01.loggly.com'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -1546,7 +1497,6 @@ nodemanager:
       enabled: false
       # New Relic log ingest endpoint.
       httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -1562,7 +1512,6 @@ nodemanager:
     address: ''
     # Enable the Mercury integration.
     enabled: false
-    # Mercury username.
     username: ''
   # Operational database resilience settings.
   operationalDatabase:
@@ -1582,13 +1531,11 @@ nodemanager:
   podLabels: {}
   # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
   pubSub:
-    # Azure PubSub settings.
     azureSettings:
       # Azure Web PubSub endpoint URL.
       endpoint: ''
     # Enable Web PubSub.
     enabled: false
-    # PubSub provider.
     provider: Azure
   # Number of Node Manager pod replicas
   replicas: 1
@@ -1615,7 +1562,6 @@ nodemanager:
     autoPromotionEnabled: true
     # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -1678,9 +1624,8 @@ queuereader:
   # realtimeConfiguration.isDistributed is true. The cache provider is Redis by application
   # default; the Queue Reader does not use InternalCache state persistence.
   internalCache:
-    # Chart-managed Redis StatefulSet settings. The Queue Reader's connection string is
-    # generated into the internal-services Secret (QueueService_RedisCache_ConnectionString),
-    # never taken from values.
+    # Chart-managed Redis settings. The Queue Reader's connection string is generated by the
+    # chart, never taken from values.
     redisSettings:
       # PodDisruptionBudget for the chart-managed Queue Reader Redis.
       podDisruptionBudget:
@@ -1720,8 +1665,7 @@ queuereader:
         # Access mode for the claim (default ReadWriteOnce).
         accessModes: ''
       # Name of an existing PersistentVolumeClaim in the release namespace to mount as the
-      # Redis data volume. When set, the StatefulSet uses this claim and emits no
-      # volumeClaimTemplates.
+      # Redis data volume.
       existingClaim: ''
   # Internal message queue used by the queue reader.
   internalQueues:
@@ -1759,8 +1703,7 @@ queuereader:
         # Access mode for the claim (default ReadWriteOnce).
         accessModes: ''
       # Name of an existing PersistentVolumeClaim in the release namespace to mount as the
-      # RabbitMQ data volume. When set, the StatefulSet uses this claim and emits no
-      # volumeClaimTemplates.
+      # RabbitMQ data volume.
       existingClaim: ''
   # Process realtime cache messages.
   isCacheProcessingEnabled: true
@@ -1788,7 +1731,6 @@ queuereader:
       enabled: false
       # Loggly log ingest endpoint.
       httpsEndpoint: 'https://logs-01.loggly.com'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -1804,7 +1746,6 @@ queuereader:
       enabled: false
       # New Relic log ingest endpoint.
       httpsEndpoint: 'https://log-api.newrelic.com/log/v1'
-      # Default forwarded level.
       logLevelDefault: Information
       # RPIError level.
       rpiError: Information
@@ -1846,13 +1787,11 @@ queuereader:
   podLabels: {}
   # Azure Web PubSub. Set enabled: true and populate Secret key PubSub_ConnectionString.
   pubSub:
-    # Azure PubSub settings.
     azureSettings:
       # Azure Web PubSub endpoint URL.
       endpoint: ''
     # Enable Web PubSub.
     enabled: false
-    # PubSub provider.
     provider: Azure
   # Enable the queue listener.
   queueListenerEnabled: true
@@ -1897,7 +1836,6 @@ queuereader:
     maxRetryDelay: '00:01:00'
     # Seed-service in-memory cache size.
     memoryCacheSize: '10'
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -1972,7 +1910,7 @@ realtimeapi:
   # Path to the in-process Realtime Agent assembly. Unset leaves the application default.
   RealtimeAgentInProcessPath: ''
   # Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie
-  # host-only (the variable is not emitted).
+  # host-only.
   RealtimeServerCookieDomain: ''
   # Enable the Realtime server visitor cookie.
   RealtimeServerCookieEnabled: false
@@ -2004,7 +1942,6 @@ realtimeapi:
     traceLogEnabled: false
   # Realtime API authentication configuration
   authentication:
-    # Basic authentication settings
     basic:
       # Enable forms basic auth
       forms: true
@@ -2014,7 +1951,6 @@ realtimeapi:
       recommendations: true
       # Enable standard basic auth
       standard: false
-    # OAuth authentication settings
     oauth:
       # Access token lifetime in seconds
       accessTokenLifetimeSeconds: 360
@@ -2044,7 +1980,6 @@ realtimeapi:
     enabled: true
     # Google Bigtable cache provider settings
     googlebigtable:
-      # Bigtable instance ID
       instanceId: <my-bigtable-instance-id>
       # Google Cloud project ID
       projectId: <my-bigtable-project-id>
@@ -2053,9 +1988,7 @@ realtimeapi:
       # MongoDB authentication: default (connection string from the shared Secret) or iamRole
       # (MONGODB-AWS via IRSA / Pod Identity).
       authMechanism: default
-      # MongoDB collection name
       collectionName: <my-realtime-cache-collection>
-      # MongoDB database name
       databaseName: <my-realtime-cache-db>
       # AWS region for the STS endpoint (authMechanism=iamRole only).
       region: us-east-1
@@ -2094,9 +2027,8 @@ realtimeapi:
           storage: 50Gi
       # Redis deployment type: internal (chart-managed) or external (BYO)
       type: internal
-  # Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true (only
-  # meaningful with multiple Realtime API instances); render fails if set on a single-tenant
-  # deployment. Clients not listed use the cluster-wide address.
+  # Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true. Clients
+  # not listed use the cluster-wide address.
   clientAddressOverrides: []
   # Prometheus scrape settings for this service.
   customMetrics:
@@ -2104,7 +2036,6 @@ realtimeapi:
     enabled: false
     # Add the prometheus.io/scrape pod annotation.
     prometheus_scrape: true
-  # Custom Realtime plugins configuration
   customPlugins:
     # Enable custom realtime plugins
     enabled: false
@@ -2174,8 +2105,7 @@ realtimeapi:
   geolocation:
     # Minutes to cache resolved coordinates
     coordsCacheTimespanMinutes: 10
-    # Enable geolocation config injection. When false (default) no geolocation env vars are
-    # emitted and no APIKey secret is referenced. When true, the settings below apply and
+    # Enable geolocation. When true the settings below apply and
     # RealtimeAPI_Geolocation_APIKey becomes a required secret key (kubernetes/csi).
     enabled: false
     # Optional IP-address-based geolocation lookup
@@ -2258,7 +2188,7 @@ realtimeapi:
     # Alternative names the master key may appear under (e.g. CK for CustomerKey)
     masterKeyAliases: []
     # Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps
-    # the RPI-assigned GUID (the variable is not emitted).
+    # the RPI-assigned GUID.
     masterKeyName: ''
     # Merge cached-attribute-list attributes into the visitor profile
     mergeCALAttributes: true
@@ -2292,9 +2222,8 @@ realtimeapi:
       default: Error
       # Endpoint log level.
       endpoint: Error
-      # Name of an NLog target to which Realtime API log events are also written (the image
-      # defines async and logconsole). Empty, the default, disables it and the variable is not
-      # emitted.
+      # Name of an NLog target to which Realtime API log events are also written (async and
+      # logconsole are available). Empty disables it.
       nlogTarget: ''
       # Log level for other namespaces.
       other: Error
@@ -2335,7 +2264,6 @@ realtimeapi:
       MaxRetryAttempt: 10
       # Enable AWS MSK IAM authentication (True/False).
       UseAwsMsk: 'True'
-      # MSK bootstrap servers
       bootstrapServers: '<my-server1.c2.kafka.us-east-1.amazonaws.com:9198>'
     # Amazon SQS queue provider settings
     amazonsqs:
@@ -2347,14 +2275,10 @@ realtimeapi:
     azureeventhubs:
       # Event Hubs namespace name
       NamespaceName: my_eventhub_namespace_name
-      # Partition IDs
       PartitionIds:
       - '0'
-      # Receive batch size.
       ReceiveMessageBatchSize: 200
-      # Send batch size.
       SendMessageBatchSize: 200
-      # Event Hub name
       eventHubName: RPIQueueListener
     # Azure Storage queue provider settings
     azurestorage:
@@ -2435,8 +2359,7 @@ realtimeapi:
           # Access mode for the claim (default ReadWriteOnce).
           accessModes: ''
         # Name of an existing PersistentVolumeClaim in the release namespace to mount as the
-        # RabbitMQ data volume. When set, the StatefulSet uses this claim and emits no
-        # volumeClaimTemplates. Applies to type internal only.
+        # RabbitMQ data volume. Applies to type internal only.
         existingClaim: ''
       # RabbitMQ deployment type: internal (chart-managed) or external (BYO)
       type: internal
@@ -2467,7 +2390,6 @@ realtimeapi:
     revisionHistoryLimit: 3
   # RPI Client ID (GUID) for this realtime instance
   rpiClientID: 00000000-0000-0000-0000-000000000000
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -2517,8 +2439,8 @@ callbackapi:
   enableHttpsRedirection: false
   # Enable the Callback API service
   enabled: true
-  # Per-tenant Callback API instances rendered when multitenancy.enabled is true. Each
-  # instance uses callbackapi.replicas.
+  # Per-tenant Callback API instances, used when multitenancy.enabled is true. Each instance
+  # uses callbackapi.replicas.
   instances:
   # Tenant instance name
   - name: tenant1
@@ -2574,7 +2496,6 @@ callbackapi:
     autoPromotionEnabled: true
     # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -2643,14 +2564,12 @@ deploymentapi:
     autoPromotionEnabled: true
     # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
     enabled: true
   # Template tenant configuration for new tenant creation
   templateTenant:
-    # Path to template tenant files
     templateTenantFilesPath: /tmp/templatetenantfiles
     # Use exported tenant template files
     useTemplateFiles: false
@@ -2688,7 +2607,6 @@ rebrandly:
     # Redis hostname (if type=external). The external Redis password comes from the shared
     # Secret key Rebrandly_Redis_Password, never from values.
     hostname: rpi-rebrandly-cache
-    # Redis port
     port: 6379
     # Resource requests and limits for the chart-managed Rebrandly Redis.
     resources:
@@ -2719,7 +2637,6 @@ rebrandly:
       size: 50Gi
       # StorageClass for the claim; unset uses the cluster default.
       storageClassName: default
-  # Number of replicas.
   replicas: 1
   # CPU and memory resource requests and limits
   resources:
@@ -2744,7 +2661,6 @@ rebrandly:
     autoPromotionEnabled: true
     # Number of old ReplicaSets retained for rollback.
     revisionHistoryLimit: 3
-  # ServiceAccount for this service.
   serviceAccount:
     # Create a dedicated ServiceAccount for the service; cloud identity annotations are
     # applied to it.
@@ -2816,13 +2732,10 @@ redpointAI:
       enableTrace: false
     # Model storage settings
     modelStorage:
-      # Blob folder name for models
       BlobFolder: my_blob_container_folder_name
       # Blob container name for models
       ContainerName: my_blob_container_name
-      # Embeddings model name
       EmbeddingsModel: text-embedding-ada-002
-      # Model embedding dimensions
       ModelDimensions: 1536
 
 # Smart Activation (CDP) master toggle and secrets
@@ -3146,9 +3059,7 @@ uiservice:
 
 # Keycloak configuration (Smart Activation component)
 keycloak:
-  # Keycloak database name
   database_name: keycloak
-  # Keycloak hostname
   hostname: keycloak
   # PodDisruptionBudget for this service.
   podDisruptionBudget:
@@ -3156,7 +3067,6 @@ keycloak:
     enabled: false
     # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
-  # Keycloak realm name
   realm_name: redpoint-mercury
   # Number of Keycloak pod replicas
   replicas: 1
@@ -3221,7 +3131,6 @@ initservice:
   database:
     # Operational database for Smart Activation
     operational:
-      # Database name
       name: smart_activation_db
   # Log settings for this service.
   logging:
@@ -3469,9 +3378,7 @@ commonEnvVars: []
 reportingservice:
   # Sigma Computing reporting integration
   sigma:
-    # Sigma API URL
     api_url: 'https://api.us.azure.sigmacomputing.com'
-    # Sigma client ID
     client_id: 48dd1982ab835ff53177e9cbd7fb5608b1db8c56491a040f2f0843a3bfc6b440
     # Enable Sigma reporting integration
     enabled: false
@@ -3541,8 +3448,7 @@ twiliomessaging:
     default: Information
   # Messaging transport selector
   messaging:
-    # Active messaging transport (chart-standard vocabulary; mapped to each application's own
-    # enum at render)
+    # Active messaging transport
     provider: azureeventhubs
   podAnnotations: {}
   podLabels: {}
@@ -3554,7 +3460,6 @@ twiliomessaging:
     host: ''
     maxPoolSize: 20
     minPoolSize: 2
-    # PostgreSQL port
     port: 5432
     # Reuse databases.operational when it is postgresql (same server, separate
     # twilio_messaging database). Must be false when databases.operational is SQL Server or
@@ -3589,7 +3494,6 @@ twiliomessaging:
     hostname: ''
     # AWS ElastiCache serverless cache (only consulted for external Redis on AWS under sdk)
     isServerless: false
-    # Redis port
     port: 6379
     # AWS region of the cache (required for external Redis on AWS under sdk - ElastiCache IAM)
     region: ''
@@ -3633,7 +3537,7 @@ twiliomessaging:
     autoPromotionEnabled: true
     revisionHistoryLimit: 3
   # Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in
-  # kubernetes and csi modes, which bind the shared Secret key.
+  # kubernetes and csi modes.
   secrets:
     aws:
       region: ''
@@ -3666,9 +3570,8 @@ twiliomessaging:
     # AWS region.
     region: us-east-1
   terminationGracePeriodSeconds: 120
-  # RPI-side Twilio plugin resources, emitted to the Execution Service / Interaction API as
-  # Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers derive
-  # from the eventHubs/sqs/pubsub blocks; these are the resources RPI owns.
+  # Twilio plugin resources owned by RPI, applied when twiliomessaging.enabled=true. Shared
+  # transport identifiers come from the eventHubs/sqs/pubsub blocks.
   twilioPlugin:
     # RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same
     # storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must

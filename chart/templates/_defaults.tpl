@@ -1,20 +1,8 @@
 {{/*
 ============================================================
-  INTERNAL DEFAULTS - _defaults.tpl
+  INTERNAL DEFAULTS
 ============================================================
-  Chart-managed defaults that users should NOT edit directly.
-  Override any value directly in your overrides file under
-  the matching top-level key (e.g., realtimeapi:, ingress:).
-
-  This file defines the default YAML per component; _helpers.tpl merges
-  it with your overrides, and your overrides win.
-
-  Sections:
-    1. Cross-cutting defaults (probes, security, topology, ingress)
-    2. RPI core services (.NET)
-    3. Supporting services (Rebrandly, diagnostics)
-    4. Smart Activation services (Java)
-    5. Utility jobs
+  Chart-managed defaults. Not an operator-facing surface.
 ============================================================
 */}}
 
@@ -1331,13 +1319,7 @@ resources:
     memory: 128Mi
 {{- end -}}
 
-{{/*
-RPI MCP server. Operator-facing settings live in `redpointAI.mcp`; the
-deployment plumbing lives here, as it does for every other service.
-Single replica: MCP sessions are held in the server process, so a request routed
-to another replica resolves to a different session.
-Grace period covers the longest tool poll, since the server does not drain on SIGTERM.
-*/}}
+{{/* ------ RPI MCP Server ------ */}}
 {{- define "rpi.defaults.rpimcpserver" -}}
 serviceAccount:
   enabled: true
@@ -1356,10 +1338,7 @@ resources:
     memory: 1Gi
 {{- end -}}
 
-{{/*
-RPI agent runtime. Operator-facing settings live in `redpointAI.agentRuntime`.
-Single replica: the runtime owns a SQLite database on one volume, so one writer.
-*/}}
+{{/* ------ RPI Agent Runtime ------ */}}
 {{- define "rpi.defaults.rpiaiserver" -}}
 serviceAccount:
   enabled: true

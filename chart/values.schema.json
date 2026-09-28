@@ -27,7 +27,6 @@
       "properties": {
         "deployment": {
           "type": "object",
-          "description": "Core deployment configuration",
           "required": [
             "platform"
           ],
@@ -67,7 +66,6 @@
                 },
                 "imagePullPolicy": {
                   "type": "string",
-                  "description": "Kubernetes image pull policy",
                   "enum": [
                     "Always",
                     "IfNotPresent",
@@ -139,8 +137,7 @@
               "description": "Database server hostname or IP address"
             },
             "server_username": {
-              "type": "string",
-              "description": "Database server username"
+              "type": "string"
             },
             "pulse_database_name": {
               "type": "string",
@@ -156,12 +153,12 @@
             },
             "cloudSqlProxy": {
               "type": "object",
-              "description": "Google Cloud SQL Auth Proxy sidecar (GKE only; activates when platform=google, provider=postgresql, and enabled=true)",
+              "description": "Google Cloud SQL Auth Proxy (GKE only; requires platform=google and provider=postgresql)",
               "additionalProperties": true,
               "properties": {
                 "enabled": {
                   "type": "boolean",
-                  "description": "Enable the Cloud SQL Auth Proxy sidecar"
+                  "description": "Enable the Cloud SQL Auth Proxy"
                 },
                 "connectionName": {
                   "type": "string",
@@ -189,7 +186,7 @@
                 },
                 "resources": {
                   "$ref": "#/definitions/resources",
-                  "description": "Resource requests and limits for the Cloud SQL Auth Proxy sidecar."
+                  "description": "Resource requests and limits for the Cloud SQL Auth Proxy."
                 },
                 "additionalArgs": {
                   "type": "array",
@@ -377,8 +374,7 @@
               "description": "shared: one SA for all pods. per-service: each service gets its own SA."
             },
             "name": {
-              "type": "string",
-              "description": "Name of the ServiceAccount"
+              "type": "string"
             }
           }
         },
@@ -399,7 +395,7 @@
         },
         "google": {
           "type": "object",
-          "description": "Platform-level Google Cloud identity for the RPI platform. Rendered only when global.deployment.platform is google and used by Google platform services such as Cloud Storage, Secret Manager, Pub/Sub, and Cloud SQL proxy. BigQuery authentication is configured independently under databases.datawarehouse.bigquery.",
+          "description": "Platform-level Google Cloud identity, used when global.deployment.platform is google by Cloud Storage, Secret Manager, Pub/Sub, and the Cloud SQL proxy. BigQuery authentication is configured independently under databases.datawarehouse.bigquery.",
           "additionalProperties": true,
           "properties": {
             "serviceAccountEmail": {
@@ -573,8 +569,7 @@
                     }
                   },
                   "name": {
-                    "type": "string",
-                    "description": "SecretProviderClass name."
+                    "type": "string"
                   },
                   "objects": {
                     "type": "array",
@@ -625,8 +620,7 @@
               "default": false
             },
             "name": {
-              "type": "string",
-              "description": "Name of the StorageClass"
+              "type": "string"
             },
             "provisioner": {
               "type": "string",
@@ -634,7 +628,6 @@
             },
             "reclaimPolicy": {
               "type": "string",
-              "description": "Reclaim policy",
               "enum": [
                 "Delete",
                 "Retain"
@@ -673,12 +666,10 @@
                   "description": "Enable this PVC"
                 },
                 "claimName": {
-                  "type": "string",
-                  "description": "PVC claim name"
+                  "type": "string"
                 },
                 "mountPath": {
-                  "type": "string",
-                  "description": "Mount path in the container"
+                  "type": "string"
                 }
               }
             },
@@ -692,12 +683,10 @@
                   "description": "Enable this PVC"
                 },
                 "claimName": {
-                  "type": "string",
-                  "description": "PVC claim name"
+                  "type": "string"
                 },
                 "mountPath": {
-                  "type": "string",
-                  "description": "Mount path in the container"
+                  "type": "string"
                 }
               }
             },
@@ -711,12 +700,10 @@
                   "description": "Enable this PVC"
                 },
                 "claimName": {
-                  "type": "string",
-                  "description": "PVC claim name"
+                  "type": "string"
                 },
                 "mountPath": {
-                  "type": "string",
-                  "description": "Mount path in the container"
+                  "type": "string"
                 }
               }
             }
@@ -756,7 +743,7 @@
         },
         "clientAddressOverrides": {
           "type": "array",
-          "description": "Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true (only meaningful with multiple Realtime API instances); render fails if set on a single-tenant deployment. Clients not listed use the cluster-wide address.",
+          "description": "Per-client Realtime API address overrides. Requires realtimeapi.multitenant=true. Clients not listed use the cluster-wide address.",
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -783,7 +770,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Enable geolocation config injection. When false (default) no geolocation env vars are emitted and no APIKey secret is referenced. When true, the settings below apply and RealtimeAPI_Geolocation_APIKey becomes a required secret key (kubernetes/csi)."
+              "description": "Enable geolocation. When true the settings below apply and RealtimeAPI_Geolocation_APIKey becomes a required secret key (kubernetes/csi)."
             },
             "provider": {
               "type": "string",
@@ -885,7 +872,7 @@
           "properties": {
             "masterKeyName": {
               "type": "string",
-              "description": "Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps the RPI-assigned GUID (the variable is not emitted)."
+              "description": "Principal key used to identify a known visitor's profile (e.g. CustomerKey). Blank keeps the RPI-assigned GUID."
             },
             "masterKeyAliases": {
               "type": "array",
@@ -940,7 +927,6 @@
             },
             "basic": {
               "type": "object",
-              "description": "Basic authentication settings",
               "additionalProperties": true,
               "properties": {
                 "standard": {
@@ -963,7 +949,6 @@
             },
             "oauth": {
               "type": "object",
-              "description": "OAuth authentication settings",
               "additionalProperties": true,
               "properties": {
                 "accessTokenLifetimeSeconds": {
@@ -1056,7 +1041,7 @@
         },
         "RealtimeServerCookieDomain": {
           "type": "string",
-          "description": "Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie host-only (the variable is not emitted)."
+          "description": "Optional Domain attribute for the Realtime server visitor cookie. Unset leaves the cookie host-only."
         },
         "cacheProvider": {
           "type": "object",
@@ -1101,12 +1086,10 @@
                   "description": "AWS region for the STS endpoint (authMechanism=iamRole only)."
                 },
                 "databaseName": {
-                  "type": "string",
-                  "description": "MongoDB database name"
+                  "type": "string"
                 },
                 "collectionName": {
-                  "type": "string",
-                  "description": "MongoDB collection name"
+                  "type": "string"
                 }
               }
             },
@@ -1150,8 +1133,7 @@
                   "description": "Google Cloud project ID"
                 },
                 "instanceId": {
-                  "type": "string",
-                  "description": "Bigtable instance ID"
+                  "type": "string"
                 }
               }
             }
@@ -1278,19 +1260,16 @@
                   "type": [
                     "integer",
                     "string"
-                  ],
-                  "description": "Send batch size."
+                  ]
                 },
                 "ReceiveMessageBatchSize": {
                   "type": [
                     "integer",
                     "string"
-                  ],
-                  "description": "Receive batch size."
+                  ]
                 },
                 "eventHubName": {
-                  "type": "string",
-                  "description": "Event Hub name"
+                  "type": "string"
                 },
                 "NamespaceName": {
                   "type": "string",
@@ -1298,7 +1277,6 @@
                 },
                 "PartitionIds": {
                   "type": "array",
-                  "description": "Partition IDs",
                   "items": {
                     "type": "string"
                   }
@@ -1329,7 +1307,7 @@
                     },
                     "existingClaim": {
                       "type": "string",
-                      "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the RabbitMQ data volume. When set, the StatefulSet uses this claim and emits no volumeClaimTemplates. Applies to type internal only."
+                      "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the RabbitMQ data volume. Applies to type internal only."
                     },
                     "hostname": {
                       "type": "string",
@@ -1390,8 +1368,7 @@
                   "description": "Enable AWS MSK IAM authentication (True/False)."
                 },
                 "bootstrapServers": {
-                  "type": "string",
-                  "description": "MSK bootstrap servers"
+                  "type": "string"
                 }
               }
             }
@@ -1399,7 +1376,6 @@
         },
         "customPlugins": {
           "type": "object",
-          "description": "Custom Realtime plugins configuration",
           "additionalProperties": true,
           "properties": {
             "enabled": {
@@ -1718,8 +1694,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -1794,7 +1769,7 @@
                 },
                 "nlogTarget": {
                   "type": "string",
-                  "description": "Name of an NLog target to which Realtime API log events are also written (the image defines async and logconsole). Empty, the default, disables it and the variable is not emitted."
+                  "description": "Name of an NLog target to which Realtime API log events are also written (async and logconsole are available). Empty disables it."
                 },
                 "other": {
                   "type": "string",
@@ -1972,7 +1947,7 @@
         },
         "instances": {
           "type": "array",
-          "description": "Per-tenant Callback API instances rendered when multitenancy.enabled is true. Each instance uses callbackapi.replicas.",
+          "description": "Per-tenant Callback API instances, used when multitenancy.enabled is true. Each instance uses callbackapi.replicas.",
           "items": {
             "type": "object",
             "additionalProperties": true,
@@ -2019,8 +1994,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -2120,7 +2094,7 @@
               "properties": {
                 "OverrideDirectoryPath": {
                   "type": "boolean",
-                  "description": "When true, inject the state directory path override env vars; when false (default) they are not injected."
+                  "description": "Override the state directory path."
                 },
                 "DirectoryPathOverride": {
                   "type": "string",
@@ -2347,7 +2321,6 @@
                   "description": "Per-job-type allowlist. Each item: {type, jobNames: [ ... ]}.",
                   "items": {
                     "type": "object",
-                    "description": "",
                     "additionalProperties": true,
                     "properties": {
                       "type": {
@@ -2477,16 +2450,13 @@
           "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
           "items": {
             "type": "object",
-            "description": "",
             "additionalProperties": true,
             "properties": {
               "name": {
-                "type": "string",
-                "description": "Variable name."
+                "type": "string"
               },
               "value": {
-                "type": "string",
-                "description": "Variable value."
+                "type": "string"
               }
             }
           }
@@ -2501,12 +2471,10 @@
               "description": "Enable Web PubSub."
             },
             "provider": {
-              "type": "string",
-              "description": "PubSub provider."
+              "type": "string"
             },
             "azureSettings": {
               "type": "object",
-              "description": "Azure PubSub settings.",
               "additionalProperties": true,
               "properties": {
                 "endpoint": {
@@ -2531,8 +2499,7 @@
               "description": "Mercury service address."
             },
             "username": {
-              "type": "string",
-              "description": "Mercury username."
+              "type": "string"
             }
           }
         },
@@ -2578,8 +2545,7 @@
                   "description": "New Relic log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -2605,8 +2571,7 @@
                   "description": "Loggly log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -2643,8 +2608,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -2896,16 +2860,13 @@
           "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
           "items": {
             "type": "object",
-            "description": "",
             "additionalProperties": true,
             "properties": {
               "name": {
-                "type": "string",
-                "description": "Variable name."
+                "type": "string"
               },
               "value": {
-                "type": "string",
-                "description": "Variable value."
+                "type": "string"
               }
             }
           }
@@ -2920,12 +2881,10 @@
               "description": "Enable Web PubSub."
             },
             "provider": {
-              "type": "string",
-              "description": "PubSub provider."
+              "type": "string"
             },
             "azureSettings": {
               "type": "object",
-              "description": "Azure PubSub settings.",
               "additionalProperties": true,
               "properties": {
                 "endpoint": {
@@ -2950,8 +2909,7 @@
               "description": "Mercury service address."
             },
             "username": {
-              "type": "string",
-              "description": "Mercury username."
+              "type": "string"
             }
           }
         },
@@ -2997,8 +2955,7 @@
                   "description": "New Relic log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -3024,8 +2981,7 @@
                   "description": "Loggly log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -3062,8 +3018,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -3165,8 +3120,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -3195,7 +3149,7 @@
             "integer",
             "string"
           ],
-          "description": "Read timeout in milliseconds that the Smart Activation services use when calling the Integration API (emitted only on those pods)."
+          "description": "Read timeout in milliseconds that the Smart Activation services use when calling the Integration API."
         }
       }
     },
@@ -3294,16 +3248,13 @@
           "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
           "items": {
             "type": "object",
-            "description": "",
             "additionalProperties": true,
             "properties": {
               "name": {
-                "type": "string",
-                "description": "Variable name."
+                "type": "string"
               },
               "value": {
-                "type": "string",
-                "description": "Variable value."
+                "type": "string"
               }
             }
           }
@@ -3318,12 +3269,10 @@
               "description": "Enable Web PubSub."
             },
             "provider": {
-              "type": "string",
-              "description": "PubSub provider."
+              "type": "string"
             },
             "azureSettings": {
               "type": "object",
-              "description": "Azure PubSub settings.",
               "additionalProperties": true,
               "properties": {
                 "endpoint": {
@@ -3348,8 +3297,7 @@
               "description": "Mercury service address."
             },
             "username": {
-              "type": "string",
-              "description": "Mercury username."
+              "type": "string"
             }
           }
         },
@@ -3395,8 +3343,7 @@
                   "description": "New Relic log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -3422,8 +3369,7 @@
                   "description": "Loggly log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -3460,8 +3406,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -3530,8 +3475,7 @@
               "description": "Use exported tenant template files"
             },
             "templateTenantFilesPath": {
-              "type": "string",
-              "description": "Path to template tenant files"
+              "type": "string"
             },
             "volumeClaimName": {
               "type": "string",
@@ -3562,8 +3506,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -3625,7 +3568,7 @@
             "redisSettings": {
               "type": "object",
               "additionalProperties": true,
-              "description": "Chart-managed Redis StatefulSet settings. The Queue Reader's connection string is generated into the internal-services Secret (QueueService_RedisCache_ConnectionString), never taken from values.",
+              "description": "Chart-managed Redis settings. The Queue Reader's connection string is generated by the chart, never taken from values.",
               "properties": {
                 "resources": {
                   "$ref": "#/definitions/workloadResources",
@@ -3641,7 +3584,7 @@
                 },
                 "existingClaim": {
                   "type": "string",
-                  "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the Redis data volume. When set, the StatefulSet uses this claim and emits no volumeClaimTemplates."
+                  "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the Redis data volume."
                 },
                 "replicas": {
                   "type": "integer",
@@ -3674,7 +3617,7 @@
                 },
                 "existingClaim": {
                   "type": "string",
-                  "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the RabbitMQ data volume. When set, the StatefulSet uses this claim and emits no volumeClaimTemplates."
+                  "description": "Name of an existing PersistentVolumeClaim in the release namespace to mount as the RabbitMQ data volume."
                 },
                 "virtualhost": {
                   "type": "string",
@@ -3750,16 +3693,13 @@
           "description": "Custom SystemVariables exposed to workflows. Each item: {name, value}.",
           "items": {
             "type": "object",
-            "description": "",
             "additionalProperties": true,
             "properties": {
               "name": {
-                "type": "string",
-                "description": "Variable name."
+                "type": "string"
               },
               "value": {
-                "type": "string",
-                "description": "Variable value."
+                "type": "string"
               }
             }
           }
@@ -3774,12 +3714,10 @@
               "description": "Enable Web PubSub."
             },
             "provider": {
-              "type": "string",
-              "description": "PubSub provider."
+              "type": "string"
             },
             "azureSettings": {
               "type": "object",
-              "description": "Azure PubSub settings.",
               "additionalProperties": true,
               "properties": {
                 "endpoint": {
@@ -3832,8 +3770,7 @@
                   "description": "New Relic log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -3859,8 +3796,7 @@
                   "description": "Loggly log ingest endpoint."
                 },
                 "logLevelDefault": {
-                  "type": "string",
-                  "description": "Default forwarded level."
+                  "type": "string"
                 },
                 "rpiTrace": {
                   "type": "string",
@@ -3916,8 +3852,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -4058,8 +3993,7 @@
               "description": "Use Azure credentials for Redis"
             },
             "port": {
-              "type": "integer",
-              "description": "Redis port"
+              "type": "integer"
             },
             "resources": {
               "$ref": "#/definitions/resources",
@@ -4087,7 +4021,6 @@
         },
         "replicas": {
           "type": "integer",
-          "description": "Number of replicas.",
           "minimum": 0
         },
         "rollout": {
@@ -4095,8 +4028,7 @@
           "description": "Argo Rollout settings, used when type is rollout."
         },
         "serviceAccount": {
-          "$ref": "#/definitions/serviceAccount",
-          "description": "ServiceAccount for this service."
+          "$ref": "#/definitions/serviceAccount"
         },
         "terminationGracePeriodSeconds": {
           "type": "integer",
@@ -4155,7 +4087,7 @@
         },
         "secrets": {
           "type": "object",
-          "description": "Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in kubernetes and csi modes, which bind the shared Secret key.",
+          "description": "Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in kubernetes and csi modes.",
           "additionalProperties": true,
           "properties": {
           "azure": {
@@ -4214,7 +4146,7 @@
           "properties": {
             "provider": {
               "type": "string",
-              "description": "Active messaging transport (chart-standard vocabulary; mapped to each application's own enum at render)",
+              "description": "Active messaging transport",
               "enum": [
                 "azureeventhubs",
                 "amazonsqs",
@@ -4296,7 +4228,7 @@
         "twilioPlugin": {
           "type": "object",
           "additionalProperties": false,
-          "description": "RPI-side Twilio plugin resources, emitted to the Execution Service / Interaction API as Plugins__Twilio__* when twiliomessaging.enabled=true. Shared transport identifiers derive from the eventHubs/sqs/pubsub blocks; these are the resources RPI owns.",
+          "description": "Twilio plugin resources owned by RPI, applied when twiliomessaging.enabled=true. Shared transport identifiers come from the eventHubs/sqs/pubsub blocks.",
           "properties": {
             "messagingServicesPath": {
               "type": "string",
@@ -4362,8 +4294,7 @@
               "description": "External Redis hostname (required when type=external)"
             },
             "port": {
-              "type": "integer",
-              "description": "Redis port"
+              "type": "integer"
             },
             "useTls": {
               "type": "boolean",
@@ -4401,8 +4332,7 @@
               "description": "PostgreSQL host (when reuseOperational=false)"
             },
             "port": {
-              "type": "integer",
-              "description": "PostgreSQL port"
+              "type": "integer"
             },
             "database": {
               "type": "string",
@@ -4505,12 +4435,10 @@
               "description": "SFTP server hostname"
             },
             "sftpUsername": {
-              "type": "string",
-              "description": "SFTP username"
+              "type": "string"
             },
             "sftpPort": {
-              "type": "string",
-              "description": "SFTP port"
+              "type": "string"
             },
             "useSftp": {
               "type": "boolean",
@@ -4581,8 +4509,7 @@
           "description": "OpenID authorization endpoint URL"
         },
         "clientID": {
-          "type": "string",
-          "description": "OpenID client ID"
+          "type": "string"
         },
         "audience": {
           "type": "string",
@@ -4627,20 +4554,17 @@
       "additionalProperties": true,
       "properties": {
         "SMTP_SenderAddress": {
-          "type": "string",
-          "description": "Sender email address"
+          "type": "string"
         },
         "SMTP_SenderName": {
-          "type": "string",
-          "description": "Sender display name"
+          "type": "string"
         },
         "SMTP_Address": {
           "type": "string",
           "description": "SMTP server hostname"
         },
         "SMTP_Port": {
-          "type": "integer",
-          "description": "SMTP server port"
+          "type": "integer"
         },
         "EnableSSL": {
           "type": "boolean",
@@ -4651,8 +4575,7 @@
           "description": "Use authentication credentials for SMTP"
         },
         "SMTP_Username": {
-          "type": "string",
-          "description": "SMTP authentication username"
+          "type": "string"
         }
       }
     },
@@ -4663,7 +4586,6 @@
       "properties": {
         "controller": {
           "type": "object",
-          "description": "Ingress controller configuration",
           "additionalProperties": true,
           "properties": {
             "enabled": {
@@ -4690,7 +4612,7 @@
         },
         "tls": {
           "type": "array",
-          "description": "TLS configuration entries (rendered when certificateSource=kubernetes)",
+          "description": "TLS configuration entries. Applies when certificateSource=kubernetes",
           "items": {
             "type": "object",
             "additionalProperties": true,
@@ -4723,7 +4645,6 @@
         },
         "privateLink": {
           "type": "object",
-          "description": "Private link configuration",
           "additionalProperties": true,
           "properties": {
             "azure": {
@@ -4810,7 +4731,6 @@
     },
     "networkPolicy": {
       "type": "object",
-      "description": "Kubernetes Network Policy configuration",
       "additionalProperties": true,
       "properties": {
         "enabled": {
@@ -4825,7 +4745,6 @@
     },
     "serviceMesh": {
       "type": "object",
-      "description": "Service mesh configuration",
       "additionalProperties": true,
       "properties": {
         "enabled": {
@@ -4847,17 +4766,14 @@
             "additionalProperties": true,
             "properties": {
               "name": {
-                "type": "string",
-                "description": "Server name"
+                "type": "string"
               },
               "podSelector": {
                 "type": "object",
-                "description": "Pod label selector",
                 "additionalProperties": true
               },
               "port": {
-                "type": "integer",
-                "description": "Service port"
+                "type": "integer"
               },
               "proxyProtocol": {
                 "type": "string",
@@ -4911,16 +4827,14 @@
           "description": "Toleration effect (e.g., NoSchedule)"
         },
         "key": {
-          "type": "string",
-          "description": "Toleration key"
+          "type": "string"
         },
         "operator": {
           "type": "string",
           "description": "Toleration operator (e.g., Equal, Exists)"
         },
         "value": {
-          "type": "string",
-          "description": "Toleration value"
+          "type": "string"
         }
       }
     },
@@ -4978,20 +4892,17 @@
               "additionalProperties": false,
               "properties": {
                 "EmbeddingsModel": {
-                  "type": "string",
-                  "description": "Embeddings model name"
+                  "type": "string"
                 },
                 "ModelDimensions": {
-                  "type": "integer",
-                  "description": "Model embedding dimensions"
+                  "type": "integer"
                 },
                 "ContainerName": {
                   "type": "string",
                   "description": "Blob container name for models"
                 },
                 "BlobFolder": {
-                  "type": "string",
-                  "description": "Blob folder name for models"
+                  "type": "string"
                 }
               }
             },
@@ -5224,20 +5135,17 @@
           "minimum": 0
         },
         "hostname": {
-          "type": "string",
-          "description": "Keycloak hostname"
+          "type": "string"
         },
         "username": {
           "type": "string",
           "description": "Keycloak admin username"
         },
         "database_name": {
-          "type": "string",
-          "description": "Keycloak database name"
+          "type": "string"
         },
         "realm_name": {
-          "type": "string",
-          "description": "Keycloak realm name"
+          "type": "string"
         },
         "resources": {
           "$ref": "#/definitions/workloadResources",
@@ -5285,12 +5193,10 @@
               "description": "Enable Sigma reporting integration"
             },
             "api_url": {
-              "type": "string",
-              "description": "Sigma API URL"
+              "type": "string"
             },
             "client_id": {
-              "type": "string",
-              "description": "Sigma client ID"
+              "type": "string"
             }
           }
         }
@@ -5317,8 +5223,7 @@
               "additionalProperties": true,
               "properties": {
                 "name": {
-                  "type": "string",
-                  "description": "Database name"
+                  "type": "string"
                 }
               }
             }
@@ -5587,7 +5492,7 @@
     },
     "podLabels": {
       "type": "object",
-      "description": "Labels applied to pod templates only (not Deployment metadata)",
+      "description": "Labels applied to pods",
       "additionalProperties": {
         "type": "string"
       }
@@ -5612,7 +5517,7 @@
     },
     "databaseUpgrade": {
       "type": "object",
-      "description": "Automatic database upgrade job - calls the upgrade endpoint after an image tag change. The net-utils image resolves through the canonical rpi.image helper; override via global.deployment.images.overrides.net-utils or global.deployment.images.nameOverrides.net-utils.",
+      "description": "Automatic database upgrade job - calls the upgrade endpoint after an image tag change.",
       "additionalProperties": true,
       "properties": {
         "enabled": {
@@ -5687,7 +5592,7 @@
             "properties": {
               "enabled": {
                 "type": "boolean",
-                "description": "Render this validation pod. Default true; set false to skip the entry without deleting it."
+                "description": "Enable this validation pod. Set false to skip the entry without deleting it."
               },
               "name": {
                 "type": "string",
@@ -5724,23 +5629,23 @@
     },
     "securityContext": {
       "$ref": "#/definitions/chartSecurityContext",
-      "description": "Global pod security context overrides (merged with defaults from _defaults.tpl)"
+      "description": "Global pod security context overrides"
     },
     "livenessProbe": {
       "$ref": "#/definitions/probe",
-      "description": "Global liveness probe overrides (merged with defaults from _defaults.tpl)"
+      "description": "Global liveness probe overrides"
     },
     "readinessProbe": {
       "$ref": "#/definitions/probe",
-      "description": "Global readiness probe overrides (merged with defaults from _defaults.tpl)"
+      "description": "Global readiness probe overrides"
     },
     "startupProbe": {
       "$ref": "#/definitions/probe",
-      "description": "Global startup probe overrides (merged with defaults from _defaults.tpl)"
+      "description": "Global startup probe overrides"
     },
     "topologySpreadConstraints": {
       "type": "object",
-      "description": "Global topology spread constraints overrides (merged with defaults from _defaults.tpl)",
+      "description": "Global topology spread constraints overrides",
       "additionalProperties": true,
       "properties": {
         "enabled": {
@@ -5859,12 +5764,10 @@
         },
         "karpenter": {
           "type": "object",
-          "description": "Karpenter NodePool configuration",
           "additionalProperties": true,
           "properties": {
             "nodePool": {
               "type": "object",
-              "description": "nodePool settings.",
               "additionalProperties": true,
               "properties": {
                 "disruption": {
@@ -6503,7 +6406,6 @@
     },
     "serviceAccount": {
       "type": "object",
-      "description": "ServiceAccount for this service.",
       "additionalProperties": true,
       "properties": {
         "enabled": {
