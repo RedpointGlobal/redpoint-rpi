@@ -973,6 +973,16 @@ Usage: {{- include "rpi.customCACerts.volume" . | nindent 8 }}
 {{- end -}}
 
 {{/*
+Operator supplied Custom environment variables applied to every RPI deployment
+*/}}
+{{- define "rpi.commonEnvVars" -}}
+{{- range .Values.commonEnvVars }}
+- name: {{ .name }}
+  value: {{ .value | quote }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Custom CA certificate env var (SSL_CERT_FILE).
 Usage: {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
 */}}

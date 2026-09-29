@@ -5349,6 +5349,26 @@
         "type": "string"
       }
     },
+    "commonEnvVars": {
+      "type": "array",
+      "description": "Environment variables applied to every RPI application service. Name and value only.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "serviceAccountAnnotations": {
       "type": "object",
       "description": "Additional annotations for ServiceAccounts (merged with commonAnnotations)",

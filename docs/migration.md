@@ -146,6 +146,18 @@ redpointAI:
     enableTrace: true   # verbose NLP request/response tracing (default false); requires redpointAI.enabled: true
 ```
 
+### Common environment variables
+
+`commonEnvVars` provides a centralized way to set custom environment variables on every RPI application container. It is disabled by default and follows the same pattern as `commonAnnotations`.
+
+```yaml
+commonEnvVars:
+  - name: DT_TAGS
+    value: "environment=production"
+```
+
+Each entry supports standard Kubernetes environment variable fields, including name and value. This setting is general-purpose and can be used for observability, internal tooling, or other customer-specific integrations.
+
 </details>
 
 <details>
