@@ -56,7 +56,7 @@ The `environmentName` parameter drives a deterministic hash that names all resou
 
 | Parameter | Required | Default | Description |
 |:----------|:---------|:--------|:------------|
-| `imageTag` | No | `7.8.20260925.1551` | RPI container image tag |
+| `imageTag` | No | `7.8.20260930.1231` | RPI container image tag |
 | `imageRegistry` | No | `rg1acrpub.azurecr.io/docker/redpointglobal/releases` | Container registry path (without image name) |
 | `registryServer` | No | `rg1acrpub.azurecr.io` | Registry server hostname (used for authentication) |
 | `registryUsername` | No | | Registry pull username |
