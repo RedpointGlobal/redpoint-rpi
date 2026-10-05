@@ -7,7 +7,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: {{ $name }}
 rules:
 - apiGroups:
@@ -86,7 +88,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
 rules:
@@ -188,7 +192,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
 roleRef:
@@ -205,7 +211,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
 roleRef:
@@ -222,7 +230,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: nginx-config
   namespace: {{ .Release.Namespace }}
 data:
@@ -232,7 +242,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: tcp-services
   namespace: {{ .Release.Namespace }}
 data:
@@ -242,7 +254,9 @@ apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: {{ $ingCfg.className }}
 spec:
   controller: k8s.io/ingress-nginx
@@ -252,7 +266,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
     {{- with .Values.customLabels }}
     {{- toYaml . | nindent 4 }} 
     {{- end }}
@@ -271,7 +287,9 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 8 }}
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/part-of: rpi
+        app.kubernetes.io/component: ingress
         {{- with .Values.customLabels }}
         {{- toYaml . | nindent 8 }} 
         {{- end }}
@@ -368,7 +386,9 @@ metadata:
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   annotations:
     {{- if eq .Values.global.deployment.platform "azure" }}
     {{- if eq $ingCfg.mode "private" }}
@@ -428,14 +448,18 @@ spec:
       targetPort: https
       appProtocol: https
   selector:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   name: {{ $name }}
   namespace: {{ .Release.Namespace }}
 automountServiceAccountToken: true

@@ -14,7 +14,9 @@ metadata:
   name: redpoint-rpi
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "redpoint-rpi" "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: redpoint-rpi
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
 spec:
@@ -171,7 +173,8 @@ metadata:
   name: ingress-cdp
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "smartactivation.componentLabels" (dict "root" . "name" "ingress-cdp" "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: ingress-cdp
+    app.kubernetes.io/part-of: smartactivation
   annotations:
     nginx.ingress.kubernetes.io/connection-proxy-header: keep-alive
     nginx.ingress.kubernetes.io/enable-rewrite-log: "true"
@@ -266,7 +269,9 @@ metadata:
   name: ingress-cdp-socketio
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "ingress-cdp-socketio" "component" "ingress") | nindent 4 }}
+    app.kubernetes.io/name: ingress-cdp-socketio
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: ingress
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: 99m
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
@@ -319,7 +324,9 @@ metadata:
   name: rpi-mcpserver
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "rpi-mcpserver" "component" "mcpserver") | nindent 4 }}
+    app.kubernetes.io/name: rpi-mcpserver
+    app.kubernetes.io/part-of: rpi
+    app.kubernetes.io/component: mcpserver
   annotations:
     {{- include "rpi.ingress.annotations" . | nindent 4 }}
     # Streamable HTTP holds the response open; buffering stalls it until the call ends.
