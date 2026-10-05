@@ -226,7 +226,7 @@ The transport objects are not created for you. Hubs, queues, topics, subscriptio
 
 ### Common environment variables
 
-`commonEnvVars` sets environment variables on every RPI application service from one place, following the same pattern as `commonAnnotations`. It is empty by default and inert when empty.
+`commonEnvVars` provides a centralized way to set custom environment variables on every RPI application container. It is disabled by default and follows the same pattern as `commonAnnotations`.
 
 ```yaml
 commonEnvVars:
@@ -234,9 +234,7 @@ commonEnvVars:
     value: "environment=production"
 ```
 
-Name and value only. The variables are emitted on the Interaction API, Integration API, Deployment API, Callback API, Realtime API, Execution Service, Node Manager, Queue Reader, Rebrandly, and Twilio Messaging. They are not emitted on chart deployed infrastructure such as the Redis and RabbitMQ workloads, on Smart Activation, or on the Redpoint AI workloads.
-
-If your v7.7 overrides already carried a `commonEnvVars` block it had no effect, because the setting did not exist. Confirm the values are the ones you want before upgrading, because they now reach the pods.
+Each entry supports standard Kubernetes environment variable fields, including name and value. This setting is general-purpose and can be used for observability, internal tooling, or other customer-specific integrations.
 
 </details>
 
