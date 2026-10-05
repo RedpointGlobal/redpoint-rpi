@@ -253,7 +253,6 @@ kind: Deployment
 metadata:
   labels:
     {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 4 }}
-    app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
     {{- with .Values.customLabels }}
     {{- toYaml . | nindent 4 }} 
     {{- end }}
@@ -273,7 +272,6 @@ spec:
     metadata:
       labels:
         {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "ingress") | nindent 8 }}
-        app.kubernetes.io/version: {{ .Values.global.deployment.images.tag | quote }}
         {{- with .Values.customLabels }}
         {{- toYaml . | nindent 8 }} 
         {{- end }}
