@@ -224,50 +224,41 @@ spec:
         {{- end }}
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
         {{- $secrets := not (eq .Values.secretsManagement.provider "sdk") }}
-        {{- if eq .Values.databases.operational.provider "postgresql" }}
-        {{- /* the image builds the datasource itself for this vendor, so it is handed the
-               parts rather than a url. the vendor string must be postgresql, not postgres. */}}
-        - name: KEYCLOAK_DATABASE_VENDOR
-          value: postgresql
-        - name: KEYCLOAK_DATABASE_PORT
-          value: "5432"
+        {{- $host := .Values.databases.operational.server_host }}
+        {{- /* keycloak is configured through KC_* only. the image generates a keycloak.conf
+               from its own KEYCLOAK_DATABASE_* variables, and environment beats that file,
+               so these win. the vendor below is set purely to steer the image's readiness
+               probe, which exits 1 when it is postgresql and the host is unreachable. */}}
         {{- if $secrets }}
-        - name: KEYCLOAK_DATABASE_HOST
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: Operations_Database_ServerHost
-        - name: KEYCLOAK_DATABASE_USER
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: Operations_Database_Server_Username
-        - name: KEYCLOAK_DATABASE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: Operations_Database_Server_Password
-        {{- else }}
-        - name: KEYCLOAK_DATABASE_HOST
-          value: {{ .Values.databases.operational.server_host | quote }}
-        - name: KEYCLOAK_DATABASE_USER
-          value: {{ .Values.databases.operational.server_username | quote }}
-        {{- end }}
-        {{- else }}
-        {{- /* for any other vendor the image sets only the vendor, so the datasource is
-               supplied here. sqlserveronvm is SQL Server and takes the same shape. */}}
-        - name: KEYCLOAK_DATABASE_VENDOR
-          value: mssql
-        - name: KC_DB
-          value: "mssql"
-        {{- if $secrets }}
+        {{- $host = "$(KC_DB_HOST)" }}
         - name: KC_DB_HOST
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: Operations_Database_ServerHost
+        {{- end }}
+        {{- if eq .Values.databases.operational.provider "postgresql" }}
+        - name: KEYCLOAK_DATABASE_VENDOR
+          value: postgresql
+        - name: KEYCLOAK_DATABASE_HOST
+          value: "{{ $host }}"
+        - name: KEYCLOAK_DATABASE_PORT
+          value: "5432"
+        - name: KC_DB
+          value: "postgres"
         - name: KC_DB_URL
-          value: "jdbc:sqlserver://$(KC_DB_HOST);databaseName={{ $cfg.database_name }};"
+          value: "jdbc:postgresql://{{ $host }}:5432/{{ $cfg.database_name }}"
+        {{- else }}
+        {{- /* the probe only runs for postgresql, so sql server never reaches it.
+               sqlserveronvm is SQL Server and takes the same driver and url shape. */}}
+        - name: KEYCLOAK_DATABASE_VENDOR
+          value: mssql
+        - name: KC_DB
+          value: "mssql"
+        - name: KC_DB_URL
+          value: "jdbc:sqlserver://{{ $host }};databaseName={{ $cfg.database_name }};"
+        {{- end }}
+        {{- if $secrets }}
         - name: KC_DB_USERNAME
           valueFrom:
             secretKeyRef:
@@ -279,11 +270,8 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: Operations_Database_Server_Password
         {{- else }}
-        - name: KC_DB_URL
-          value: "jdbc:sqlserver://{{ .Values.databases.operational.server_host }};databaseName={{ $cfg.database_name }};"
         - name: KC_DB_USERNAME
           value: {{ .Values.databases.operational.server_username | quote }}
-        {{- end }}
         {{- end }}
         - name: KEYCLOAK_PRODUCTION
           value: "false"
