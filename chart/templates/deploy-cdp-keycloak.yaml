@@ -223,13 +223,22 @@ spec:
           value: {{ .Values.global.deployment.podTimezone | quote }}
         {{- end }}
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
-        {{- if eq .Values.databases.operational.provider "sqlserver" }}
+        {{- if eq .Values.databases.operational.provider "postgresql" }}
+        - name: KEYCLOAK_DATABASE_VENDOR
+          value: postgres
+        - name: KC_DB
+          value: "postgres"
+        - name: KC_DB_URL
+          value: "jdbc:postgresql://{{ .Values.databases.operational.server_host }}:5432/{{ $cfg.database_name }}"
+        {{- else }}
+        {{- /* sqlserveronvm is SQL Server, so it takes the same driver and url shape */}}
         - name: KEYCLOAK_DATABASE_VENDOR
           value: mssql
         - name: KC_DB
           value: "mssql"
         - name: KC_DB_URL
           value: "jdbc:sqlserver://{{ .Values.databases.operational.server_host }};databaseName={{ $cfg.database_name }};"
+        {{- end }}
         - name: KC_DB_USERNAME
           value: {{ .Values.databases.operational.server_username | quote }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
@@ -238,7 +247,6 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: Operations_Database_Server_Password
-        {{- end }}
         {{- end }}
         - name: KEYCLOAK_PRODUCTION
           value: "false"
