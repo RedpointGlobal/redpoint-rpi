@@ -225,7 +225,8 @@ spec:
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
         {{- $secrets := not (eq .Values.secretsManagement.provider "sdk") }}
         {{- $host := .Values.databases.operational.server_host }}
-        {{- $host = "$(KC_D_HOST)" }}
+        {{- if $secrets }}
+        {{- $host = "$(KC_DB_HOST)" }}
         - name: KC_DB_HOST
           valueFrom:
             secretKeyRef:
