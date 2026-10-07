@@ -225,12 +225,7 @@ spec:
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
         {{- $secrets := not (eq .Values.secretsManagement.provider "sdk") }}
         {{- $host := .Values.databases.operational.server_host }}
-        {{- /* keycloak is configured through KC_* only. the image generates a keycloak.conf
-               from its own KEYCLOAK_DATABASE_* variables, and environment beats that file,
-               so these win. the vendor below is set purely to steer the image's readiness
-               probe, which exits 1 when it is postgresql and the host is unreachable. */}}
-        {{- if $secrets }}
-        {{- $host = "$(KC_DB_HOST)" }}
+        {{- $host = "$(KC_D_HOST)" }}
         - name: KC_DB_HOST
           valueFrom:
             secretKeyRef:
