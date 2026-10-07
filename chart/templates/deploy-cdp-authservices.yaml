@@ -272,6 +272,8 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CDP_Keycloak_Admin_Password
         {{- end }}
+        - name: SMTP_FROM
+          value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
         - name: SMTP_FROM_DISPLAY_NAME
           value: {{ .Values.SMTPSettings.SMTP_SenderName | quote }}
         - name: KEYCLOAK_HOST

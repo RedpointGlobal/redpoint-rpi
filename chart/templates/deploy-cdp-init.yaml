@@ -279,6 +279,8 @@ spec:
           value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
         - name: SMTP_PROTOCOL
           value: SMTP
+        - name: SMTP_FROM
+          value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
         - name: SSO_ENABLED
           value: {{ $cfg.sso_enabled | quote }}
         - name: KEYCLOAK_HOST

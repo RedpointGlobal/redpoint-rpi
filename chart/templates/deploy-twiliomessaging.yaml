@@ -206,9 +206,8 @@ spec:
           value: "http://+:8080"
         - name: Logging__LogLevel__Default
           value: {{ $cfg.logging.default | quote }}
-        - name: Logging__LogLevel__Microsoft_AspNetCore
+        - name: Logging__LogLevel__Microsoft__AspNetCore
           value: {{ $cfg.logging.aspNetCore | quote }}
-
         # Messaging transport selector
         {{- if eq $cfg.messaging.provider "azureeventhubs" }}
         - name: MessagingProvider
