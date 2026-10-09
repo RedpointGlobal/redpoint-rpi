@@ -270,30 +270,30 @@ spec:
         - name: RPI__UserManagement__Keycloak__ClientSecret
           valueFrom:
             secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
+              name: {{ .Values.cloudIdentity.secretsManagement.secretName | quote }}
               key: CDP_Keycloak_Client_Secret
         - name: Authentication__OpenIdProviders__0__Name
           value: "Keycloak"
         - name: Authentication__OpenIdProviders__0__AuthorizationHost
-          value: {{ .Values.OpenIdProviders.authorizationHost | quote }}
+          value: "https://{{ .Values.ingress.hosts.webui }}.{{ .Values.ingress.domain }}/auth/realms/redpoint-mercury"
         - name: Authentication__OpenIdProviders__0__ClientID
-          value: {{ .Values.OpenIdProviders.clientID | quote }}
+          value: "rpi"
         - name: Authentication__OpenIdProviders__0__Audience
           value: "redpoint_dcc_internal"
         - name: Authentication__OpenIdProviders__0__RedirectURL
           value: {{ .Values.OpenIdProviders.redirectURL | quote }}
         - name: Authentication__OpenIdProviders__0__EnableRefreshTokens
-          value: {{ .Values.OpenIdProviders.enableRefreshTokens | quote }}
+          value: "true"
         - name: Authentication__OpenIdProviders__0__ValidateIssuer
-          value: {{ .Values.OpenIdProviders.validateIssuer | quote }}
+          value: "false"
         - name: Authentication__OpenIdProviders__0__ValidateAudience
-          value: {{ .Values.OpenIdProviders.validateAudience | quote }}
-        - name: Authentication__OpenIdProviders__0__SupportsUserManagement
-          value: {{ .Values.OpenIdProviders.supportsUserManagement | quote }}
+          value: "false"
         - name: Authentication__OpenIdProviders__0__LogoutIdTokenParameter
-          value: {{ .Values.OpenIdProviders.logoutIdTokenParameter | quote }}
+          value: "id_token_hint"
         - name: Authentication__OpenIdProviders__0__MetadataHost
           value: "http://cdp-keycloak/auth/realms/redpoint-mercury"
+        - name: Authentication__OpenIdProviders__0__SupportsUserManagement
+          value: "true"
         {{- end }}
         {{- end }}
         {{- if .Values.OpenIdProviders.enabled }}

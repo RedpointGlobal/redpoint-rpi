@@ -298,7 +298,7 @@ spec:
         - name: Authentication__OpenIdProviders__0__Name
           value: "Keycloak"
         - name: Authentication__OpenIdProviders__0__AuthorizationHost
-          value: {{ .Values.OpenIdProviders.authorizationHost | quote }}
+          value: "https://{{ .Values.ingress.hosts.smartactivation }}.{{ .Values.ingress.domain }}/auth/realms/redpoint-mercury"
         - name: Authentication__OpenIdProviders__0__ClientID
           value: {{ .Values.OpenIdProviders.clientID | quote }}
         - name: Authentication__OpenIdProviders__0__Audience
