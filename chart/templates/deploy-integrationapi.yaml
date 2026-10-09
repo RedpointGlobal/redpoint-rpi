@@ -270,30 +270,30 @@ spec:
         - name: RPI__UserManagement__Keycloak__ClientSecret
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.cloudIdentity.secretsManagement.secretName | quote }}
+              name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CDP_Keycloak_Client_Secret
         - name: Authentication__OpenIdProviders__0__Name
           value: "Keycloak"
         - name: Authentication__OpenIdProviders__0__AuthorizationHost
-          value: "https://{{ .Values.ingress.hosts.webui }}.{{ .Values.ingress.domain }}/auth/realms/redpoint-mercury"
+          value: "https://{{ .Values.ingress.hosts.smartactivation }}.{{ .Values.ingress.domain }}/auth/realms/redpoint-mercury"
         - name: Authentication__OpenIdProviders__0__ClientID
-          value: "rpi"
+          value: {{ .Values.OpenIdProviders.clientID | quote }}
         - name: Authentication__OpenIdProviders__0__Audience
           value: "redpoint_dcc_internal"
         - name: Authentication__OpenIdProviders__0__RedirectURL
           value: {{ .Values.OpenIdProviders.redirectURL | quote }}
         - name: Authentication__OpenIdProviders__0__EnableRefreshTokens
-          value: "true"
+          value: {{ .Values.OpenIdProviders.enableRefreshTokens | quote }}
         - name: Authentication__OpenIdProviders__0__ValidateIssuer
-          value: "false"
+          value: {{ .Values.OpenIdProviders.validateIssuer | quote }}
         - name: Authentication__OpenIdProviders__0__ValidateAudience
-          value: "false"
+          value: {{ .Values.OpenIdProviders.validateAudience | quote }}
+        - name: Authentication__OpenIdProviders__0__SupportsUserManagement
+          value: {{ .Values.OpenIdProviders.supportsUserManagement | quote }}
         - name: Authentication__OpenIdProviders__0__LogoutIdTokenParameter
-          value: "id_token_hint"
+          value: {{ .Values.OpenIdProviders.logoutIdTokenParameter | quote }}
         - name: Authentication__OpenIdProviders__0__MetadataHost
           value: "http://cdp-keycloak/auth/realms/redpoint-mercury"
-        - name: Authentication__OpenIdProviders__0__SupportsUserManagement
-          value: "true"
         {{- end }}
         {{- end }}
         {{- if .Values.OpenIdProviders.enabled }}
