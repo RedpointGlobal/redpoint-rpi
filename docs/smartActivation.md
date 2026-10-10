@@ -35,9 +35,9 @@ Before enabling Smart Activation, ensure you have:
 
 Smart Activation reads every credential from the RPI Kubernetes Secret
 (`redpoint-rpi-secrets` by default), the same Secret the RPI services use.
-Populate these keys before deploying, using whichever secrets provider your
-deployment runs (`kubernetes`, `csi`, or `sdk`; see
-[Secrets Management](secrets-management.md)). Passwords are never set in the
+Populate these keys before deploying. Smart Activation supports the `kubernetes`
+and `csi` secrets providers. The chart refuses to render it with `sdk`. See
+[Secrets Management](secrets-management.md). Passwords are never set in the
 overrides file.
 
 | Secret key | Used for |
@@ -49,6 +49,7 @@ overrides file.
 | `CDP_Mongo_ConnectionString` | Connection string of the Smart Activation MongoDB database |
 | `CDP_RabbitMQ_Password` | Password of the Smart Activation message queue |
 | `CDP_SIGMA_Client_Secret` | Sigma client secret, only when `reportingservice.sigma.enabled: true` |
+| `SMTP_Password` | Password of the mail account in `SMTPSettings.SMTP_Username` |
 
 Then add the following to your overrides file. Only the usernames and
 database name are configuration; the matching passwords come from the

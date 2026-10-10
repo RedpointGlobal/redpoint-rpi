@@ -8,6 +8,10 @@
 {{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
 {{- $name := "cdp-init" -}}
 
+{{- if and .Values.smartActivation.enabled (eq .Values.secretsManagement.provider "sdk") -}}
+{{- fail "smartActivation requires secretsManagement.provider kubernetes or csi" -}}
+{{- end -}}
+
 {{- if .Values.smartActivation.enabled }}
 {{- if ne (.Values.cloudIdentity.serviceAccount.mode | default "per-service") "shared" }}
 apiVersion: v1

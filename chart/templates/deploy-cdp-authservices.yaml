@@ -211,7 +211,7 @@ spec:
         - name: Authentication__OpenIdProviders__0__RedirectURL
           value: {{ .Values.OpenIdProviders.redirectURL | quote }}
         - name: LOG_LEVEL
-          value: {{ .Values.authservice.logging.verbosity | quote }}
+          value: {{ $cfg.logging.verbosity | quote }}
         - name: API_BASE_URL
           value: "https://{{ .Values.ingress.hosts.webui }}.{{ .Values.ingress.domain }}"
         - name: RPI_SHARED_USER
@@ -230,13 +230,13 @@ spec:
         - name: CACHE_PORT
           value: "6379"
         - name: _JAVA_OPTIONS
-          value: {{ .Values.authservice.resources.java_options | quote }}
+          value: {{ $cfg.resources.java_opts | quote }}
         - name: SMTP_HOST
-          value: {{ .Values.smtp.hostname | quote }}
+          value: {{ .Values.SMTPSettings.SMTP_Address | quote }}
         - name: SMTP_PORT
-          value: {{ .Values.smtp.port | quote }}
+          value: {{ .Values.SMTPSettings.SMTP_Port | quote }}
         - name: SMTP_USER
-          value: {{ .Values.smtp.username | quote }}
+          value: {{ .Values.SMTPSettings.SMTP_Username | quote }}
         - name: SMTP_PROTOCOL
           value: SMTP
         - name: SMTP_PASS
@@ -245,9 +245,9 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: SMTP_Password
         - name: SMTP_FROM
-          value: {{ .Values.smtp.from_address | quote }}
+          value: {{ .Values.SMTPSettings.SMTP_SenderAddress | quote }}
         - name: SMTP_FROM_DISPLAY_NAME
-          value: {{ .Values.smtp.from_display_name | quote }}
+          value: {{ .Values.SMTPSettings.SMTP_SenderName | quote }}
         - name: KEYCLOAK_HOST
           value: {{ .Values.keycloak.hostname | quote }}
         - name: KEYCLOAK_PORT
@@ -272,7 +272,7 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: CDP_Mongo_ConnectionString
         - name: MONGODB_MERCURY_DB
-          value: {{ .Values.databases.operational.mongodb.database_name | quote}}
+          value: {{ .Values.initservice.database.operational.name | quote }}
         {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         volumeMounts:
           - name: tempstore
