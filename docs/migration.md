@@ -1,143 +1,32 @@
 ![redpoint_logo](../chart/images/redpoint.png)
-# Upgrading from v7.7 to v7.8
+# Upgrading from v7.8 to v7.9
 
 [< Back to Home](../README.md)
 
-This guide covers upgrading an existing RPI v7.7 Helm deployment to v7.8. If you're deploying RPI for the first time, see the [Greenfield Installation](greenfield.md) guide instead.
+This guide covers upgrading an existing RPI v7.8 Helm deployment to v7.9. If you're deploying RPI for the first time, see the [Greenfield Installation](greenfield.md) guide instead.
 
-> **Not ready to upgrade?** The `release/v7.7` branch remains available on GitHub for critical fixes. You can stay on v7.7 as long as needed.
+> **Not ready to upgrade?** The v7.8 chart on the `main` branch remains available for critical fixes. You can stay on v7.8 as long as needed.
 
 ---
 
 <details>
 <summary><strong style="font-size:1.25em;">What Changed in the Helm Chart</strong></summary>
 
-v7.8 is designed to preserve existing v7.7 configuration. Most existing overrides require no changes. A small number of settings have changed behavior or been removed; these are identified below. In particular, BigQuery service account connections continue to use the existing ConfigMap and key (see Changed in v7.8 and the checklist below).
+Most v7.8 overrides carry over unchanged. A small number of settings have moved, changed behavior or been removed. They are listed in the Upgrade Checklist below.
 
 | Area | Change |
 |:---|:---|
-| Google Cloud SQL | Passwordless IAM connectivity via the Cloud SQL Auth Proxy |
-| BigQuery | Data-warehouse support with keyless Workload Identity |
-| Realtime API | Expanded geolocation, identity, profile/ML processing, integration, and operational configuration |
-| Interaction API | Expanded auth/security, logging, integration, and operational configuration |
-| Queue Reader | Expanded logging, integration, distributed-processing, and operational configuration |
 | Redpoint AI | Restructured into a shared model block plus capabilities enabled on their own. New MCP tool server and agent runtime |
-| RPI NLP | Trace logging for NLP request/response diagnostics |
 | Twilio Messaging | New opt-in SMS service with its own PostgreSQL store, Redis, and message transport |
 | Common environment variables | Set environment variables on every RPI application service from one place |
+| Smart Activation | Mail settings come from `SMTPSettings`, Keycloak is reached through its in-cluster service, images can be overridden like RPI images, and the `sdk` secrets provider is refused |
+| Keycloak sign-in | With `OpenIdProviders.name: keycloak`, the authorization host is built from `ingress.hosts.smartactivation` |
+| `sdk` secrets provider | Whether the Deployment API signs in to the database with a username and password is set in the vault. Rebrandly reads its API key from the Kubernetes Secret |
 
 </details>
 
 <details>
 <summary><strong style="font-size:1.25em;">New Chart Features</strong></summary>
-
-### Google Cloud SQL (PostgreSQL) with IAM authentication
-
-RPI can connect to a Google Cloud SQL for PostgreSQL instance using passwordless IAM authentication through the Cloud SQL Auth Proxy, which runs as a sidecar. With `autoIamAuthn` enabled, pods connect over loopback using the IAM database user and no stored password. The proxy requires `cloudIdentity.enabled: true` (it authenticates with the pod's Google identity); the secret provider is independent, so `kubernetes`, `csi`, or `sdk` may all be used.
-
-```yaml
-databases:
-  operational:
-    provider: postgresql
-    databaseSchema: dbo
-    cloudSqlProxy:
-      enabled: true
-      connectionName: my-project:us-central1:my-instance
-      autoIamAuthn: true
-      privateIp: true
-```
-
-See [Google Cloud SQL (IAM)](google-cloud-sql-iam.md) for the full setup, including the required Workload Identity binding.
-
-### BigQuery data warehouse with keyless Workload Identity
-
-The chart renders an ODBC DSN ConfigMap for the Simba BigQuery driver when `databases.datawarehouse.bigquery.enabled` is true, with one DSN per connection. Each connection chooses how it authenticates:
-
-| `credentialsType` | Authentication |
-|:---|:---|
-| `serviceAccount` | Service account key file (`serviceAccountEmail` plus a mounted key) |
-| `workloadIdentity` | Keyless, via the pod's GCP Workload Identity (Application Default Credentials). No key file is mounted. |
-
-For `serviceAccount` connections, `configMapName` names the Kubernetes ConfigMap and `keyName` its data key. BigQuery credentials are managed independently of the platform Google credential (`cloudIdentity.google`); a connection and the platform may reference the same ConfigMap or different ones.
-
-```yaml
-databases:
-  datawarehouse:
-    bigquery:
-      enabled: true
-      connections:
-        - name: gbq-tenant1
-          projectId: my-google-project
-          credentialsType: workloadIdentity
-          OAuthMechanism: 3
-```
-
-### Realtime API: expanded configuration
-
-Expanded configuration support for geolocation, identity resolution, visitor and profile processing, logging, integrations, and operational settings, including geolocation and IP-lookup, identity and profile-merge controls, RedPoint ML scoring, file output, and SMTP.
-
-```yaml
-realtimeapi:
-  geolocation:
-    enabled: true
-    provider: Azure
-    weatherUnits: imperial
-  RedPointMLServiceAddress: "https://<your-ml-service>"   # address of the RedPoint ML scoring service
-  RedPointMLClientID: "<client-id>"                        # client identifier for the ML service
-```
-
-### Interaction API: expanded configuration
-
-Expanded configuration support for authentication/security, logging, integrations, and operational settings, including password policies, account lockout, token lifetimes, logging providers, Azure services, and client service credentials.
-
-```yaml
-interactionapi:
-  passwordPolicy:
-    requiredLength: 12
-    requireDigit: true
-    requireUppercase: true
-    requireLowercase: true
-    requireNonAlphanumeric: true
-```
-
-### Queue Reader: expanded configuration
-
-Expanded configuration support for logging, integrations, distributed processing, and operational settings, including logging providers (New Relic, Loggly), NLP, SMTP, file output, operational database retry, and the chart managed internal cache and queue for distributed processing.
-
-```yaml
-queuereader:
-  # Operational database retry
-  operationalDatabase:
-    maxRetryCount: 12
-    maxRetryDelay: "00:01:00"
-  # Distributed processing: deploys the chart-managed Redis and RabbitMQ
-  realtimeConfiguration:
-    isDistributed: true
-```
-
-### Per-tenant Realtime API address override
-
-The cluster wide Realtime API address can be overridden per client (tenant). Each entry pairs a client GUID with the Realtime API base address for that client; the override is consumed by the Interaction API and Execution Service. Requires `realtimeapi.multitenant: true`.
-
-```yaml
-realtimeapi:
-  multitenant: true
-  clientAddressOverrides:
-    - clientId: <client-guid>
-      address: https://realtimeapi-tenant1.example.com
-```
-
-### LuxSci send throughput controls
-
-Two independent concurrency caps for large LuxSci sends on the Execution Service: a per-account API rate guard and the per-activity send parallelism.
-
-```yaml
-executionservice:
-  jobExecution:
-    luxSci:
-      maxConcurrentApiRequestsPerAccount: 5   # per-account LuxSci API rate guard
-      maxDegreeOfParallelism: 10              # concurrent sends within an activity
-```
 
 ### Redpoint AI: separate capabilities, one model configuration
 
@@ -168,11 +57,11 @@ redpointAI:
 
 Enabling a capability also needs its Secret key: `RPI_AI_OAuth_Client_Secret` for the tool server, `RPI_NLP_API_KEY` for the agent runtime and for natural language rule building.
 
-Existing v7.7 overrides must be rewritten. The Upgrade Checklist below carries the full path mapping. See [Redpoint AI](redpoint-ai.md) and [RPI MCP Server](rpi-mcp-server.md).
+Existing v7.8 Redpoint AI overrides must be rewritten. The Upgrade Checklist below carries the full path mapping. See [Redpoint AI](redpoint-ai.md) and [RPI MCP Server](rpi-mcp-server.md).
 
-The MCP tool server and the agent runtime are new in v7.8, so a v7.7 `overrides.yaml` has nothing to map. If you trialled them on a pre-release chart, these were renamed:
+The MCP tool server and the agent runtime are new in v7.9, so a v7.8 `overrides.yaml` has nothing to map. If you trialled them on a pre-release chart, these were renamed:
 
-| Pre-release | v7.8 |
+| Pre-release | v7.9 |
 |:---|:---|
 | `redpointAI.mcpServers.rpi.*` | `redpointAI.mcp.*` |
 | `redpointAI.mcpServers.rpi.authRequired` | `redpointAI.mcp.auth.required` |
@@ -184,18 +73,6 @@ The MCP tool server and the agent runtime are new in v7.8, so a v7.7 `overrides.
 | `redpointAI.aiWeb.*` | Removed |
 
 `serviceAccount`, `replicaCount`, `service.port`, `securityContext`, `resources` and `terminationGracePeriodSeconds` are now chart-owned on both capabilities. Any name in the left column is rejected at install, with the path named.
-
-### RPI NLP trace logging
-
-RPI NLP now supports verbose request/response trace logging for diagnostics on the services that use the NLP integration (Interaction API, Execution Service, Node Manager, Queue Reader, Integration API). It is off by default. Enable it with `redpointAI.nlp.logging.enableTrace`.
-
-```yaml
-redpointAI:
-  nlp:
-    enabled: true
-    logging:
-      enableTrace: true   # verbose NLP request/response tracing, default false
-```
 
 ### Twilio Messaging
 
@@ -220,7 +97,7 @@ twiliomessaging:
 
 `postgres.reuseOperational: true` puts the store on the operational database server and reuses its credentials, which requires `databases.operational.provider: postgresql`. The chart says so at render if it does not hold.
 
-Customer-populated Secret keys: `TwilioMessaging_AuthToken`, plus `TwilioMessaging_Postgres_Password` when the store is standalone. The internal Redis password is generated by the chart.
+With the `kubernetes` or `csi` secrets provider, populate `TwilioMessaging_AuthToken` in the shared Secret, plus `TwilioMessaging_Postgres_Password` when the store is standalone. With `sdk`, the auth token is read from the deployment's vault as `Twilio--Client--AuthToken` (Azure and Google) or `Twilio__Client__AuthToken` (AWS), and PostgreSQL signs in with the pods' managed identity: set `postgres.username` to that identity's PostgreSQL role, which must own the Twilio database. The internal Redis password is generated by the chart.
 
 The transport objects are not created for you. Hubs, queues, topics, subscriptions, and consumer groups must exist before the service starts, and the database schema is applied by a Job that runs before the service rolls. Only the Twilio webhook paths are published. Send and status routes stay in namespace. See [Twilio Messaging](twilio-messaging.md) for the prerequisites and the commands for each platform.
 
@@ -236,66 +113,98 @@ commonEnvVars:
 
 Each entry supports standard Kubernetes environment variable fields, including name and value. This setting is general-purpose and can be used for observability, internal tooling, or other customer-specific integrations.
 
+### Smart Activation image overrides
+
+Smart Activation images are overridden the same way as RPI images, keyed by service: `cdp-authservice`, `cdp-cache`, `cdp-init`, `cdp-keycloak`, `cdp-maintenance`, `cdp-messageq`, `cdp-servicesapi`, `cdp-socketio` and `cdp-ui`.
+
+```yaml
+global:
+  deployment:
+    images:
+      overrides:
+        cdp-authservice: myregistry.example.com/cdp/authservice:1.2.3
+```
+
+`cdp-cache` has its own key. In v7.8 it shared `rpi-redis`, so overriding the RPI Redis image also changed the Smart Activation cache.
+
 </details>
 
 <details>
 <summary><strong style="font-size:1.25em;">Upgrade Checklist</strong></summary>
 
-If your `overrides.yaml` sets any of the following, here is what changed and what to do. Each row lists whether leaving the old setting in place blocks the upgrade.
+If your deployment uses any of the following, here is what changed and what to do. Each row lists whether leaving the old setting in place blocks the upgrade.
 
 <table style="width:100%;border-collapse:collapse;table-layout:fixed;line-height:1.4">
 <colgroup><col style="width:31%"><col style="width:37%"><col style="width:20%"><col style="width:12%"></colgroup>
 <thead>
 <tr>
 <th align="left">Setting</th>
-<th align="left">7.8 change</th>
+<th align="left">7.9 change</th>
 <th align="left">Action</th>
 <th align="left">Breaking</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;cognitiveSearch:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;VectorSearchProfile</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;VectorSearchConfig</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; RPI builds the search index at runtime</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects them and the upgrade will not render</td>
-</tr>
-<tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;enabled</code><br><code>&nbsp;&nbsp;naturalLanguage</code><br><code>&nbsp;&nbsp;cognitiveSearch</code><br><code>&nbsp;&nbsp;modelStorage</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>redpointAI:</code><br><code>&nbsp;&nbsp;enabled</code><br><code>&nbsp;&nbsp;naturalLanguage</code><br><code>&nbsp;&nbsp;cognitiveSearch</code><br><code>&nbsp;&nbsp;modelStorage</code><br><code>&nbsp;&nbsp;logging</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Restructured. Each Redpoint AI capability is now enabled on its own. <code>redpointAI.model</code> holds the model every capability shares, and everything only natural-language rule building uses moved under <code>redpointAI.nlp</code>. See the mapping below</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Rewrite the block using the mapping below</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart rejects the old setting and the upgrade will not render</td>
 </tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>secretsManagement:</code><br><code>&nbsp;&nbsp;provider: sdk</code><br>(Deployment API database sign-in)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">The chart no longer tells the Deployment API to sign in with a username and password. Under <code>sdk</code> this is read from the vault entry <code>ClusterEnvironment--OperationalDatabase--ConnectionSettings--IsUsingCredentials</code> (<code>__</code> separators on AWS)</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Add the vault entry: <code>true</code> for a SQL login, <code>false</code> for the managed identity. See <a href="secrets-management.md">Secrets Management</a></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - without it, the database upgrade fails to sign in</td>
+</tr>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxScisendRequestCount</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Renamed to<br><code>executionservice:</code><br><code>&nbsp;&nbsp;jobExecution:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;luxSci:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;maxConcurrentApiRequestsPerAccount</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>secretsManagement:</code><br><code>&nbsp;&nbsp;provider: sdk</code><br>with <code>smartActivation.enabled</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Smart Activation supports the <code>kubernetes</code> and <code>csi</code> secrets providers only</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Use <code>kubernetes</code> or <code>csi</code>, or disable Smart Activation</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><strong>Yes</strong> - the chart refuses to render</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>executionservice:</code><br><code>&nbsp;&nbsp;internalCache:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;backupToOpsDBInterval</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;failOnPrimaryDataLoss</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Removed; OpsDB cache failover removed</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>rebrandly:</code><br><code>&nbsp;&nbsp;enabled: true</code><br>with <code>secretsManagement.provider: sdk</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Rebrandly cannot read a cloud vault. Its API key now comes from the shared Kubernetes Secret in every secrets mode</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Add <code>Rebrandly_ApiKey</code> to the shared Secret</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - but Rebrandly does not start without it</td>
+</tr>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>smtp:</code><br><code>&nbsp;&nbsp;hostname</code><br><code>&nbsp;&nbsp;port</code><br><code>&nbsp;&nbsp;username</code><br><code>&nbsp;&nbsp;from_address</code><br><code>&nbsp;&nbsp;from_display_name</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer read. Smart Activation takes its mail settings from <code>SMTPSettings</code>, the same as RPI, and always signs in to the mail server</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Set the values in <code>SMTPSettings</code>, make sure <code>SMTP_Password</code> is in the shared Secret, and remove <code>smtp</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+<tr style="background:#fafbfc">
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>keycloak:</code><br><code>&nbsp;&nbsp;hostname</code><br><code>&nbsp;&nbsp;port</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer read. Smart Activation services reach Keycloak through its in-cluster service, <code>cdp-keycloak</code>, on that service's port</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove them</td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
 </tr>
 <tr>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>interactionapi:</code><br><code>&nbsp;&nbsp;enableSwagger</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">The Interaction API no longer exposes Swagger (<code>integrationapi.enableSwagger</code> unchanged)</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>authservice:</code><br><code>&nbsp;&nbsp;resources:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;java_options</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer read. The Auth Service now uses the documented setting<br><code>authservice:</code><br><code>&nbsp;&nbsp;resources:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;java_opts</code><br>like the other Smart Activation services</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Move your value to the new setting and remove the old one</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - the old setting is ignored</td>
 </tr>
 <tr style="background:#fafbfc">
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases:</code><br><code>&nbsp;&nbsp;datawarehouse:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;bigquery:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connections:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ConfigMapFilePath</code></td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer applies; the chart manages the credential file location</td>
-<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Remove it</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>databases:</code><br><code>&nbsp;&nbsp;operational:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;mongodb:</code><br><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;database_name</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No longer read by Smart Activation. Every Smart Activation service uses <code>initservice.database.operational.name</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Set <code>initservice.database.operational.name</code> if your database is not named <code>smart_activation_db</code></td>
 <td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - ignored if left</td>
+</tr>
+<tr>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere"><code>OpenIdProviders:</code><br><code>&nbsp;&nbsp;authorizationHost</code><br>with <code>name: keycloak</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Not used for Keycloak. The Interaction API and Integration API sign in through <code>https://&lt;ingress.hosts.smartactivation&gt;.&lt;ingress.domain&gt;/auth/realms/redpoint-mercury</code>. Other providers still use <code>authorizationHost</code></td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">Check that <code>ingress.hosts.smartactivation</code> is the host your users sign in through</td>
+<td style="padding:8px 12px;vertical-align:top;border-bottom:1px solid #eaecef;overflow-wrap:anywhere">No - but sign-in fails if the host is wrong</td>
 </tr>
 </tbody>
 </table>
 
 **Redpoint AI mapping**
 
-| 7.7 | 7.8 |
+| 7.8 | 7.9 |
 |:---|:---|
 | `redpointAI.enabled` | `redpointAI.nlp.enabled` |
 | `redpointAI.naturalLanguage.ApiBase` | `redpointAI.model.ApiBase` |
@@ -304,17 +213,15 @@ If your `overrides.yaml` sets any of the following, here is what changed and wha
 | `redpointAI.naturalLanguage.ChatGptTemp` | `redpointAI.nlp.ChatGptTemp` |
 | `redpointAI.cognitiveSearch.SearchEndpoint` | `redpointAI.nlp.cognitiveSearch.SearchEndpoint` |
 | `redpointAI.modelStorage.*` | `redpointAI.nlp.modelStorage.*` |
+| `redpointAI.logging.enableTrace` | `redpointAI.nlp.logging.enableTrace` |
 
-The environment contract the RPI services consume is unchanged, so this is an overrides edit only. Secret keys are unchanged.
+The environment the RPI services receive is unchanged, so this is an overrides edit only. Secret keys are unchanged.
 
-BigQuery `serviceAccount` connections keep working with no credential change: your `configMapName` and `keyName` still point at the same ConfigMap and data key, and `cloudIdentity.google` is unchanged. The chart now manages where the credential file is placed, which matters only if a process outside the chart reads that file directly (see step 2).
+1. Resolve the breaking rows from the table above that apply to your deployment.
+2. Apply the upgrade with your existing `helm upgrade` command and overrides file.
+3. Optionally, complete the non-breaking cleanup from the table above. This can be done before or after the upgrade.
 
-1. Resolve any breaking rows from the table above that appear in your `overrides.yaml` (the RedpointAI vector search values).
-2. If a process outside the chart reads the BigQuery credential file directly, update its path to `/app/google-creds/bigquery/<connection name>.json` (v7.7 used `/app/google-creds/<keyName>`). The chart already uses the new path.
-3. Apply the upgrade with your existing `helm upgrade` command and overrides file.
-4. Optionally, complete the non-breaking cleanup from the table above. This can be done before or after the upgrade.
-
-New v7.8 features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocation, Interaction API password policy, per-tenant Realtime API address, LuxSci throughput controls) are opt-in and default off.
+New v7.9 features (the MCP tool server, the agent runtime, Twilio Messaging and common environment variables) are opt-in and default off.
 
 </details>
 
@@ -325,4 +232,4 @@ New v7.8 features (Cloud SQL IAM, BigQuery Workload Identity, Realtime geolocati
 Use the [Helm Assistant Web UI](https://rpi-helm-assistant.redpointcdp.com) **Reference** and **Chat** tabs to browse configuration and ask questions.
 
 ---
-<sub>Redpoint Interaction v7.8 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
+<sub>Redpoint Interaction v7.9 | [Helm Assistant](https://rpi-helm-assistant.redpointcdp.com) | [Support](mailto:support@redpointglobal.com) | [redpointglobal.com](https://www.redpointglobal.com)</sub>
