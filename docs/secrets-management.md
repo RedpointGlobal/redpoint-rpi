@@ -381,11 +381,7 @@ Azure Key Vault does not allow `__` in secret names, so `--` is used as the hier
 | `RPI--NLP--SearchKey` | Your Azure Cognitive Search key |
 | `RPI--NLP--ModelConnectionString` | Model storage connection string (Azure Blob) |
 
-**Rebrandly** (if enabled):
-
-| Vault Secret Name | Value |
-|:-------------------|:------|
-| `Rebrandly--ApiKey` | Your Rebrandly API key |
+**Rebrandly** (if enabled): Rebrandly cannot read a cloud vault. Under `sdk`, put its key in the shared Kubernetes Secret as `Rebrandly_ApiKey`, the same key used with `kubernetes`.
 
 **Twilio Messaging** (if enabled):
 
@@ -842,11 +838,7 @@ The IAM user needs read/write access to Amazon SQS and Amazon S3.
 | `RPI__NLP__SearchKey` | Your Azure Cognitive Search key |
 | `RPI__NLP__ModelConnectionString` | Model storage connection string (Azure Blob) |
 
-**Rebrandly** (if enabled):
-
-| Vault Secret Name | Value |
-|:-------------------|:------|
-| `Rebrandly__ApiKey` | Your Rebrandly API key |
+**Rebrandly** (if enabled): Rebrandly cannot read a cloud vault. Under `sdk`, put its key in the shared Kubernetes Secret as `Rebrandly_ApiKey`, the same key used with `kubernetes`.
 
 **Twilio Messaging** (if enabled):
 
@@ -1122,11 +1114,7 @@ Google Secret Manager uses `--` (double dash) as the hierarchy separator. The se
 | `RPI--NLP--SearchKey` | Your Azure Cognitive Search key |
 | `RPI--NLP--ModelConnectionString` | Model storage connection string (Azure Blob) |
 
-**Rebrandly** (if enabled):
-
-| Vault Secret Name | Value |
-|:-------------------|:------|
-| `Rebrandly--ApiKey` | Your Rebrandly API key |
+**Rebrandly** (if enabled): Rebrandly cannot read a cloud vault. Under `sdk`, put its key in the shared Kubernetes Secret as `Rebrandly_ApiKey`, the same key used with `kubernetes`.
 
 **Twilio Messaging** (if enabled):
 

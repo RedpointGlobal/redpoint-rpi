@@ -153,13 +153,12 @@ spec:
           value: {{ $cfg.baseUrl | quote }}
         - name: Rebrandly__EnterpriseBaseUrl
           value: {{ $cfg.enterpriseBaseUrl | quote }}
-        {{- if not (eq $.Values.secretsManagement.provider "sdk") }}
+        # Rebrandly cannot read a cloud vault, so the key comes from the shared Secret in every mode.
         - name: Rebrandly__ApiKey
           valueFrom:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" $ | quote }}
               key: Rebrandly_ApiKey
-        {{- end }}
         - name: Redis__Hostname
           {{- if eq $cfg.redisSettings.type "internal" }}
           value: {{ printf "rpi-rebrandly-cache.%s.svc.cluster.local." $.Release.Namespace | quote }}
