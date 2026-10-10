@@ -121,6 +121,25 @@ ingress:
 
 The UI will be available at `https://rpi-webui.<your-domain>`.
 
+### 4. Override Images (optional)
+
+Smart Activation images are overridden the same way as RPI images, keyed by service:
+`cdp-authservice`, `cdp-cache`, `cdp-init`, `cdp-keycloak`, `cdp-maintenance`,
+`cdp-messageq`, `cdp-servicesapi`, `cdp-socketio` and `cdp-ui`.
+
+```yaml
+global:
+  deployment:
+    images:
+      overrides:
+        cdp-authservice: myregistry.example.com/cdp/authservice:1.2.3
+      nameOverrides:
+        cdp-ui: custom-cdp-ui
+```
+
+`overrides` sets the full image. `nameOverrides` replaces the image name and keeps the
+registry and tag.
+
 ---
 
 ## Post-Deployment Configuration

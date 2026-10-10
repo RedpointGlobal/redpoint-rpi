@@ -387,6 +387,12 @@ Azure Key Vault does not allow `__` in secret names, so `--` is used as the hier
 |:-------------------|:------|
 | `Rebrandly--ApiKey` | Your Rebrandly API key |
 
+**Twilio Messaging** (if enabled):
+
+| Vault Secret Name | Value |
+|:-------------------|:------|
+| `Twilio--Client--AuthToken` | Your Twilio auth token |
+
 </details>
 
 <details>
@@ -842,6 +848,12 @@ The IAM user needs read/write access to Amazon SQS and Amazon S3.
 |:-------------------|:------|
 | `Rebrandly__ApiKey` | Your Rebrandly API key |
 
+**Twilio Messaging** (if enabled):
+
+| Vault Secret Name | Value |
+|:-------------------|:------|
+| `Twilio__Client__AuthToken` | Your Twilio auth token |
+
 </details>
 
 <details>
@@ -1115,6 +1127,12 @@ Google Secret Manager uses `--` (double dash) as the hierarchy separator. The se
 | Vault Secret Name | Value |
 |:-------------------|:------|
 | `Rebrandly--ApiKey` | Your Rebrandly API key |
+
+**Twilio Messaging** (if enabled):
+
+| Vault Secret Name | Value |
+|:-------------------|:------|
+| `Twilio--Client--AuthToken` | Your Twilio auth token |
 
 </details>
 

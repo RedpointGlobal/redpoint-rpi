@@ -3535,18 +3535,6 @@ twiliomessaging:
   rollout:
     autoPromotionEnabled: true
     revisionHistoryLimit: 3
-  # Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in
-  # kubernetes and csi modes.
-  secrets:
-    aws:
-      region: ''
-      secretId: ''
-    azure:
-      secretName: ''
-      vaultUri: ''
-    gcp:
-      projectId: ''
-      secretId: ''
   service:
     port: 80
   serviceAccount:

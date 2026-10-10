@@ -973,16 +973,6 @@ installer:
       memory: 128Mi
     limits:
       memory: 512Mi
-secrets:
-  azure:
-    vaultUri: ""
-    secretName: ""
-  aws:
-    region: ""
-    secretId: ""
-  gcp:
-    projectId: ""
-    secretId: ""
 twilioPlugin:
   messagingServicesPath: api/v1/messagingService
   eventHubs:

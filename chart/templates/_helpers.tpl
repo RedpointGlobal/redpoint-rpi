@@ -713,7 +713,7 @@ Resolve the container image for a service.
 {{ $root.Values.global.deployment.images.registry }}/{{ index $nameOverrides $name }}:{{ $root.Values.global.deployment.images.tag }}
 {{- else -}}
 {{- $imageName := $name -}}
-{{- if eq $name "rpi-redis" -}}
+{{- if or (eq $name "rpi-redis") (eq $name "cdp-cache") -}}
 {{- $imageName = "rediscache" -}}
 {{- else if eq $name "rpi-rabbitmq" -}}
 {{- $imageName = "rabbitmq" -}}

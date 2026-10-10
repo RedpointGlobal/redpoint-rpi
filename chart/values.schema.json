@@ -4085,37 +4085,6 @@
             "resources": { "type": "object", "additionalProperties": true }
           }
         },
-        "secrets": {
-          "type": "object",
-          "description": "Where the Twilio auth token is read from under secretsManagement.provider=sdk. Ignored in kubernetes and csi modes.",
-          "additionalProperties": true,
-          "properties": {
-          "azure": {
-            "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "vaultUri": { "type": "string" },
-              "secretName": { "type": "string" }
-            }
-          },
-          "aws": {
-            "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "region": { "type": "string" },
-              "secretId": { "type": "string" }
-            }
-          },
-          "gcp": {
-            "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "projectId": { "type": "string" },
-              "secretId": { "type": "string" }
-            }
-          }
-          }
-        },
         "enabled": {
           "type": "boolean",
           "description": "Enable the Twilio Messaging service"

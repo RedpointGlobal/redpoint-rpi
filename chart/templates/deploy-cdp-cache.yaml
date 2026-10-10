@@ -142,7 +142,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ $name }}
-          image: {{ include "rpi.image" (dict "root" . "name" "rpi-redis") }}
+          image: {{ include "rpi.image" (dict "root" . "name" $name) }}
           imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: 6379
