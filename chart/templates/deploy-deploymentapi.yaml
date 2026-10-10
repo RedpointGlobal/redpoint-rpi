@@ -208,8 +208,10 @@ spec:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: Operations_Database_ServerHost
         {{- end }}
+        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__IsUsingCredentials
           value: "true"
+        {{- end }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__DatabaseSchema
           value: {{ .Values.databases.operational.databaseSchema | default "dbo" | quote }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__SQLServerSettings__Encrypt

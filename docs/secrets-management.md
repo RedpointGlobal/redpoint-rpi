@@ -335,6 +335,29 @@ Azure Key Vault does not allow `__` in secret names, so `--` is used as the hier
 | `ClusterEnvironment--OperationalDatabase--ConnectionSettings--Username` | Database username |
 | `ClusterEnvironment--OperationalDatabase--ConnectionSettings--Password` | Database password |
 | `ClusterEnvironment--OperationalDatabase--ConnectionSettings--Server` | Database server hostname |
+| `ClusterEnvironment--OperationalDatabase--ConnectionSettings--IsUsingCredentials` | `true` to sign in with the username and password above, `false` to sign in with the managed identity (see below) |
+
+**Database sign-in with the managed identity** (when `secretsManagement.sdk.azure.useADTokenForDatabaseConnection: true`):
+
+RPI services reach the databases with the pods' managed identity instead of a SQL login. Set the connection strings to Entra authentication and tell the Deployment API not to use a username and password:
+
+| Vault Secret Name | Value |
+|:-------------------|:------|
+| `ConnectionStrings--OperationalDatabase` | `Server=tcp:<server>,1433;Database=<pulse-database>;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=True;` |
+| `ConnectionStrings--LoggingDatabase` | `Server=tcp:<server>,1433;Database=<pulse-logging-database>;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=True;` |
+| `ClusterEnvironment--OperationalDatabase--ConnectionSettings--IsUsingCredentials` | `false` |
+| `ClusterEnvironment--OperationalDatabase--ConnectionSettings--SQLServerSettings--AzureSQLAuthentication` | `Active Directory Default` |
+
+With `IsUsingCredentials` set to `false`, the Deployment API ignores the `ConnectionSettings--Username` and `ConnectionSettings--Password` entries when it upgrades the databases.
+
+The managed identity in `cloudIdentity.azure.managedIdentityClientId` needs a database user in the Pulse and Pulse Logging databases and in every tenant's Interaction and Interaction Audit database. Sign in to the server as its Entra admin and run this in each of them, using the managed identity's name:
+
+```sql
+CREATE USER [<managed-identity-name>] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_owner ADD MEMBER [<managed-identity-name>];
+```
+
+The tenant databases are listed in the `OperationalConnection` and `AuditConnection` columns of the Pulse database's `rpi_Clients` table.
 
 **Realtime API** (if enabled):
 
@@ -783,6 +806,7 @@ AWS Secrets Manager stores all keys as JSON within a single secret, using `__` (
 | `ClusterEnvironment__OperationalDatabase__ConnectionSettings__Username` | Database username |
 | `ClusterEnvironment__OperationalDatabase__ConnectionSettings__Password` | Database password |
 | `ClusterEnvironment__OperationalDatabase__ConnectionSettings__Server` | Database server hostname |
+| `ClusterEnvironment__OperationalDatabase__ConnectionSettings__IsUsingCredentials` | `true`, to sign in with the username and password above |
 
 **Realtime API** (if enabled):
 
@@ -1068,6 +1092,7 @@ Google Secret Manager uses `--` (double dash) as the hierarchy separator. The se
 | `ClusterEnvironment--OperationalDatabase--ConnectionSettings--Username` | Database username |
 | `ClusterEnvironment--OperationalDatabase--ConnectionSettings--Password` | Database password |
 | `ClusterEnvironment--OperationalDatabase--ConnectionSettings--Server` | Database server hostname |
+| `ClusterEnvironment--OperationalDatabase--ConnectionSettings--IsUsingCredentials` | `true`, to sign in with the username and password above |
 
 **Realtime API** (if enabled):
 
