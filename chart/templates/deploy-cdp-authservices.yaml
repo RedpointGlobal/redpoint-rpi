@@ -213,7 +213,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ $cfg.logging.verbosity | quote }}
         - name: API_BASE_URL
-          value: "https://{{ .Values.ingress.hosts.webui }}.{{ .Values.ingress.domain }}"
+          value: "https://{{ .Values.ingress.hosts.smartactivation }}.{{ .Values.ingress.domain }}"
         - name: RPI_SHARED_USER
           value: {{ .Values.integrationapi.username | quote }}
         - name: RPI_SHARED_PASS
