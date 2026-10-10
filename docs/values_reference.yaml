@@ -3060,7 +3060,6 @@ uiservice:
 # Keycloak configuration (Smart Activation component)
 keycloak:
   database_name: keycloak
-  hostname: keycloak
   # PodDisruptionBudget for this service.
   podDisruptionBudget:
     # Create a PodDisruptionBudget for the workload.

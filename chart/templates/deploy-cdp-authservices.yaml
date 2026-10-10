@@ -249,9 +249,9 @@ spec:
         - name: SMTP_FROM_DISPLAY_NAME
           value: {{ .Values.SMTPSettings.SMTP_SenderName | quote }}
         - name: KEYCLOAK_HOST
-          value: {{ .Values.keycloak.hostname | quote }}
+          value: "cdp-keycloak"
         - name: KEYCLOAK_PORT
-          value: {{ .Values.keycloak.port | quote }}
+          value: {{ $kcCfg.service.port | quote }}
         - name: KEYCLOAK_ADMIN_USER
           value: {{ .Values.keycloak.username | quote }}
         - name: KEYCLOAK_ADMIN_PASSWORD

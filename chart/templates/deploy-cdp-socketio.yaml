@@ -195,7 +195,7 @@ spec:
         - name: REDPOINT_MERCURY_REALM
           value: {{ $kcCfg.realm_name }}
         - name: KEYCLOAK_HOST
-          value: {{ $kcCfg.hostname | quote }}
+          value: "cdp-keycloak"
         - name: KEYCLOAK_PORT
           value: {{ $kcCfg.service.port | quote }}
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}

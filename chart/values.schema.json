@@ -5134,9 +5134,6 @@
           "description": "Number of Keycloak pod replicas",
           "minimum": 0
         },
-        "hostname": {
-          "type": "string"
-        },
         "username": {
           "type": "string",
           "description": "Keycloak admin username"

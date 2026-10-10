@@ -1171,7 +1171,6 @@ authservice:
 # Keycloak (Smart Activation)
 keycloak:
   replicas: 1
-  hostname: keycloak
   username: admin@noemail.com
   database_name: keycloak
   realm_name: redpoint-mercury

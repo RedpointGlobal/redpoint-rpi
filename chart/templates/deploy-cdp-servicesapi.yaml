@@ -284,7 +284,7 @@ spec:
         - name: SSO_ENABLED
           value: {{ $cfg.sso_enabled | quote }}
         - name: KEYCLOAK_HOST
-          value: {{ $kcCfg.hostname | quote }}
+          value: "cdp-keycloak"
         - name: KEYCLOAK_PORT
           value: {{ $kcCfg.service.port | quote }}
         - name: KEYCLOAK_ADMIN_USER
