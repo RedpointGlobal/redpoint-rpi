@@ -11,30 +11,6 @@
 {{- end -}}
 
 {{- if and $cfg.enabled $cfg.installer.enabled }}
-{{/* Own ServiceAccount so the hook has an identity on a first install, before
-     the service's own ServiceAccount is created. */}}
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ $name }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "installer") | nindent 4 }}
-  annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "-5"
-    helm.sh/hook-delete-policy: before-hook-creation
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/sync-wave: "-5"
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    {{- with (include "rpi.mergedAnnotations" (dict "root" . "type" "serviceAccount") | trim) }}
-    {{- . | nindent 4 }}
-    {{- end }}
-    {{- with (include "rpi.cloudidentity.saAnnotations" (dict "root" .) | trim) }}
-    {{- . | nindent 4 }}
-    {{- end }}
-
----
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -47,10 +23,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade
-    helm.sh/hook-weight: "0"
+    helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation
-    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     {{- with .Values.customAnnotations }}
     {{- toYaml . | nindent 4 }}
@@ -74,7 +49,7 @@ spec:
         - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
       {{- end }}
       restartPolicy: Never
-      serviceAccountName: {{ $name }}
+      serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" "rpi-twiliomessaging" "cfg" $cfg) }}
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
       {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
       initContainers:

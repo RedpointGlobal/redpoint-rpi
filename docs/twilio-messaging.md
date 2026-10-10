@@ -40,7 +40,7 @@ The chart deploys the service and wires its configuration. It never creates clou
 | PostgreSQL database | Reused from the operational database, or supplied by you. See [PostgreSQL](#postgresql-required) |
 | Cloud identity | `cloudIdentity.enabled: true` with the platform binding, since the transport authenticates with workload identity |
 | DNS for the webhook host | `ingress.hosts.twiliomessaging` must resolve, because Twilio calls it |
-| Database schema | The chart runs the schema installer as a pre-install and pre-upgrade hook. The one time `bootstrap` step that creates the role and database is manual, see below |
+| Database schema | The chart runs the schema installer as a Job on every install and upgrade. The one time `bootstrap` step that creates the role and database is manual, see below |
 
 Redis is chart managed by default and needs nothing. Provision it only when `redisSettings.type: external`.
 
@@ -51,7 +51,7 @@ Redis is chart managed by default and needs nothing. Provision it only when `red
 The schema is applied by a separate installer image, never by the service. Two steps:
 
 1. **Bootstrap, once per environment.** Run the installer's `bootstrap` command with admin credentials to create the role, database and schema. This is manual and is not part of a release.
-2. **Install, every release.** The chart runs this for you as `rpi-twiliomessaging-installer`, a pre-install and pre-upgrade hook Job with its own ServiceAccount so it has an identity on a first install. It authenticates the same way the service does, so it needs the same PostgreSQL grant.
+2. **Install, every release.** The chart runs this for you as the `rpi-twiliomessaging-installer` Job. It runs alongside the rest of the release, so it never holds up other resources, and the service reports not ready until the schema is current. It uses the service's ServiceAccount and authenticates the same way, so it needs no extra identity or grant.
 
 Set `twiliomessaging.installer.enabled: false` only if you apply the schema out of band.
 
