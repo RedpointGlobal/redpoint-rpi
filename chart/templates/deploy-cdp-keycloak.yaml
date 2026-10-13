@@ -236,12 +236,10 @@ spec:
         {{- if eq .Values.databases.operational.provider "postgresql" }}
         - name: KEYCLOAK_DATABASE_VENDOR
           value: postgresql
-        - name: KEYCLOAK_DATABASE_HOST
-          value: "{{ $host }}"
-        - name: KEYCLOAK_DATABASE_PORT
-          value: "5432"
         - name: KC_DB
           value: "postgres"
+        - name: KEYCLOAK_DATABASE_PORT
+          value: "5432"
         - name: KC_DB_URL
           value: "jdbc:postgresql://{{ $host }}:5432/{{ $cfg.database_name }}"
         {{- else }}
@@ -251,6 +249,8 @@ spec:
           value: mssql
         - name: KC_DB
           value: "mssql"
+        - name: KEYCLOAK_DATABASE_PORT
+          value: "1433"
         - name: KC_DB_URL
           value: "jdbc:sqlserver://{{ $host }};databaseName={{ $cfg.database_name }};"
         {{- end }}
