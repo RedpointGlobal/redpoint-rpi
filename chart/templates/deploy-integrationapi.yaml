@@ -277,7 +277,7 @@ spec:
         - name: Authentication__OpenIdProviders__0__AuthorizationHost
           value: "https://{{ .Values.ingress.hosts.smartactivation }}.{{ .Values.ingress.domain }}/auth/realms/redpoint-mercury"
         - name: Authentication__OpenIdProviders__0__ClientID
-          value: {{ .Values.OpenIdProviders.clientID | quote }}
+          value: "rpi"
         - name: Authentication__OpenIdProviders__0__Audience
           value: "redpoint_dcc_internal"
         - name: Authentication__OpenIdProviders__0__RedirectURL
