@@ -1,6 +1,7 @@
 {{- $npCfg := fromYaml (include "rpi.merged.networkPolicy" .) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
 {{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
+{{- $obsCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "observability")) -}}
 {{- if $npCfg.enabled }}
 # Default deny all ingress traffic in the namespace
 apiVersion: networking.k8s.io/v1
@@ -36,6 +37,9 @@ spec:
           - rpi-deploymentapi
           - rpi-callbackapi
           - rpi-queuereader
+          {{- if $obsCfg.enabled }}
+          - rpi-observability
+          {{- end }}
   policyTypes:
     - Ingress
   ingress:
@@ -262,6 +266,14 @@ spec:
     - ports:
         - protocol: TCP
           port: {{ .Values.SMTPSettings.SMTP_Port | default 587 }}
+    {{- with $npCfg.additionalEgressPorts }}
+    # Operator-listed ports, such as a database server on a non-default port
+    - ports:
+        {{- range . }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}
 
 ---
 # Block access to cloud instance metadata endpoints (169.254.169.254)
@@ -286,4 +298,149 @@ spec:
             cidr: 0.0.0.0/0
             except:
               - 169.254.169.254/32
+{{- if $obsCfg.enabled }}
+{{- $obsAuth := ($obsCfg.authentication | default dict).enabled }}
+{{- $platform := .Values.global.deployment.platform }}
+
+---
+# RPI Observability reaches only what it reads: the RPI services it calls on
+# their pod port, the operational database server, HTTPS endpoints (identity
+# providers, cloud identity and vaults, the Kubernetes API) and SMTP. The
+# pod's cloud identity endpoint is allowed only where the platform issues
+# workload identity tokens through it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-rpi-observability-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "allow-rpi-observability-egress" "component" "network-policy") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rpi-observability
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - rpi-executionservice
+                  - rpi-queuereader
+                  {{- if $obsAuth }}
+                  - rpi-interactionapi
+                  {{- end }}
+      ports:
+        - protocol: TCP
+          port: 8080
+    {{- if $npCfg.allowDNS }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 1433
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: {{ .Values.SMTPSettings.SMTP_Port | default 587 }}
+    {{- with $npCfg.additionalEgressPorts }}
+    # Operator-listed ports, such as a database server on a non-default port
+    - ports:
+        {{- range . }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}
+    {{- if eq $platform "selfhosted" }}
+    # Self-managed control planes commonly serve the Kubernetes API on 6443.
+    - ports:
+        - protocol: TCP
+          port: 6443
+    {{- end }}
+    {{- if and (eq $platform "azure") (eq .Values.databases.operational.provider "sqlserver") }}
+    # Azure SQL redirects connections from inside Azure to the database node
+    # on 11000-11999 after the gateway on 1433.
+    - ports:
+        - protocol: TCP
+          port: 11000
+          endPort: 11999
+    {{- end }}
+    {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+    # The Cloud SQL Auth Proxy sidecar reaches the instance on 3307.
+    - ports:
+        - protocol: TCP
+          port: 3307
+    {{- end }}
+    {{- if and .Values.cloudIdentity.enabled (eq $platform "google") }}
+    # GKE Workload Identity issues tokens from the GKE metadata server:
+    # 169.254.169.252 on 987 and 988, or 169.254.169.254 on 80 and 8080
+    # with GKE Dataplane V2.
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.252/32
+      ports:
+        - protocol: TCP
+          port: 987
+        - protocol: TCP
+          port: 988
+    {{- end }}
+    {{- if and .Values.cloudIdentity.enabled (eq $platform "amazon") }}
+    # EKS Pod Identity issues credentials from the node agent.
+    - to:
+        - ipBlock:
+            cidr: 169.254.170.23/32
+      ports:
+        - protocol: TCP
+          port: 80
+    {{- end }}
+
+---
+# The RPI services RPI Observability calls admit it on their pod port.
+# default-deny-ingress selects them and no other policy admits Observability.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-rpi-observability-to-rpi
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "allow-rpi-observability-to-rpi" "component" "network-policy") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - rpi-executionservice
+          - rpi-queuereader
+          {{- if $obsAuth }}
+          - rpi-interactionapi
+          {{- end }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rpi-observability
+      ports:
+        - protocol: TCP
+          port: 8080
+{{- end }}
 {{- end }}

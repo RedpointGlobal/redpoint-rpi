@@ -8,6 +8,7 @@
 {{- $cbCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "callbackapi")) -}}
 {{- $sioCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "socketio")) -}}
 {{- $tmCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
+{{- $obsCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "observability")) -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -163,6 +164,18 @@ spec:
               port:
                 number: {{ $tmCfg.service.port }}
         {{- end }}
+    {{- end }}
+    {{- if $obsCfg.enabled }}
+    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.observability "domain" $ingCfg.domain) }}
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: rpi-observability
+              port:
+                number: {{ $obsCfg.service.port }}
     {{- end }}
 
 ---

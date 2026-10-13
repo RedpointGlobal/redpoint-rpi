@@ -315,6 +315,7 @@ The managed identity needs a federated credential for each service account:
 | `rpi-callbackapi` | Callback API |
 | `rpi-queuereader` | Queue Reader |
 | `rpi-deploymentapi` | Deployment API |
+| `rpi-observability` | RPI Observability (when `observability.enabled: true`) |
 
 Use `cloudIdentity.serviceAccount.mode: per-service` for per-service audit trails, or `mode: shared` for a single federation credential.
 
@@ -1276,15 +1277,17 @@ databases:
       # Required: "<project>:<region>:<instance>"
       connectionName: my-project:us-central1:rpi-primary
       image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.2
-      # Port the proxy exposes locally; chart sets ConnectionSettings__Port to this value.
-      # Leave unset to let the chart pick the engine default (5432 for PostgreSQL, 1433 for SQL Server).
+      # Port the proxy listens on locally. Leave unset for the engine default (5432 for
+      # PostgreSQL, 1433 for SQL Server). ConnectionSettings__Port does not follow it, so a
+      # non-default port goes in Operations_Database_ServerHost (127.0.0.1:<port> for
+      # PostgreSQL, 127.0.0.1,<port> for SQL Server).
       port: 5432
       # Use the instance's private IP (requires VPC peering between GKE and Cloud SQL)
       privateIp: true
-      # Use IAM database authentication (PostgreSQL only). When true, the chart uses
-      # cloudIdentity.google.serviceAccountEmail as the DB user and omits the password
-      # from the connection string; the proxy injects an IAM token at connection time.
-      # Requires the SA email to be registered as a Cloud SQL IAM user.
+      # Use IAM database authentication (PostgreSQL only). When true, the proxy runs with
+      # --auto-iam-authn and injects an IAM token at connection time. The database user is
+      # still Operations_Database_Server_Username: set it to the IAM database user of the
+      # service account, registered as a Cloud SQL IAM user, and leave the password empty.
       autoIamAuthn: false
       terminationGracePeriod: "30s"
       # Auth: Workload Identity is the default. To use a SA key file instead,
@@ -1383,6 +1386,8 @@ The chart templates reference specific keys from the `redpoint-rpi-secrets` K8s 
 | Key | Description |
 |:----|:------------|
 | `Rebrandly_ApiKey` | Rebrandly API key |
+
+**RPI Observability** (if `observability.enabled: true`): reads the operational database keys listed under **Always required** and needs no other key. Sign-in, when enabled, uses the external identity providers already configured in RPI.
 
 **Execution Service optional integrations:**
 

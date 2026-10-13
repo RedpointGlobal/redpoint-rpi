@@ -31,6 +31,7 @@ This chart deploys RPI on Kubernetes using Helm.
 | [Redpoint AI](docs/redpoint-ai.md) | Natural-language basic selection rules - Azure OpenAI, AI Search, Blob Storage |
 | [Twilio Messaging](docs/twilio-messaging.md) | Opt-in SMS service - PostgreSQL store, Redis, Event Hubs/SQS/Pub-Sub transport |
 | [RPI MCP Server](docs/rpi-mcp-server.md) | Model Context Protocol tools over the RPI Integration API, and the optional agent runtime |
+| [RPI Observability](docs/observability.md) | Opt-in read-only operating picture over the RPI deployment |
 | [Automation](docs/readme-terraform.md) | CI/CD, vault setup, ArgoCD, Flux |
 
 ## RPI AI

@@ -78,6 +78,7 @@ whenUnsatisfiable: ScheduleAnyway
 {{/* ------ Network Policy ------ */}}
 {{- define "rpi.defaults.networkPolicy" -}}
 allowDNS: true
+additionalEgressPorts: []
 {{- end -}}
 
 {{/* ------ Ingress ------ */}}
@@ -1341,4 +1342,14 @@ resources:
     memory: 512Mi
   limits:
     memory: 2Gi
+{{- end -}}
+
+{{/* ------ Observability ------ */}}
+{{- define "rpi.defaults.observability" -}}
+enabled: false
+serviceAccount:
+  enabled: true
+replicaCount: 1
+service:
+  port: 80
 {{- end -}}

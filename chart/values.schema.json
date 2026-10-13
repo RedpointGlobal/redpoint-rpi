@@ -4331,6 +4331,155 @@
         }
       }
     },
+    "observability": {
+      "type": "object",
+      "description": "RPI Observability: read-only operating picture over the RPI deployment. Single replica; reads the operational databases through the shared database Secret keys and writes only to its own Observability database",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Deploy RPI Observability"
+        },
+        "clientId": {
+          "type": "string",
+          "description": "RPI tenant identifier (GUID) the deployment observes: SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients. Required when enabled"
+        },
+        "databaseName": {
+          "type": "string",
+          "description": "Observability database on the operational database server. Required when enabled. Create it before installing and make the operational login its owner"
+        },
+        "schedule": {
+          "type": "object",
+          "description": "Analysis cycle schedule",
+          "additionalProperties": false,
+          "properties": {
+            "intervalMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minutes between analysis cycles"
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "description": "Execution failure evidence",
+          "additionalProperties": false,
+          "properties": {
+            "coverageStaleAfterMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minutes after which execution failure evidence is reported as stale"
+            }
+          }
+        },
+        "tenantFanout": {
+          "type": "object",
+          "description": "One bounded read per installed tenant's Interaction database each cycle",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Read each installed tenant's Interaction database"
+            },
+            "maxConcurrency": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Tenants read at the same time"
+            },
+            "perTenantTimeoutSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Seconds allowed for one tenant's read"
+            },
+            "cycleBudgetSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Seconds allowed for all tenant reads in one cycle; tenants not reached are reported as not measured"
+            },
+            "staleAfterMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minutes after which a tenant's last read is reported as stale"
+            }
+          }
+        },
+        "authentication": {
+          "type": "object",
+          "description": "Sign-in through an external identity provider configured in RPI (Microsoft Entra ID or an OpenID Connect provider); RPI decides who the user is and which groups they hold. Redpoint credentials are not offered",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Require sign-in through an external identity provider configured in RPI (default false). false is anonymous access"
+            },
+            "cookieSecure": {
+              "type": "boolean",
+              "description": "Send the session cookie over HTTPS only"
+            },
+            "sessionLifetimeSeconds": {
+              "type": "integer",
+              "minimum": 60,
+              "description": "Session lifetime in seconds"
+            },
+            "capabilityMap": {
+              "type": "object",
+              "description": "Capability to custom RPI group names, granted in addition to the built-in defaults. observability.admin and the canonical RPI groups are refused at startup",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "sessionKeyStorage": {
+          "type": "object",
+          "description": "Volume mounted at /data; holds only the session signing key",
+          "additionalProperties": false,
+          "properties": {
+            "size": {
+              "type": "string",
+              "description": "Requested volume size"
+            },
+            "storageClassName": {
+              "type": "string",
+              "description": "StorageClass for the volume. Empty uses the cluster's default StorageClass"
+            }
+          }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "description": "CPU and memory resource requests and limits"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "description": "Must be 1. The analysis scheduler and the Observability database writers run in-process"
+        },
+        "service": {
+          "type": "object",
+          "description": "In-cluster Service",
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "type": "integer",
+              "description": "Service port"
+            }
+          }
+        },
+        "serviceAccount": {
+          "type": "object",
+          "description": "Per-service ServiceAccount",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create the rpi-observability ServiceAccount"
+            }
+          }
+        }
+      }
+    },
     "diagnosticsMode": {
       "type": "object",
       "description": "Diagnostics mode configuration for troubleshooting and monitoring",
@@ -4669,6 +4818,10 @@
             "rpimcpserver": {
               "type": "string",
               "description": "RPI MCP Server hostname or subdomain"
+            },
+            "observability": {
+              "type": "string",
+              "description": "RPI Observability hostname or subdomain (used when observability.enabled=true)"
             }
           }
         },
@@ -4709,6 +4862,16 @@
         "allowDNS": {
           "type": "boolean",
           "description": "Allow DNS egress from every service pod when the network policy is enabled."
+        },
+        "additionalEgressPorts": {
+          "type": "array",
+          "description": "Extra TCP ports service pods may open to any destination when the network policy is enabled, such as a database server on a non-default port. Network permission only; it does not configure any connection.",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "uniqueItems": true
         }
       }
     },

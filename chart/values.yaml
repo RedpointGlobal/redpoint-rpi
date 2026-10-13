@@ -924,6 +924,49 @@ twiliomessaging:
       outputLinkClickQueueUrl: ""
       outputInboundMessageQueueUrl: ""
 
+# ==========================
+# RPI Observability (opt-in)
+# ==========================
+# Read-only operating picture over the RPI deployment. It reads the operational
+# databases through the shared database Secret keys and writes only to its own
+# Observability database. Runs as a single replica.
+observability:
+  enabled: false
+  # RPI tenant GUID the deployment observes. Required when enabled.
+  # SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients
+  clientId: ""
+  # Observability database on the operational database server. Required when
+  # enabled. Create it before installing and make the operational login its owner.
+  databaseName: ""
+  # Analysis cycle cadence, in minutes.
+  schedule:
+    intervalMinutes: 30
+  evidence:
+    # Minutes after which execution failure evidence is reported as stale.
+    coverageStaleAfterMinutes: 10
+  # One bounded read per installed tenant's Interaction database each cycle.
+  tenantFanout:
+    enabled: true
+    maxConcurrency: 4
+    perTenantTimeoutSeconds: 10
+    cycleBudgetSeconds: 120
+    staleAfterMinutes: 90
+  # false (the default) is anonymous: anyone who can reach the service can read it.
+  # true requires sign-in through an external identity provider configured in RPI
+  # (Microsoft Entra ID or an OpenID Connect provider); RPI decides who the user is
+  # and which groups they hold. Redpoint credentials are not offered.
+  authentication:
+    enabled: false
+    cookieSecure: true
+    sessionLifetimeSeconds: 28800
+    # Capability to custom RPI group names, granted in addition to the built-in defaults.
+    capabilityMap: {}
+  # Volume mounted at /data. It holds only the session signing key.
+  sessionKeyStorage:
+    size: 1Gi
+    # Empty uses the cluster's default StorageClass.
+    storageClassName: ""
+
 diagnosticsMode:
   copytoAzureBlob:
     enabled: false
@@ -1018,6 +1061,7 @@ ingress:
     smartactivation: rpi-smartActivation
     twiliomessaging: rpi-twiliomessaging        # only used when twiliomessaging.enabled=true
     rpimcpserver: rpi-mcpserver
+    observability: rpi-observability        # only used when observability.enabled=true
 
 # ==========================
 # Network Policy

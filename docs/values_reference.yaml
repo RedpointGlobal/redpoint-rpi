@@ -400,6 +400,8 @@ ingress:
     config: rpi-deploymentapi
     # Integration API hostname or subdomain
     integration: rpi-integrationapi
+    # RPI Observability hostname or subdomain (used when observability.enabled=true)
+    observability: rpi-observability
     # Queue Reader hostname or subdomain
     queuereader: rpi-queuereader
     # RabbitMQ console hostname or subdomain
@@ -435,6 +437,10 @@ ingress:
   annotations: {}
 
 networkPolicy:
+  # Extra TCP ports service pods may open to any destination when the network policy is
+  # enabled, such as a database server on a non-default port. Network permission only; it does
+  # not configure any connection.
+  additionalEgressPorts: []
   # Allow DNS egress from every service pod when the network policy is enabled.
   allowDNS: true
   # Enable Kubernetes network policies
@@ -2670,6 +2676,74 @@ rebrandly:
   # Workload kind: deployment (Kubernetes Deployment) or rollout (Argo Rollout). Stateful
   # services use StatefulSet.
   type: deployment
+
+# RPI Observability: read-only operating picture over the RPI deployment. Single replica;
+# reads the operational databases through the shared database Secret keys and writes only to
+# its own Observability database
+observability:
+  # Sign-in through an external identity provider configured in RPI (Microsoft Entra ID or an
+  # OpenID Connect provider); RPI decides who the user is and which groups they hold. Redpoint
+  # credentials are not offered
+  authentication:
+    # Capability to custom RPI group names, granted in addition to the built-in defaults.
+    # observability.admin and the canonical RPI groups are refused at startup
+    capabilityMap: {}
+    # Send the session cookie over HTTPS only
+    cookieSecure: true
+    # Require sign-in through an external identity provider configured in RPI (default false).
+    # false is anonymous access
+    enabled: false
+    # Session lifetime in seconds
+    sessionLifetimeSeconds: 28800
+  # RPI tenant identifier (GUID) the deployment observes: SELECT ClientID FROM
+  # Pulse_<env>.dbo.rpi_Clients. Required when enabled
+  clientId: ''
+  # Observability database on the operational database server. Required when enabled. Create
+  # it before installing and make the operational login its owner
+  databaseName: ''
+  # Deploy RPI Observability
+  enabled: false
+  # Execution failure evidence
+  evidence:
+    # Minutes after which execution failure evidence is reported as stale
+    coverageStaleAfterMinutes: 10
+  # CPU and memory resource requests and limits
+  resources:
+    # Resource limits (maximum allocation)
+    limits:
+      # Memory limit (e.g., '1Gi', '3Gi')
+      memory: 3Gi
+      # CPU limit (e.g., '1', '2')
+      cpu: ''
+    # Resource requests (guaranteed allocation)
+    requests:
+      # CPU request (e.g., '500m', '1')
+      cpu: 50m
+      # Memory request (e.g., '512Mi', '1Gi')
+      memory: 256Mi
+  # Analysis cycle schedule
+  schedule:
+    # Minutes between analysis cycles
+    intervalMinutes: 30
+  # Volume mounted at /data; holds only the session signing key
+  sessionKeyStorage:
+    # Requested volume size
+    size: 1Gi
+    # StorageClass for the volume. Empty uses the cluster's default StorageClass
+    storageClassName: ''
+  # One bounded read per installed tenant's Interaction database each cycle
+  tenantFanout:
+    # Seconds allowed for all tenant reads in one cycle; tenants not reached are reported as
+    # not measured
+    cycleBudgetSeconds: 120
+    # Read each installed tenant's Interaction database
+    enabled: true
+    # Tenants read at the same time
+    maxConcurrency: 4
+    # Seconds allowed for one tenant's read
+    perTenantTimeoutSeconds: 10
+    # Minutes after which a tenant's last read is reported as stale
+    staleAfterMinutes: 90
 
 # Redpoint AI. Each capability is enabled on its own; the model endpoint, API version,
 # deployment and credential here are shared by every capability that consumes a model.

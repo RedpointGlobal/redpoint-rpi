@@ -1,0 +1,351 @@
+{{- $cfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "observability")) -}}
+{{- if $cfg.enabled -}}
+
+{{- $name := "rpi-observability" -}}
+{{- $secCtx := fromYaml (include "rpi.merged.securityContext" .) -}}
+{{- $ingCfg := fromYaml (include "rpi.merged.ingress" .) -}}
+{{- $iaCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "interactionapi")) -}}
+{{- $auth := $cfg.authentication | default dict -}}
+{{- $fanout := $cfg.tenantFanout | default dict -}}
+{{- $storage := $cfg.sessionKeyStorage | default dict -}}
+{{- $db := .Values.databases.operational -}}
+{{- $sdk := eq .Values.secretsManagement.provider "sdk" -}}
+{{- $serviceAccount := include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) -}}
+
+{{- if ne (int $cfg.replicaCount) 1 -}}
+{{- fail "observability.replicaCount must be 1. The analysis scheduler and the Observability database writers run in-process, so a second replica would run a second writer." -}}
+{{- end -}}
+
+{{- if not $cfg.clientId -}}
+{{- fail "observability.clientId is required when observability.enabled=true. It is the RPI tenant identifier (a GUID): SELECT ClientID FROM Pulse_<env>.dbo.rpi_Clients." -}}
+{{- end -}}
+
+{{- if not $cfg.databaseName -}}
+{{- fail "observability.databaseName is required when observability.enabled=true. Create the database on the operational database server and make the operational login its owner before installing." -}}
+{{- end -}}
+
+{{- if and $auth.enabled (not $iaCfg.enabled) -}}
+{{- fail "observability.authentication.enabled=true requires interactionapi.enabled=true. Observability reads its identity providers and the signed-in user from the Interaction API." -}}
+{{- end -}}
+
+{{- include "rpi.block.serviceAccount" (dict "root" . "name" $name "component" "observability" "cfg" $cfg) }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods", "events"]
+  verbs: ["list"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"]
+  verbs: ["list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+- kind: ServiceAccount
+  name: {{ $serviceAccount }}
+  namespace: {{ .Release.Namespace }}
+
+---
+# Node health reads cluster-scoped resources; the name carries the namespace so releases do not collide.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s" $name .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["list"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["nodes"]
+  verbs: ["list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-%s" $name .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s" $name .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ $serviceAccount }}
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ printf "%s-data" $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if $storage.storageClassName }}
+  storageClassName: {{ $storage.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $storage.size | default "1Gi" }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+  {{- $svcAnnotations := include "rpi.mergedAnnotations" (dict "root" . "type" "service") | trim }}
+  {{- if $svcAnnotations }}
+  annotations:
+    {{- $svcAnnotations | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+  - name: http
+    port: {{ $cfg.service.port }}
+    protocol: TCP
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+    {{- with .Values.customLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.customAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with (include "rpi.cloudidentity.podLabels" (dict "root" .) | trim) }}{{- . | nindent 8 }}{{- end }}
+      {{- $podAnnotations := include "rpi.mergedAnnotations" (dict "root" . "type" "pod") | trim }}
+      {{- $meshAnnotations := include "rpi.serviceMesh.podAnnotations" (dict "root" .) | trim }}
+      {{- if or $podAnnotations $meshAnnotations }}
+      annotations:
+        {{- with $podAnnotations }}
+        {{- . | nindent 8 }}
+        {{- end }}
+        {{- with $meshAnnotations }}
+        {{- . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ $serviceAccount }}
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      initContainers:
+        {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ $name }}
+        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        {{- with (include "rpi.commonEnvVars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        - name: OBSERVABILITY__CLIENT_ID
+          value: {{ $cfg.clientId | quote }}
+        - name: OBSERVABILITY__DATABASE__NAME
+          value: {{ $cfg.databaseName | quote }}
+        - name: OBSERVABILITY__SCHEDULE__INTERVAL_MINUTES
+          value: {{ $cfg.schedule.intervalMinutes | quote }}
+        - name: OBSERVABILITY__EVIDENCE__COVERAGE_STALE_AFTER_MINUTES
+          value: {{ $cfg.evidence.coverageStaleAfterMinutes | quote }}
+        - name: OBSERVABILITY__TENANT_FANOUT__ENABLED
+          value: {{ $fanout.enabled | quote }}
+        - name: OBSERVABILITY__TENANT_FANOUT__MAX_CONCURRENCY
+          value: {{ $fanout.maxConcurrency | quote }}
+        - name: OBSERVABILITY__TENANT_FANOUT__PER_TENANT_TIMEOUT
+          value: {{ $fanout.perTenantTimeoutSeconds | quote }}
+        - name: OBSERVABILITY__TENANT_FANOUT__CYCLE_BUDGET_SECONDS
+          value: {{ $fanout.cycleBudgetSeconds | quote }}
+        - name: OBSERVABILITY__TENANT_FANOUT__STALE_AFTER_MINUTES
+          value: {{ $fanout.staleAfterMinutes | quote }}
+        # The Execution Service is the only metrics source the operating picture reads.
+        - name: OBSERVABILITY__METRICS__SERVICES
+          value: '[{"name":"Execution Service","dnsName":"rpi-executionservice","port":8080,"path":"/metrics"}]'
+        {{- if not $sdk }}
+        - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__Server
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Operations_Database_ServerHost
+        - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__Username
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Operations_Database_Server_Username
+        - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__Password
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Operations_Database_Server_Password
+        - name: ClusterEnvironment__OperationalDatabase__PulseDatabaseName
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Operations_Database_Pulse_Database_Name
+        - name: ClusterEnvironment__OperationalDatabase__LoggingDatabaseName
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Operations_Database_Pulse_Logging_Database_Name
+        # Sign in as RPI's Deployment API does: with the username and password
+        # outside sdk mode, and as the vault's IsUsingCredentials selects in sdk mode.
+        - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__IsUsingCredentials
+          value: "true"
+        {{- end }}
+        - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__SQLServerSettings__Encrypt
+          value: {{ $db.encrypt | quote }}
+        {{- if eq $db.provider "sqlserver" }}
+        {{- if eq .Values.global.deployment.platform "amazon" }}
+        - name: ClusterEnvironment__OperationalDatabase__DatabaseType
+          value: "AmazonRDSSQL"
+        {{- else if eq .Values.global.deployment.platform "azure" }}
+        - name: ClusterEnvironment__OperationalDatabase__DatabaseType
+          value: "AzureSQLDatabase"
+        {{- else if eq .Values.global.deployment.platform "google" }}
+        - name: ClusterEnvironment__OperationalDatabase__DatabaseType
+          value: "GoogleCloudSQL"
+        {{- else }}
+        - name: ClusterEnvironment__OperationalDatabase__DatabaseType
+          value: "SQLServer"
+        {{- end }}
+        {{- else if eq $db.provider "sqlserveronvm" }}
+        - name: ClusterEnvironment__OperationalDatabase__DatabaseType
+          value: "SQLServer"
+        {{- else if eq $db.provider "postgresql" }}
+        - name: ClusterEnvironment__OperationalDatabase__DatabaseType
+          value: "PostgreSQL"
+        # The port RPI's Deployment API receives. A port in the server value wins.
+        - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__Port
+          value: "5432"
+        {{- end }}
+        {{- with (include "rpi.operationalDatabaseType.envvar" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- with (include "rpi.secrets.sdk.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        - name: OBSERVABILITY__AUTH__ENABLED
+          value: {{ $auth.enabled | default false | quote }}
+        {{- if $auth.enabled }}
+        - name: OBSERVABILITY__AUTH__COOKIE_SECURE
+          value: {{ $auth.cookieSecure | quote }}
+        - name: OBSERVABILITY__AUTH__SESSION_LIFETIME_SECONDS
+          value: {{ $auth.sessionLifetimeSeconds | quote }}
+        - name: OBSERVABILITY__AUTH__CAPABILITY_MAP
+          value: {{ $auth.capabilityMap | default dict | toJson | quote }}
+        - name: OBSERVABILITY__AUTH__INGRESS_HOST
+          value: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.observability "domain" $ingCfg.domain) | quote }}
+        # RPI supplies the identity providers and resolves the signed-in user.
+        - name: OBSERVABILITY__AUTH__RPI_API_URL
+          value: {{ printf "http://rpi-interactionapi:%v" $iaCfg.service.port | quote }}
+        {{- end }}
+        {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
+        {{- with $cfg.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        # Startup creates or verifies the Observability schema before the server listens.
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 10
+          failureThreshold: 30
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 30
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: tmp
+          mountPath: /tmp
+        {{- include "rpi.customCACerts.volumeMount" . | nindent 8 }}
+        {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 8 }}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ printf "%s-data" $name }}
+      - name: tmp
+        emptyDir: {}
+      {{- include "rpi.customCACerts.volume" . | nindent 6 }}
+      {{- include "rpi.cloudidentity.googleVolumes" . | nindent 6 }}
+      {{- if .Values.nodeSelector.enabled }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - effect: NoSchedule
+          key: {{ .Values.nodeSelector.key }}
+          operator: Equal
+          value: {{ .Values.nodeSelector.value }}
+      {{- end }}
+{{- end }}
