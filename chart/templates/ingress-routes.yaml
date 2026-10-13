@@ -241,7 +241,7 @@ spec:
         pathType: Prefix
       - backend:
           service:
-            name: keycloak
+            name: cdp-keycloak
             port:
               number: 80
         path: /(auth/.*)
