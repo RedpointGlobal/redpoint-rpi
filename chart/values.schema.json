@@ -151,21 +151,6 @@
               "type": "boolean",
               "description": "Enable TLS encryption for database connections"
             },
-            "keycloak": {
-              "type": "object",
-              "description": "Keycloak database (Smart Activation). Keycloak signs in with the operational database login",
-              "additionalProperties": false,
-              "properties": {
-                "server_host": {
-                  "type": "string",
-                  "description": "Keycloak database server hostname"
-                },
-                "database_name": {
-                  "type": "string",
-                  "description": "Name of the Keycloak database"
-                }
-              }
-            },
             "cloudSqlProxy": {
               "type": "object",
               "description": "Google Cloud SQL Auth Proxy (GKE only; requires platform=google and provider=postgresql)",
@@ -5284,6 +5269,10 @@
         "username": {
           "type": "string",
           "description": "Keycloak admin username"
+        },
+        "database_name": {
+          "type": "string",
+          "description": "Name of the Keycloak database, on the operational database server"
         },
         "realm_name": {
           "type": "string"

@@ -66,16 +66,12 @@ integrationapi:
 authservice:
   default_username: admin@noemail.com
 
-# Keycloak administrator
+# Keycloak administrator and database
 keycloak:
   username: admin@noemail.com
-
-# Keycloak database. Keycloak signs in with the operational database login.
-databases:
-  operational:
-    keycloak:
-      server_host: <my-keycloak-database-server-host>
-      database_name: keycloak
+  # Created on the operational database server; Keycloak signs in with the
+  # operational login (Operations_Database_Server_Username / _Password).
+  database_name: keycloak
 
 # Smart Activation operational database (MongoDB)
 initservice:

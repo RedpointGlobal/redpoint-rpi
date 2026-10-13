@@ -123,11 +123,6 @@ databases:
     # Schema the Deployment API uses within the operational database.
     databaseSchema: "dbo"
     encrypt: true
-    # Keycloak database (Smart Activation). Keycloak signs in with the
-    # operational database login above.
-    keycloak:
-      server_host: <my-keycloak-database-server-host>
-      database_name: keycloak
 
     # Cloud SQL Auth Proxy for the operational database (GKE; PostgreSQL or SQL Server).
     # Requires cloudIdentity.enabled=true. Setup: docs/google-cloud-sql-iam.md.
@@ -1222,6 +1217,9 @@ keycloak:
   replicas: 1
   username: admin@noemail.com
   realm_name: redpoint-mercury
+  # Keycloak database, on the operational database server. Keycloak signs in
+  # with the operational login (Operations_Database_Server_Username / _Password).
+  database_name: keycloak
 
 # Init Service (Smart Activation)
 initservice:

@@ -223,8 +223,14 @@ spec:
           value: {{ .Values.global.deployment.podTimezone | quote }}
         {{- end }}
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
-        {{- $secrets := not (eq .Values.secretsManagement.provider "sdk") }}
-        {{- $kcDb := .Values.databases.operational.keycloak }}
+        {{- /* Keycloak's database lives on the operational database server and signs in
+               with the operational login. Kubernetes expands $(DATABASE_SERVER_HOST)
+               into KC_DB_URL, so the host stays in the Secret. */}}
+        - name: DATABASE_SERVER_HOST
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "rpi.secrets.secretName" . | quote }}
+              key: Operations_Database_ServerHost
         {{- if eq .Values.databases.operational.provider "postgresql" }}
         - name: KEYCLOAK_DATABASE_VENDOR
           value: postgresql
@@ -233,7 +239,7 @@ spec:
         - name: KEYCLOAK_DATABASE_PORT
           value: "5432"
         - name: KC_DB_URL
-          value: "jdbc:postgresql://{{ $kcDb.server_host }}:5432/{{ $kcDb.database_name }}"
+          value: "jdbc:postgresql://$(DATABASE_SERVER_HOST):5432/{{ $cfg.database_name }}"
         {{- else }}
         {{- /* the probe only runs for postgresql, so sql server never reaches it.
                sqlserveronvm is SQL Server and takes the same driver and url shape. */}}
@@ -244,9 +250,8 @@ spec:
         - name: KEYCLOAK_DATABASE_PORT
           value: "1433"
         - name: KC_DB_URL
-          value: "jdbc:sqlserver://{{ $kcDb.server_host }};databaseName={{ $kcDb.database_name }};"
+          value: "jdbc:sqlserver://$(DATABASE_SERVER_HOST);databaseName={{ $cfg.database_name }};"
         {{- end }}
-        {{- if $secrets }}
         - name: KC_DB_USERNAME
           valueFrom:
             secretKeyRef:
@@ -257,10 +262,6 @@ spec:
             secretKeyRef:
               name: {{ include "rpi.secrets.secretName" . | quote }}
               key: Operations_Database_Server_Password
-        {{- else }}
-        - name: KC_DB_USERNAME
-          value: {{ .Values.databases.operational.server_username | quote }}
-        {{- end }}
         - name: KEYCLOAK_PRODUCTION
           value: "false"
         - name: KC_BOOTSTRAP_ADMIN_USERNAME
@@ -273,7 +274,7 @@ spec:
         - name: KEYCLOAK_EXTRA_ARGS
           value: "-Dkeycloak.frontendUrl=https://{{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.smartactivation "domain" $ingCfg.domain) }}"
         - name: KEYCLOAK_DATABASE_NAME
-          value: {{ $kcDb.database_name | quote }}
+          value: {{ $cfg.database_name | quote }}
         - name: KEYCLOAK_PROXY_HEADERS
           value: "xforwarded"
         - name: KEYCLOAK_HOSTNAME_STRICT
