@@ -158,6 +158,12 @@ databases:
     # Credentials). Requires provider=postgresql, global.deployment.platform=google, and
     # cloudIdentity.enabled=true; cannot be combined with cloudSqlProxy.enabled.
     googleWorkloadIdentity: false
+    # Keycloak database (Smart Activation). Keycloak signs in with the operational database login
+    keycloak:
+      # Name of the Keycloak database
+      database_name: keycloak
+      # Keycloak database server hostname
+      server_host: <my-keycloak-database-server-host>
     # Database provider type
     provider: sqlserver
     # Name of the Pulse operational database
@@ -3133,7 +3139,6 @@ uiservice:
 
 # Keycloak configuration (Smart Activation component)
 keycloak:
-  database_name: keycloak
   # PodDisruptionBudget for this service.
   podDisruptionBudget:
     # Create a PodDisruptionBudget for the workload.

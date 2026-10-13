@@ -224,15 +224,7 @@ spec:
         {{- end }}
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
         {{- $secrets := not (eq .Values.secretsManagement.provider "sdk") }}
-        {{- $host := .Values.databases.operational.server_host }}
-        {{- if $secrets }}
-        {{- $host = "$(KC_DB_HOST)" }}
-        - name: KC_DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: Operations_Database_ServerHost
-        {{- end }}
+        {{- $kcDb := .Values.databases.operational.keycloak }}
         {{- if eq .Values.databases.operational.provider "postgresql" }}
         - name: KEYCLOAK_DATABASE_VENDOR
           value: postgresql
@@ -241,7 +233,7 @@ spec:
         - name: KEYCLOAK_DATABASE_PORT
           value: "5432"
         - name: KC_DB_URL
-          value: "jdbc:postgresql://{{ $host }}:5432/{{ $cfg.database_name }}"
+          value: "jdbc:postgresql://{{ $kcDb.server_host }}:5432/{{ $kcDb.database_name }}"
         {{- else }}
         {{- /* the probe only runs for postgresql, so sql server never reaches it.
                sqlserveronvm is SQL Server and takes the same driver and url shape. */}}
@@ -252,7 +244,7 @@ spec:
         - name: KEYCLOAK_DATABASE_PORT
           value: "1433"
         - name: KC_DB_URL
-          value: "jdbc:sqlserver://{{ $host }};databaseName={{ $cfg.database_name }};"
+          value: "jdbc:sqlserver://{{ $kcDb.server_host }};databaseName={{ $kcDb.database_name }};"
         {{- end }}
         {{- if $secrets }}
         - name: KC_DB_USERNAME
@@ -281,7 +273,7 @@ spec:
         - name: KEYCLOAK_EXTRA_ARGS
           value: "-Dkeycloak.frontendUrl=https://{{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.smartactivation "domain" $ingCfg.domain) }}"
         - name: KEYCLOAK_DATABASE_NAME
-          value: {{ $cfg.database_name | quote }}
+          value: {{ $kcDb.database_name | quote }}
         - name: KEYCLOAK_PROXY_HEADERS
           value: "xforwarded"
         - name: KEYCLOAK_HOSTNAME_STRICT
