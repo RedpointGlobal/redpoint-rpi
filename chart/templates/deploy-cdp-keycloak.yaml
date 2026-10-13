@@ -223,9 +223,6 @@ spec:
           value: {{ .Values.global.deployment.podTimezone | quote }}
         {{- end }}
         {{- include "rpi.cdp.keyVaultEnv" . | nindent 8 }}
-        {{- /* Keycloak's database lives on the operational database server and signs in
-               with the operational login. Kubernetes expands $(DATABASE_SERVER_HOST)
-               into KC_DB_URL, so the host stays in the Secret. */}}
         - name: DATABASE_SERVER_HOST
           valueFrom:
             secretKeyRef:
@@ -236,13 +233,15 @@ spec:
           value: postgresql
         - name: KC_DB
           value: "postgres"
+        {{- /* the image's start-up script waits for PostgreSQL at this host and port;
+               it does not wait for SQL Server. */}}
+        - name: KEYCLOAK_DATABASE_HOST
+          value: "$(DATABASE_SERVER_HOST)"
         - name: KEYCLOAK_DATABASE_PORT
           value: "5432"
         - name: KC_DB_URL
           value: "jdbc:postgresql://$(DATABASE_SERVER_HOST):5432/{{ $cfg.database_name }}"
         {{- else }}
-        {{- /* the probe only runs for postgresql, so sql server never reaches it.
-               sqlserveronvm is SQL Server and takes the same driver and url shape. */}}
         - name: KEYCLOAK_DATABASE_VENDOR
           value: mssql
         - name: KC_DB
