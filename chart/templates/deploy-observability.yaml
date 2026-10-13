@@ -219,9 +219,6 @@ spec:
           value: {{ $fanout.cycleBudgetSeconds | quote }}
         - name: OBSERVABILITY__TENANT_FANOUT__STALE_AFTER_MINUTES
           value: {{ $fanout.staleAfterMinutes | quote }}
-        # The Execution Service is the only metrics source the operating picture reads.
-        - name: OBSERVABILITY__METRICS__SERVICES
-          value: '[{"name":"Execution Service","dnsName":"rpi-executionservice","port":8080,"path":"/metrics"}]'
         {{- if not $sdk }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__Server
           valueFrom:

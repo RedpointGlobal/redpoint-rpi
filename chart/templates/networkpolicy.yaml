@@ -299,12 +299,12 @@ spec:
             except:
               - 169.254.169.254/32
 {{- if $obsCfg.enabled }}
-{{- $obsAuth := ($obsCfg.authentication | default dict).enabled }}
 {{- $platform := .Values.global.deployment.platform }}
 
 ---
-# RPI Observability reaches only what it reads: the RPI services it calls on
-# their pod port, the operational database server, HTTPS endpoints (identity
+# RPI Observability reaches only what it reads: the RPI services whose metrics
+# it reads, and the Interaction API for sign-in, on their pod port; the
+# operational database server, HTTPS endpoints (identity
 # providers, cloud identity and vaults, the Kubernetes API) and SMTP. The
 # pod's cloud identity endpoint is allowed only where the platform issues
 # workload identity tokens through it.
@@ -329,10 +329,12 @@ spec:
                 operator: In
                 values:
                   - rpi-executionservice
+                  - rpi-nodemanager
                   - rpi-queuereader
-                  {{- if $obsAuth }}
                   - rpi-interactionapi
-                  {{- end }}
+                  - rpi-integrationapi
+                  - rpi-realtimeapi
+                  - rpi-callbackapi
       ports:
         - protocol: TCP
           port: 8080
@@ -412,8 +414,9 @@ spec:
     {{- end }}
 
 ---
-# The RPI services RPI Observability calls admit it on their pod port.
-# default-deny-ingress selects them and no other policy admits Observability.
+# The RPI services RPI Observability reads admit it on their pod port, for
+# their metrics and, on the Interaction API, sign-in. default-deny-ingress
+# selects them and no other policy admits Observability.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -428,10 +431,12 @@ spec:
         operator: In
         values:
           - rpi-executionservice
+          - rpi-nodemanager
           - rpi-queuereader
-          {{- if $obsAuth }}
           - rpi-interactionapi
-          {{- end }}
+          - rpi-integrationapi
+          - rpi-realtimeapi
+          - rpi-callbackapi
   policyTypes:
     - Ingress
   ingress:

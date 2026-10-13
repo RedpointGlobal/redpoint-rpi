@@ -7,7 +7,7 @@
 
 **RPI Observability** is a read-only operating picture over an RPI deployment. It answers whether the platform is coordinated, whether work is flowing, accumulating or failing, whether capacity is available, whether queues and dependencies are healthy, and what needs investigation now.
 
-It reads RPI's operational and tenant databases, the Execution Service metrics endpoint, the Queue Reader statistics endpoints and the Kubernetes API. It never writes to an RPI database. Everything it keeps is written to its own Observability database on the operational database server.
+It reads RPI's operational and tenant databases, the metrics endpoints of the seven RPI services that serve one, the Queue Reader statistics endpoints and the Kubernetes API. It never writes to an RPI database. Everything it keeps is written to its own Observability database on the operational database server.
 
 | Workload | What it is | Setting |
 |---|---|---|
@@ -153,7 +153,7 @@ With `networkPolicy.enabled: true` (off by default), the ingress controller is a
 
 `allow-rpi-observability-egress` allows Observability only:
 
-- the Execution Service and Queue Reader pods, and the Interaction API pods when sign-in is enabled, on their pod port 8080;
+- the Execution Service, Node Manager, Queue Reader, Interaction API, Integration API, Realtime API and Callback API pods on their pod port 8080, for their metrics and, on the Interaction API, sign-in;
 - DNS, when `networkPolicy.allowDNS` is on;
 - TCP 443 (identity providers, Azure and Google identity, cloud vaults, AI, the Kubernetes API), 1433 and 5432 (database servers) and the SMTP port;
 - every port in `networkPolicy.additionalEgressPorts`;
@@ -211,10 +211,15 @@ The cluster-scoped role is named `rpi-observability-<namespace>`. With `cloudIde
 | operational database server | RPI reads, tenant reads, and the Observability database |
 | cloud identity | database access tokens when RPI signs in with a managed identity or Cloud SQL IAM |
 | Kubernetes API | the permissions above |
-| Execution Service pods, port 8080 | executing work, capacity and completion counters from `/metrics` |
+| Execution Service pods, port 8080 | executing work, capacity, completion counters and errors per tenant, from `/metrics` |
+| Node Manager pods, port 8080 | activities and tasks allocated, triggers fired and errors per tenant, from `/metrics` |
+| Queue Reader pods, port 8080 | queue listener messages accepted and rejected, and errors per tenant, from `/metrics` |
+| Interaction, Integration, Realtime and Callback API pods, port 8080 | requests served, server errors, requests in progress and waiting, and open connections, from `/metrics` |
 | Queue Reader instances | reader statistics, at the address each reader registers in RPI |
 | `rpi-interactionapi` Service | sign-in methods and the signed-in user, when sign-in is enabled |
 | identity provider | discovery, keys and token exchange, when sign-in is enabled |
+
+The Deployment API serves no metrics endpoint, so Observability shows it through its pod state and readiness only. A service that is disabled, not running or not answering is shown as not measured, never as idle.
 
 ## Limitations
 
