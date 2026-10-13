@@ -193,7 +193,7 @@ spec:
         - name: SOCKETIO_PORT
           value: "8930"
         - name: REDPOINT_MERCURY_REALM
-          value: {{ $kcCfg.realm_name }}
+          value: redpoint-mercury
         - name: KEYCLOAK_HOST
           value: "cdp-keycloak"
         - name: KEYCLOAK_PORT

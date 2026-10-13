@@ -5274,9 +5274,6 @@
           "type": "string",
           "description": "Name of the Keycloak database, on the operational database server"
         },
-        "realm_name": {
-          "type": "string"
-        },
         "resources": {
           "$ref": "#/definitions/workloadResources",
           "description": "CPU and memory resource requests and limits"

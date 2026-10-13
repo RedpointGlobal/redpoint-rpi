@@ -1216,7 +1216,6 @@ authservice:
 keycloak:
   replicas: 1
   username: admin@noemail.com
-  realm_name: redpoint-mercury
   # Keycloak database, on the operational database server. Keycloak signs in
   # with the operational login (Operations_Database_Server_Username / _Password).
   database_name: keycloak

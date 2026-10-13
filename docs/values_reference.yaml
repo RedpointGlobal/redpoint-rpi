@@ -3141,7 +3141,6 @@ keycloak:
     enabled: false
     # Minimum pods that must stay available during voluntary disruption (count or percentage).
     minAvailable: 1
-  realm_name: redpoint-mercury
   # Number of Keycloak pod replicas
   replicas: 1
   # CPU and memory resource requests and limits
