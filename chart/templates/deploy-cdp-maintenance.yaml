@@ -213,6 +213,8 @@ spec:
           value: "cdp-socketio"
         - name: SOCKETIO_PORT
           value: {{ $sioCfg.service.port | quote }}
+        - name: DCC_INIT_BASE_URL
+          value: "http://cdp-init"
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: MONGODB_CONNECTION_STRING
           valueFrom:

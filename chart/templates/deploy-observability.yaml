@@ -201,6 +201,9 @@ spec:
           protocol: TCP
         env:
         {{- with (include "rpi.commonEnvVars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        # The namespace Observability reads pods, events and metrics in: its own.
+        - name: POD_NAMESPACE
+          value: {{ .Release.Namespace | quote }}
         - name: OBSERVABILITY__CLIENT_ID
           value: {{ $cfg.clientId | quote }}
         - name: OBSERVABILITY__DATABASE__NAME

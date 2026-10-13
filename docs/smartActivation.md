@@ -48,7 +48,6 @@ overrides file.
 | `CDP_Keycloak_Client_Secret` | Keycloak client secret for the `rpi-service` client |
 | `CDP_Mongo_ConnectionString` | Connection string of the Smart Activation MongoDB database |
 | `CDP_RabbitMQ_Password` | Password of the Smart Activation message queue |
-| `CDP_SIGMA_Client_Secret` | Sigma client secret, only when `reportingservice.sigma.enabled: true` |
 | `SMTP_Password` | Password of the mail account in `SMTPSettings.SMTP_Username` |
 
 Then add the following to your overrides file. Only the usernames and

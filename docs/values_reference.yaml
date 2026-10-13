@@ -3447,15 +3447,6 @@ cdpcache:
 # Environment variables applied to every RPI application service. Name and value only.
 commonEnvVars: []
 
-# Reporting Service configuration (Sigma integration)
-reportingservice:
-  # Sigma Computing reporting integration
-  sigma:
-    api_url: 'https://api.us.azure.sigmacomputing.com'
-    client_id: 48dd1982ab835ff53177e9cbd7fb5608b1db8c56491a040f2f0843a3bfc6b440
-    # Enable Sigma reporting integration
-    enabled: false
-
 # Twilio Messaging service (opt-in) - outbound/inbound SMS. Requires PostgreSQL.
 twiliomessaging:
   # Twilio Account SID. The auth token is a secret (shared Secret key

@@ -5307,30 +5307,6 @@
         }
       }
     },
-    "reportingservice": {
-      "type": "object",
-      "description": "Reporting Service configuration (Sigma integration)",
-      "additionalProperties": true,
-      "properties": {
-        "sigma": {
-          "type": "object",
-          "description": "Sigma Computing reporting integration",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable Sigma reporting integration"
-            },
-            "api_url": {
-              "type": "string"
-            },
-            "client_id": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
     "initservice": {
       "type": "object",
       "description": "Init Service configuration (Smart Activation component)",

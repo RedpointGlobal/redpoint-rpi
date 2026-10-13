@@ -202,7 +202,7 @@ To rotate the key, copy `session_signing_key` to `session_signing_key.previous` 
 | namespace | `pods.metrics.k8s.io` | `list` | pod resource usage |
 | cluster | `nodes`, `nodes.metrics.k8s.io` | `list` | node health and resource usage |
 
-The cluster-scoped role is named `rpi-observability-<namespace>`. With `cloudIdentity.serviceAccount.mode: shared`, the permissions are bound to the shared service account and so apply to every workload that uses it.
+Observability reads pods, events and metrics only in its own namespace, which the chart passes as `POD_NAMESPACE`; it never lists them across the cluster. The cluster-scoped role is named `rpi-observability-<namespace>`. With `cloudIdentity.serviceAccount.mode: shared`, the permissions are bound to the shared service account and so apply to every workload that uses it.
 
 ## Connectivity
 

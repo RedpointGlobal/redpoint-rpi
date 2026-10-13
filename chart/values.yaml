@@ -1219,14 +1219,6 @@ keycloak:
   database_name: keycloak
   realm_name: redpoint-mercury
 
-# Reporting Service
-reportingservice:
-  sigma:
-    enabled: false
-    api_url: https://api.us.azure.sigmacomputing.com
-    client_id: 48dd1982ab835ff53177e9cbd7fb5608b1db8c56491a040f2f0843a3bfc6b440
-    # Client secret: shared Secret key CDP_SIGMA_Client_Secret
-
 # Init Service (Smart Activation)
 initservice:
   replicas: 1

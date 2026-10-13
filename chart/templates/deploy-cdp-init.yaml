@@ -217,19 +217,10 @@ spec:
           value: "cdp-socketio"
         - name: SOCKETIO_PORT
           value: {{ $sioCfg.service.port | quote }}
-        {{- if .Values.reportingservice.sigma.enabled }}
-        {{- if not (eq .Values.secretsManagement.provider "sdk") }}
-        - name: SIGMA_API_URL
-          value: {{ .Values.reportingservice.sigma.api_url | quote }}
-        - name: SIGMA_API_CLIENT_ID
-          value: {{ .Values.reportingservice.sigma.client_id | quote }}
-        - name: SIGMA_API_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "rpi.secrets.secretName" . | quote }}
-              key: CDP_SIGMA_Client_Secret
-        {{- end }}
-        {{- end }}
+        - name: DCC_INIT_BASE_URL
+          value: "http://cdp-init"
+        - name: AUTH_BASE_URL
+          value: http://cdp-authservice
         {{- if not (eq .Values.secretsManagement.provider "sdk") }}
         - name: RPI_SHARED_USER
           value: {{ $intCfg.username | quote }}
