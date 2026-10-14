@@ -4079,10 +4079,20 @@
           "description": "Schema installer Job, run as a pre-install and pre-upgrade hook so the database schema is applied before the service rolls.",
           "additionalProperties": true,
           "properties": {
-            "enabled": { "type": "boolean", "description": "Run the schema installer. Disable only when the schema is applied out of band." },
-            "backoffLimit": { "type": "integer" },
-            "activeDeadlineSeconds": { "type": "integer" },
-            "resources": { "type": "object", "additionalProperties": true }
+            "enabled": {
+              "type": "boolean",
+              "description": "Run the schema installer. Disable only when the schema is applied out of band."
+            },
+            "backoffLimit": {
+              "type": "integer"
+            },
+            "activeDeadlineSeconds": {
+              "type": "integer"
+            },
+            "resources": {
+              "type": "object",
+              "additionalProperties": true
+            }
           }
         },
         "enabled": {
@@ -4129,13 +4139,34 @@
           "additionalProperties": false,
           "description": "SQS/SNS transport settings (messaging.provider=amazonsqs). Queue URLs and topic ARNs are operator-supplied.",
           "properties": {
-            "region": { "type": "string", "description": "AWS region." },
-            "inputQueueUrl": { "type": "string", "description": "Input queue URL. Required when messaging.provider=amazonsqs." },
-            "outputTopicArn": { "type": "string", "description": "Output topic ARN. Required when messaging.provider=amazonsqs." },
-            "outputInternalTopicArn": { "type": "string", "description": "Internal output topic ARN. Required when messaging.provider=amazonsqs." },
-            "outputDeliveryStatusQueueUrl": { "type": "string", "description": "Delivery-status queue URL. Required when messaging.provider=amazonsqs." },
-            "outputLinkClickQueueUrl": { "type": "string", "description": "Link-click queue URL. Required when messaging.provider=amazonsqs." },
-            "outputInboundMessageQueueUrl": { "type": "string", "description": "Inbound-message queue URL. Required when messaging.provider=amazonsqs." }
+            "region": {
+              "type": "string",
+              "description": "AWS region."
+            },
+            "inputQueueUrl": {
+              "type": "string",
+              "description": "Input queue URL. Required when messaging.provider=amazonsqs."
+            },
+            "outputTopicArn": {
+              "type": "string",
+              "description": "Output topic ARN. Required when messaging.provider=amazonsqs."
+            },
+            "outputInternalTopicArn": {
+              "type": "string",
+              "description": "Internal output topic ARN. Required when messaging.provider=amazonsqs."
+            },
+            "outputDeliveryStatusQueueUrl": {
+              "type": "string",
+              "description": "Delivery-status queue URL. Required when messaging.provider=amazonsqs."
+            },
+            "outputLinkClickQueueUrl": {
+              "type": "string",
+              "description": "Link-click queue URL. Required when messaging.provider=amazonsqs."
+            },
+            "outputInboundMessageQueueUrl": {
+              "type": "string",
+              "description": "Inbound-message queue URL. Required when messaging.provider=amazonsqs."
+            }
           }
         },
         "pubsub": {
@@ -4143,14 +4174,31 @@
           "additionalProperties": false,
           "description": "Pub/Sub transport settings (messaging.provider=googlepubsub). Auth via GCP Workload Identity.",
           "properties": {
-            "projectId": { "type": "string", "description": "GCP project ID. Required when messaging.provider=googlepubsub." },
-            "inputTopicId": { "type": "string" },
-            "inputSubscriptionId": { "type": "string" },
-            "outputTopicId": { "type": "string" },
-            "outputInternalTopicId": { "type": "string" },
-            "outputDeliveryStatusSubscriptionId": { "type": "string" },
-            "outputLinkClickSubscriptionId": { "type": "string" },
-            "outputInboundMessageSubscriptionId": { "type": "string" }
+            "projectId": {
+              "type": "string",
+              "description": "GCP project ID. Required when messaging.provider=googlepubsub."
+            },
+            "inputTopicId": {
+              "type": "string"
+            },
+            "inputSubscriptionId": {
+              "type": "string"
+            },
+            "outputTopicId": {
+              "type": "string"
+            },
+            "outputInternalTopicId": {
+              "type": "string"
+            },
+            "outputDeliveryStatusSubscriptionId": {
+              "type": "string"
+            },
+            "outputLinkClickSubscriptionId": {
+              "type": "string"
+            },
+            "outputInboundMessageSubscriptionId": {
+              "type": "string"
+            }
           }
         },
         "eventHubs": {
@@ -4158,38 +4206,60 @@
           "additionalProperties": false,
           "description": "Event Hubs transport settings (messaging.provider=azureeventhubs). Auth via Azure Workload Identity.",
           "properties": {
-            "fullyQualifiedNamespace": { "type": "string", "description": "Event Hubs namespace FQDN, e.g. <namespace>.servicebus.windows.net." },
+            "fullyQualifiedNamespace": {
+              "type": "string",
+              "description": "Event Hubs namespace FQDN, e.g. <namespace>.servicebus.windows.net."
+            },
             "inputHub": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "name": { "type": "string" },
-                "consumerGroup": { "type": "string" }
+                "name": {
+                  "type": "string"
+                },
+                "consumerGroup": {
+                  "type": "string"
+                }
               }
             },
             "outputHub": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "name": { "type": "string" }
+                "name": {
+                  "type": "string"
+                }
               }
             },
             "outputInternalHub": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "name": { "type": "string" },
-                "deliveryStatusConsumerGroup": { "type": "string" },
-                "linkClickConsumerGroup": { "type": "string" },
-                "inboundMessageConsumerGroup": { "type": "string" }
+                "name": {
+                  "type": "string"
+                },
+                "deliveryStatusConsumerGroup": {
+                  "type": "string"
+                },
+                "linkClickConsumerGroup": {
+                  "type": "string"
+                },
+                "inboundMessageConsumerGroup": {
+                  "type": "string"
+                }
               }
             },
             "checkpointing": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "blobServiceUri": { "type": "string", "description": "Checkpoint storage blob service URI." },
-                "blobContainerName": { "type": "string" }
+                "blobServiceUri": {
+                  "type": "string",
+                  "description": "Checkpoint storage blob service URI."
+                },
+                "blobContainerName": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -4208,15 +4278,27 @@
               "additionalProperties": false,
               "description": "RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must exist in the namespace.",
               "properties": {
-                "deliveryStatusConsumerGroup": { "type": "string" },
-                "sendResultConsumerGroup": { "type": "string" },
-                "linkClickConsumerGroup": { "type": "string" },
-                "inboundMessageConsumerGroup": { "type": "string", "description": "Must match the provisioned group name." },
+                "deliveryStatusConsumerGroup": {
+                  "type": "string"
+                },
+                "sendResultConsumerGroup": {
+                  "type": "string"
+                },
+                "linkClickConsumerGroup": {
+                  "type": "string"
+                },
+                "inboundMessageConsumerGroup": {
+                  "type": "string",
+                  "description": "Must match the provisioned group name."
+                },
                 "checkpointing": {
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
-                    "blobContainerName": { "type": "string", "description": "RPI's own checkpoint container. Never shared with the messaging service." }
+                    "blobContainerName": {
+                      "type": "string",
+                      "description": "RPI's own checkpoint container. Never shared with the messaging service."
+                    }
                   }
                 }
               }
@@ -4226,10 +4308,18 @@
               "additionalProperties": false,
               "description": "RPI-owned queues, each subscribed to the matching service SNS topic with RawMessageDelivery=true. All four are required when messaging.provider=amazonsqs.",
               "properties": {
-                "outputDeliveryStatusQueueUrl": { "type": "string" },
-                "outputSendResultQueueUrl": { "type": "string" },
-                "outputLinkClickQueueUrl": { "type": "string" },
-                "outputInboundMessageQueueUrl": { "type": "string" }
+                "outputDeliveryStatusQueueUrl": {
+                  "type": "string"
+                },
+                "outputSendResultQueueUrl": {
+                  "type": "string"
+                },
+                "outputLinkClickQueueUrl": {
+                  "type": "string"
+                },
+                "outputInboundMessageQueueUrl": {
+                  "type": "string"
+                }
               }
             },
             "pubsub": {
@@ -4237,10 +4327,18 @@
               "additionalProperties": false,
               "description": "RPI-owned subscription ids on the output topic, composed with pubsub.projectId into full resource names.",
               "properties": {
-                "outputDeliveryStatusSubscriptionId": { "type": "string" },
-                "outputSendResultSubscriptionId": { "type": "string" },
-                "outputLinkClickSubscriptionId": { "type": "string" },
-                "outputInboundMessageSubscriptionId": { "type": "string" }
+                "outputDeliveryStatusSubscriptionId": {
+                  "type": "string"
+                },
+                "outputSendResultSubscriptionId": {
+                  "type": "string"
+                },
+                "outputLinkClickSubscriptionId": {
+                  "type": "string"
+                },
+                "outputInboundMessageSubscriptionId": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -4475,6 +4573,156 @@
             "enabled": {
               "type": "boolean",
               "description": "Create the rpi-observability ServiceAccount"
+            }
+          }
+        },
+        "telemetry": {
+          "type": "object",
+          "description": "Runtime tracing (optional): activates the OpenTelemetry instrumentation baked into the RPI images, runs a collector sidecar in the Observability pod and keeps the spans in the Observability database",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Turn runtime tracing on. The RPI services restart"
+            },
+            "samplingRatio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Fraction of traces kept at the source"
+            },
+            "muslServices": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "executionservice",
+                  "nodemanager",
+                  "queuereader",
+                  "interactionapi",
+                  "integrationapi",
+                  "realtimeapi",
+                  "callbackapi",
+                  "deploymentapi",
+                  "rebrandly"
+                ]
+              },
+              "description": "Services whose images are built on Alpine and load the musl profiler"
+            },
+            "collector": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "image": {
+                  "type": "string",
+                  "description": "OpenTelemetry Collector image, full URI"
+                },
+                "resources": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "requests": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memory": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memory": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "recorder": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "retentionMinutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Minutes of spans kept"
+                },
+                "maxSpans": {
+                  "type": "integer",
+                  "minimum": 1000,
+                  "description": "Cap on stored spans"
+                },
+                "incidentBeforeMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Minutes kept before a newly detected condition"
+                },
+                "incidentAfterMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Minutes kept after a newly detected condition"
+                },
+                "maxWindows": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Cap on preserved incident windows"
+                }
+              }
+            },
+            "network": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Run the per node network and dependency agent"
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Agent image, full URI"
+                },
+                "resources": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "requests": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memory": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memory": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }

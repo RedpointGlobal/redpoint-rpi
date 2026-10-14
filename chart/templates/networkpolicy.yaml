@@ -76,6 +76,36 @@ spec:
               app.kubernetes.io/part-of: rpi
               app.kubernetes.io/part-of: smartactivation
 
+{{- if eq (include "rpi.telemetry.enabled" .) "true" }}
+---
+# Runtime tracing: the RPI pods reach the collector sidecar in the
+# Observability pod on the OTLP ports. The sidecar's delivery to the
+# application stays on the pod's loopback, which no policy governs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-rpi-telemetry-to-observability
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" "allow-rpi-telemetry-to-observability" "component" "network-policy") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rpi-observability
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: rpi
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
+{{- end }}
+
 ---
 # Allow Redis access from services that need it
 apiVersion: networking.k8s.io/v1

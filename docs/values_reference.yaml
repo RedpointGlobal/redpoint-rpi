@@ -2744,6 +2744,51 @@ observability:
     perTenantTimeoutSeconds: 10
     # Minutes after which a tenant's last read is reported as stale
     staleAfterMinutes: 90
+  # Runtime tracing (optional): activates the OpenTelemetry instrumentation baked into the
+  # RPI images, runs a collector sidecar in the Observability pod and keeps the spans in the Observability database
+  telemetry:
+    collector:
+      # OpenTelemetry Collector sidecar image, full URI
+      image: 'otel/opentelemetry-collector:0.139.0'
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    # Turn runtime tracing on. The RPI services restart
+    enabled: false
+    # Services whose images are built on Alpine and load the musl profiler
+    muslServices:
+      - integrationapi
+      - callbackapi
+      - deploymentapi
+    network:
+      # Run the per node network and dependency agent
+      enabled: false
+      # Agent image, full URI
+      image: 'grafana/beyla:2.7.3'
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    recorder:
+      # Minutes kept after a newly detected condition
+      incidentAfterMinutes: 10
+      # Minutes kept before a newly detected condition
+      incidentBeforeMinutes: 10
+      # Cap on stored spans
+      maxSpans: 200000
+      # Cap on preserved incident windows
+      maxWindows: 50
+      # Minutes of spans kept
+      retentionMinutes: 60
+    # Fraction of traces kept at the source
+    samplingRatio: 0.1
 
 # Redpoint AI. Each capability is enabled on its own; the model endpoint, API version,
 # deployment and credential here are shared by every capability that consumes a model.

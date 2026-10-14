@@ -296,6 +296,7 @@ spec:
         {{- end }}
         {{- with (include "rpi.secrets.sdk.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
+        {{- with (include "rpi.otel.envvars" (dict "root" . "name" "queuereader") | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- include "rpi.customCACerts.envVar" . | nindent 8 }}
         {{- if .Values.storage.persistentVolumeClaims.FileOutputDirectory.enabled }}

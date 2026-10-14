@@ -370,6 +370,7 @@ spec:
           {{- end }}
           {{- with (include "rpi.secrets.sdk.envvars" . | trim) }}{{- . | nindent 10 }}{{- end }}
           {{- with (include "rpi.cloudidentity.envvars" . | trim) }}{{- . | nindent 10 }}{{- end }}
+          {{- with (include "rpi.otel.envvars" (dict "root" . "name" "realtimeapi") | trim) }}{{- . | nindent 10 }}{{- end }}
           {{- with (include "rpi.cloudidentity.awsAccessKeyEnvvars" . | trim) }}{{- . | nindent 10 }}{{- end }}
           {{- if and (not .Values.cloudIdentity.enabled) (eq ($cfg.cacheProvider.mongodb.authMechanism | default "default") "iamRole") }}
           - name: AWS_STS_REGIONAL_ENDPOINTS

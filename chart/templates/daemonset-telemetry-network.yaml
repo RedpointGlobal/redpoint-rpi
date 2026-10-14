@@ -1,0 +1,127 @@
+{{- if eq (include "rpi.telemetry.enabled" .) "true" }}
+{{- $obs := fromYaml (include "rpi.merged.service" (dict "root" . "name" "observability")) -}}
+{{- $net := $obs.telemetry.network | default dict -}}
+{{- if $net.enabled }}
+{{- $name := "rpi-observability-network-agent" -}}
+# Network and dependency observation, one agent per node. It reads the
+# connections, HTTP calls and SQL calls of the RPI processes from the kernel
+# and sends them as spans to the collector sidecar in the Observability pod,
+# without any change to an image.
+#
+# What it needs, and why: host process visibility (hostPID) to find the RPI
+# processes on the node; the BPF, PERFMON, SYS_RESOURCE and CHECKPOINT_RESTORE
+# capabilities to load and attach its probes; SYS_PTRACE and DAC_READ_SEARCH
+# to read those processes' executables and sockets; NET_RAW for socket
+# filters. It is not privileged, it mounts nothing writable from the host, it
+# holds no Kubernetes permission, and it reads only the processes it is told
+# to look for. Headers, bodies, query text and payloads are never collected.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+data:
+  beyla.yaml: |
+    log_level: WARN
+    discovery:
+      services:
+        # Only the RPI .NET services, found by their executable: the
+        # service host assemblies run through the dotnet host.
+        - exe_path: "/usr/share/dotnet/dotnet|/usr/bin/dotnet"
+          open_ports: 8080
+    attributes:
+      kubernetes:
+        enable: false
+    otel_traces_export:
+      endpoint: http://rpi-observability:4318
+      protocol: http/protobuf
+    otel_metrics_export:
+      endpoint: ""
+    ebpf:
+      track_request_headers: false
+    network:
+      enable: true
+      print_flows: false
+      agent_ip_iface: external
+      otel_export:
+        endpoint: ""
+    routes:
+      unmatched: heuristic
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $net | sha256sum | trunc 32 }}
+    spec:
+      {{- if .Values.global.deployment.images.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
+      {{- end }}
+      automountServiceAccountToken: false
+      hostPID: true
+      containers:
+      - name: agent
+        image: {{ $net.image | quote }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 0
+          capabilities:
+            drop: ["ALL"]
+            add: ["BPF", "CHECKPOINT_RESTORE", "DAC_READ_SEARCH", "NET_RAW", "PERFMON", "SYS_PTRACE", "SYS_RESOURCE"]
+        env:
+        - name: BEYLA_CONFIG_PATH
+          value: /conf/beyla.yaml
+        {{- with $net.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /conf
+          readOnly: true
+        - name: var-run-beyla
+          mountPath: /var/run/beyla
+        - name: cgroup
+          mountPath: /sys/fs/cgroup
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: {{ $name }}
+      - name: var-run-beyla
+        emptyDir: {}
+      - name: cgroup
+        hostPath:
+          path: /sys/fs/cgroup
+      {{- if .Values.nodeSelector.enabled }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key }}: {{ .Values.nodeSelector.value }}
+      {{- end }}
+      {{- if .Values.tolerations.enabled }}
+      tolerations:
+        - effect: NoSchedule
+          key: {{ .Values.nodeSelector.key }}
+          operator: Equal
+          value: {{ .Values.nodeSelector.value }}
+      {{- end }}
+{{- end }}
+{{- end }}

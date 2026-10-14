@@ -13,7 +13,7 @@ It reads RPI's operational and tenant databases, the metrics endpoints of the se
 |---|---|---|
 | `rpi-observability` | the operating picture and its API | `observability.enabled` |
 
-It runs as one replica and needs no telemetry agent, collector or sidecar.
+It runs as one replica and, unless runtime tracing is enabled, needs no telemetry agent, collector or sidecar.
 
 ## Before you install
 
@@ -71,7 +71,7 @@ Rendering fails with a named error when `clientId` or `databaseName` is missing.
 
 Observability reads the operational database server, username, password and the two operational database names from the same keys every RPI service uses (see [Secrets Management](secrets-management.md)), from the standard RPI Secret in `kubernetes` and `csi` modes, or from the cloud vault in `sdk` mode.
 
-Observability needs no other key. Sign-in uses the identity providers already configured in RPI and holds no client secret.
+Runtime tracing needs no key: the token the collector sidecar presents to Observability is generated inside the pod at start and never leaves it (see Runtime tracing). Sign-in uses the identity providers already configured in RPI and holds no client secret.
 
 ## Database sign-in
 
@@ -221,7 +221,39 @@ Observability reads pods, events and metrics only in its own namespace, which th
 
 The Deployment API serves no metrics endpoint, so Observability shows it through its pod state and readiness only. A service that is disabled, not running or not answering is shown as not measured, never as idle.
 
+## Runtime tracing
+
+Off by default. With `observability.telemetry.enabled: true` the chart:
+
+- activates the OpenTelemetry .NET instrumentation that the promoted RPI images carry at `/otel-auto`, through environment variables on the nine .NET services (no image change, no RPI source change; each service restarts once);
+- adds a collector sidecar to the Observability pod, which receives the services' spans over OTLP on the `rpi-observability` Service (ports 4317 and 4318) and delivers them over the pod's loopback to Observability's `/api/telemetry/v1/traces` with an ingest token; an init step in the same pod generates that token (256 random bits) into a memory backed volume readable only by the two containers, so it appears in no Secret, manifest or values file, and a replacement pod simply generates a new one;
+- keeps the spans in the Observability database for `recorder.retentionMinutes`, capped at `recorder.maxSpans`, plus a window of `incidentBeforeMinutes` and `incidentAfterMinutes` around each condition Observability detects, capped at `maxWindows`.
+
+What the spans contain: the service, the call's name and kind, its start, end and duration, whether it failed, the HTTP method, route and status, the database system and database name, and the peer host. What they never contain: query text, request or response bodies, headers, URL query strings or any value shaped like a credential; Observability drops everything else before it stores a span, and the services are configured not to attach statement text.
+
+What this adds: the SQL calls each Execution Service makes and how long they take; the HTTP calls the services make to channel vendors and other dependencies, with their status codes; the requests each API serves, by route. RPI carries no identifier from a span to a workflow run, so Observability places spans beside a run by time and the tenant's database name only, and says so.
+
+Prerequisites and cost:
+
+| Item | Value |
+|---|---|
+| RPI images | promoted (GA) images, which carry `/otel-auto`; a QA image without it starts normally and emits nothing, which Observability reports as runtime tracing silent |
+| libc | the profiler is libc specific; `muslServices` lists the Alpine based images (verify with `kubectl exec <pod> -- cat /etc/os-release`) |
+| images to mirror | the collector, `otel/opentelemetry-collector` core distribution; the agent, only with `network.enabled` |
+| secret key | none; the token is generated in the pod |
+| permissions | none beyond Observability's own. The sidecar runs as the same non-root user as Observability, with no capabilities and a read-only root filesystem |
+| network policy | `allow-rpi-telemetry-to-observability` (RPI pods to the Observability pod on 4317 and 4318). The sidecar's delivery to Observability is on loopback and needs no policy |
+| health | the sidecar's probes use the collector's `health_check` extension on 13133; a failing sidecar shows in the pod's container state and log, and Observability reports tracing as waiting or silent until spans arrive again |
+| overhead | the profiler adds a few percent of CPU on the instrumented service at `samplingRatio: 0.1`; the collector is bounded by its memory limit; Observability's storage is bounded by the recorder settings |
+
+Observability reports the state of runtime tracing on its Platform page as disabled, not configured (the token file is missing), waiting, receiving or silent. Installed is never shown as working: receiving means a span arrived in the last two minutes, so a sidecar that cannot start or cannot export is reported as waiting or silent, never as collecting.
+
+### Network and dependency agent
+
+`observability.telemetry.network.enabled: true` adds a DaemonSet, `rpi-observability-network-agent`, that reads the RPI processes' connections, HTTP calls and SQL calls from the kernel and sends them as spans to the collector sidecar on the `rpi-observability` Service. It needs a kernel with eBPF and BTF (Linux 5.8 or later; AKS, EKS and GKE node images qualify), host process visibility (`hostPID`) and the capabilities `BPF`, `CHECKPOINT_RESTORE`, `DAC_READ_SEARCH`, `NET_RAW`, `PERFMON`, `SYS_PTRACE` and `SYS_RESOURCE`. It is not privileged, mounts nothing writable from the host, holds no Kubernetes permission, and looks only for processes run by the .NET host listening on 8080. It never collects headers, bodies or query text. Enable it only when your cluster policy allows those capabilities, and treat it as a separately reviewed component.
+
 ## Limitations
 
-- The relationship between a service and the operational database is not measured. It is always reported as not measured, never as healthy.
+- The relationship between a service and the operational database is not measured by the baseline collection. With runtime tracing on, the calls on it are observed and timed; its health is still a conclusion Observability does not draw.
+- A runtime span cannot be joined to a workflow run; RPI records no identifier across that boundary. Observability shows the association by time and database name and labels it so.
 - The deployment has been validated by rendering the chart. It has not been validated against a live RPI deployment on SQL Server or PostgreSQL.

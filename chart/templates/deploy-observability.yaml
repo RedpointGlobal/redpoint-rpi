@@ -10,6 +10,8 @@
 {{- $storage := $cfg.sessionKeyStorage | default dict -}}
 {{- $db := .Values.databases.operational -}}
 {{- $sdk := eq .Values.secretsManagement.provider "sdk" -}}
+{{- $tel := $cfg.telemetry | default dict -}}
+{{- $rec := $tel.recorder | default dict -}}
 {{- $serviceAccount := include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) -}}
 
 {{- if ne (int $cfg.replicaCount) 1 -}}
@@ -135,8 +137,84 @@ spec:
     port: {{ $cfg.service.port }}
     protocol: TCP
     targetPort: http
+  {{- if $tel.enabled }}
+  # The RPI services send their spans here; the ports reach the collector
+  # sidecar in the Observability pod. Never exposed through the Ingress.
+  - name: otlp-grpc
+    port: 4317
+    protocol: TCP
+    targetPort: otlp-grpc
+  - name: otlp-http
+    port: 4318
+    protocol: TCP
+    targetPort: otlp-http
+  {{- end }}
   selector:
     app.kubernetes.io/name: {{ $name }}
+
+{{- if $tel.enabled }}
+---
+# The collector sidecar's configuration. The pod's init step copies it into
+# the memory backed telemetry volume with the ingest token in place of the
+# placeholder, so the token appears in no manifest, Secret or ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-collector" $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redpoint-rpi.componentLabels" (dict "root" . "name" $name "component" "observability") | nindent 4 }}
+data:
+  collector.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 400
+        spike_limit_mib: 100
+      batch:
+        timeout: 5s
+        send_batch_size: 512
+        send_batch_max_size: 2000
+    exporters:
+      otlphttp/observability:
+        endpoint: http://127.0.0.1:8080/api/telemetry
+        encoding: json
+        compression: none
+        headers:
+          Authorization: "Bearer __OBSERVABILITY_INGEST_TOKEN__"
+        timeout: 10s
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+          max_elapsed_time: 120s
+        sending_queue:
+          enabled: true
+          num_consumers: 2
+          queue_size: 200
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    service:
+      extensions: [health_check]
+      telemetry:
+        logs:
+          level: warn
+        metrics:
+          level: none
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlphttp/observability]
+{{- end }}
 
 ---
 apiVersion: apps/v1
@@ -186,9 +264,35 @@ spec:
         - name: {{ .Values.global.deployment.images.imagePullSecret.name }}
       {{- end }}
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
-      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      {{- if or $tel.enabled (eq (include "rpi.cloudSqlProxy.enabled" .) "true") }}
       initContainers:
+      {{- if $tel.enabled }}
+      # Writes the ingest token (256 random bits) and the collector's
+      # configuration into the memory backed telemetry volume, readable by
+      # the owner only. Both consumers run as the same user and read them.
+      - name: telemetry-init
+        image: {{ include "rpi.image" (dict "root" . "name" $name) }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        command: ["python", "-m", "app.telemetry.init", "--template", "/conf/collector.yaml", "--dir", "/run/telemetry"]
+        securityContext:
+          runAsUser: {{ $secCtx.runAsUser }}
+          runAsGroup: {{ $secCtx.runAsGroup }}
+          runAsNonRoot: true
+          privileged: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: collector-template
+          mountPath: /conf
+          readOnly: true
+        - name: telemetry
+          mountPath: /run/telemetry
+      {{- end }}
+      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
         {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
+      {{- end }}
       {{- end }}
       containers:
       - name: {{ $name }}
@@ -222,6 +326,22 @@ spec:
           value: {{ $fanout.cycleBudgetSeconds | quote }}
         - name: OBSERVABILITY__TENANT_FANOUT__STALE_AFTER_MINUTES
           value: {{ $fanout.staleAfterMinutes | quote }}
+        - name: OBSERVABILITY__TELEMETRY__ENABLED
+          value: {{ $tel.enabled | default false | quote }}
+        {{- if $tel.enabled }}
+        - name: OBSERVABILITY__TELEMETRY__INGEST_TOKEN_FILE
+          value: "/run/telemetry/token"
+        - name: OBSERVABILITY__TELEMETRY__RETENTION_MINUTES
+          value: {{ $rec.retentionMinutes | default 60 | quote }}
+        - name: OBSERVABILITY__TELEMETRY__MAX_SPANS
+          value: {{ $rec.maxSpans | default 200000 | quote }}
+        - name: OBSERVABILITY__TELEMETRY__INCIDENT_BEFORE_MINUTES
+          value: {{ $rec.incidentBeforeMinutes | default 10 | quote }}
+        - name: OBSERVABILITY__TELEMETRY__INCIDENT_AFTER_MINUTES
+          value: {{ $rec.incidentAfterMinutes | default 10 | quote }}
+        - name: OBSERVABILITY__TELEMETRY__MAX_WINDOWS
+          value: {{ $rec.maxWindows | default 50 | quote }}
+        {{- end }}
         {{- if not $sdk }}
         - name: ClusterEnvironment__OperationalDatabase__ConnectionSettings__Server
           valueFrom:
@@ -327,14 +447,80 @@ spec:
           mountPath: /data
         - name: tmp
           mountPath: /tmp
+        {{- if $tel.enabled }}
+        - name: telemetry
+          mountPath: /run/telemetry
+          readOnly: true
+        {{- end }}
         {{- include "rpi.customCACerts.volumeMount" . | nindent 8 }}
         {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 8 }}
+      {{- if $tel.enabled }}
+      # The collector sidecar: receives the services' spans on 4317 and 4318
+      # and delivers them over the pod's loopback to the application with the
+      # token the init step wrote. Its health endpoint is the collector's own
+      # health_check extension.
+      - name: collector
+        image: {{ $tel.collector.image | quote }}
+        imagePullPolicy: {{ .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        args: ["--config=/run/telemetry/collector.yaml"]
+        securityContext:
+          runAsUser: {{ $secCtx.runAsUser }}
+          runAsGroup: {{ $secCtx.runAsGroup }}
+          runAsNonRoot: true
+          privileged: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        ports:
+        - name: otlp-grpc
+          containerPort: 4317
+          protocol: TCP
+        - name: otlp-http
+          containerPort: 4318
+          protocol: TCP
+        {{- with $tel.collector.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        startupProbe:
+          httpGet:
+            path: /
+            port: 13133
+          periodSeconds: 5
+          failureThreshold: 12
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 13133
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 13133
+          periodSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - name: telemetry
+          mountPath: /run/telemetry
+          readOnly: true
+      {{- end }}
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: {{ printf "%s-data" $name }}
       - name: tmp
         emptyDir: {}
+      {{- if $tel.enabled }}
+      - name: telemetry
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Mi
+      - name: collector-template
+        configMap:
+          name: {{ printf "%s-collector" $name }}
+      {{- end }}
       {{- include "rpi.customCACerts.volume" . | nindent 6 }}
       {{- include "rpi.cloudidentity.googleVolumes" . | nindent 6 }}
       {{- if .Values.nodeSelector.enabled }}

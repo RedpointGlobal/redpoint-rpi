@@ -1000,3 +1000,72 @@ Per-client Realtime API address overrides.
 {{- end }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Runtime tracing: whether the optional collector and the baked instrumentation
+are turned on.
+*/}}
+{{- define "rpi.telemetry.enabled" -}}
+{{- $obs := fromYaml (include "rpi.merged.service" (dict "root" . "name" "observability")) -}}
+{{- if and $obs.enabled ($obs.telemetry | default dict).enabled -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{/*
+The environment that activates the OpenTelemetry .NET instrumentation baked
+into an RPI image at /otel-auto and points its traces at the collector.
+dict "root" . "name" <short service name>. Emits nothing unless runtime
+tracing is on. Metrics and logs stay off: metrics are scraped already and the
+log is RPI's own. Query text is never attached to a span.
+*/}}
+{{- define "rpi.otel.envvars" -}}
+{{- $root := .root -}}
+{{- $name := .name -}}
+{{- if eq (include "rpi.telemetry.enabled" $root) "true" -}}
+{{- $obs := fromYaml (include "rpi.merged.service" (dict "root" $root "name" "observability")) -}}
+{{- $tel := $obs.telemetry -}}
+{{- $libc := "linux-x64" -}}
+{{- if has $name ($tel.muslServices | default list) }}{{- $libc = "linux-musl-x64" -}}{{- end }}
+- name: CORECLR_ENABLE_PROFILING
+  value: "1"
+- name: CORECLR_PROFILER
+  value: "{918728DD-259F-4A6A-AC2B-B85E1B658318}"
+- name: CORECLR_PROFILER_PATH
+  value: "/otel-auto/{{ $libc }}/OpenTelemetry.AutoInstrumentation.Native.so"
+- name: DOTNET_ADDITIONAL_DEPS
+  value: "/otel-auto/AdditionalDeps"
+- name: DOTNET_SHARED_STORE
+  value: "/otel-auto/store"
+- name: DOTNET_STARTUP_HOOKS
+  value: "/otel-auto/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll"
+- name: OTEL_DOTNET_AUTO_HOME
+  value: "/otel-auto"
+- name: OTEL_SERVICE_NAME
+  value: "rpi-{{ $name }}"
+- name: OTEL_RESOURCE_ATTRIBUTES
+  value: "service.namespace=rpi,k8s.namespace.name={{ $root.Release.Namespace }},k8s.pod.name=$(POD_NAME)"
+- name: POD_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: OTEL_EXPORTER_OTLP_ENDPOINT
+  value: "http://rpi-observability:4317"
+- name: OTEL_EXPORTER_OTLP_PROTOCOL
+  value: "grpc"
+- name: OTEL_TRACES_EXPORTER
+  value: "otlp"
+- name: OTEL_METRICS_EXPORTER
+  value: "none"
+- name: OTEL_LOGS_EXPORTER
+  value: "none"
+- name: OTEL_TRACES_SAMPLER
+  value: "parentbased_traceidratio"
+- name: OTEL_TRACES_SAMPLER_ARG
+  value: {{ $tel.samplingRatio | default 0.1 | quote }}
+- name: OTEL_DOTNET_AUTO_SQLCLIENT_SET_DBSTATEMENT_FOR_TEXT
+  value: "false"
+- name: OTEL_DOTNET_AUTO_ENTITYFRAMEWORKCORE_SET_DBSTATEMENT_FOR_TEXT
+  value: "false"
+- name: OTEL_DOTNET_AUTO_NPGSQL_SET_DBSTATEMENT_FOR_TEXT
+  value: "false"
+{{- end -}}
+{{- end -}}

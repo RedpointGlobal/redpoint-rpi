@@ -966,6 +966,57 @@ observability:
     size: 1Gi
     # Empty uses the cluster's default StorageClass.
     storageClassName: ""
+  # Runtime tracing (optional, off by default). Activates the OpenTelemetry
+  # instrumentation baked into the RPI .NET images and adds a collector
+  # sidecar to the Observability pod that receives their spans on the
+  # Observability Service (4317, 4318) and delivers them to Observability,
+  # which keeps them in its own database for retentionMinutes. The ingest
+  # token is generated inside the pod at start; nothing to populate. The RPI
+  # services restart when this is turned on or off.
+  telemetry:
+    enabled: false
+    # Fraction of traces kept at the source, 0 to 1.
+    samplingRatio: 0.1
+    # The services whose images are built on Alpine; they load the musl
+    # profiler. Verify with: kubectl exec <pod> -- cat /etc/os-release
+    muslServices:
+      - integrationapi
+      - callbackapi
+      - deploymentapi
+    collector:
+      # OpenTelemetry Collector, core distribution, run as a sidecar in the
+      # Observability pod. Mirror it to your registry and name the full URI here.
+      image: otel/opentelemetry-collector:0.139.0
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    recorder:
+      # Minutes of spans kept, and the cap on stored spans.
+      retentionMinutes: 60
+      maxSpans: 200000
+      # Minutes kept around each newly detected condition, past the retention.
+      incidentBeforeMinutes: 10
+      incidentAfterMinutes: 10
+      maxWindows: 50
+    # Network and dependency observation (optional, off by default): a
+    # privileged per node agent that reads connections and HTTP and SQL
+    # calls from the kernel, needing no change to any image. It runs with
+    # host process visibility and the Linux capabilities named in the
+    # template, so enable it only after reading docs/observability.md.
+    network:
+      enabled: false
+      image: grafana/beyla:2.7.3
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
 
 diagnosticsMode:
   copytoAzureBlob:
