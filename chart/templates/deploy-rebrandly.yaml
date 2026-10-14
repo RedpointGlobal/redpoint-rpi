@@ -128,6 +128,14 @@ spec:
       serviceAccountName: {{ include "rpi.serviceAccountName" (dict "root" . "name" $name "cfg" $cfg) }}
       {{- include "rpi.pod.securityContext" (dict "sc" $secCtx) | nindent 6 }}
       {{- include "rpi.podAntiAffinity" (dict "root" . "name" $name) | nindent 6 }}
+      {{- with (include "rpi.otel.initContainer" (dict "root" .) | trim) }}
+      initContainers:
+        {{- . | nindent 8 }}
+      {{- end }}
+      {{- with (include "rpi.otel.volume" (dict "root" .) | trim) }}
+      volumes:
+        {{- . | nindent 8 }}
+      {{- end }}
       {{- if $topo.enabled }}
       topologySpreadConstraints:
         - maxSkew: {{ $topo.maxSkew }}
@@ -143,6 +151,10 @@ spec:
         {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 8 }}
         {{- include "rpi.block.probes" (dict "liveness" $liveness "readiness" $readiness "startup" $startup "enabled" $cfg.enableProbes) | nindent 8 }}
         imagePullPolicy: {{  .Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+        {{- with (include "rpi.otel.volumeMount" (dict "root" .) | trim) }}
+        volumeMounts:
+          {{- . | nindent 10 }}
+        {{- end }}
         env:
         {{- with (include "rpi.otel.envvars" (dict "root" . "name" "rebrandly") | trim) }}{{- . | nindent 8 }}{{- end }}
         {{- with (include "rpi.commonEnvVars" . | trim) }}{{- . | nindent 8 }}{{- end }}

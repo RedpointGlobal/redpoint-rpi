@@ -495,12 +495,12 @@ spec:
             port: 13133
           periodSeconds: 30
           failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 13133
-          periodSeconds: 10
-          failureThreshold: 3
+        # No readiness probe: a pod is ready only when every container is,
+        # so a collector that cannot start would take the Observability UI
+        # and API out of the Service. The liveness probe restarts a dead
+        # collector; while it is down the OTLP ports refuse connections and
+        # the instrumented services retry, and Observability reports tracing
+        # as waiting or silent.
         volumeMounts:
         - name: telemetry
           mountPath: /run/telemetry

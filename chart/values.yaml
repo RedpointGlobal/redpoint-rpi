@@ -983,10 +983,26 @@ observability:
       - integrationapi
       - callbackapi
       - deploymentapi
+    # The OpenTelemetry .NET automatic instrumentation, copied by an init
+    # container into each RPI pod at start so the RPI images need not carry
+    # it. Pinned to the release's multi-architecture digest (linux amd64 and
+    # arm64). Mirror it to your registry by digest and name the full URI
+    # here; a pod that cannot pull it does not start while tracing is on.
+    instrumentation:
+      image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:1.16.0-1@sha256:b382e9abe8cb6e762826d3ca95bf9646651d6a45f03ae9a40d7156e91a55aab7
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
     collector:
       # OpenTelemetry Collector, core distribution, run as a sidecar in the
-      # Observability pod. Mirror it to your registry and name the full URI here.
-      image: otel/opentelemetry-collector:0.139.0
+      # Observability pod, pinned to the release's multi-architecture digest
+      # (linux amd64 and arm64 among others). Mirror it to your registry by
+      # digest and name the full URI here.
+      image: otel/opentelemetry-collector:0.139.0@sha256:8ac5df2a931e9264667b236d65bf7591fa4ba633a7a634e6caa2f0a4fc549c07
       resources:
         requests:
           cpu: 50m
@@ -1009,7 +1025,8 @@ observability:
     # template, so enable it only after reading docs/observability.md.
     network:
       enabled: false
-      image: grafana/beyla:2.7.3
+      # Pinned to the release's multi-architecture digest (linux amd64, arm64).
+      image: grafana/beyla:2.7.3@sha256:7c0983a5eae8967be3d6ee63c3cfd381266b4690803ab173a92b82b092ce42e2
       resources:
         requests:
           cpu: 50m

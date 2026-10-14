@@ -2744,12 +2744,22 @@ observability:
     perTenantTimeoutSeconds: 10
     # Minutes after which a tenant's last read is reported as stale
     staleAfterMinutes: 90
-  # Runtime tracing (optional): activates the OpenTelemetry instrumentation baked into the
-  # RPI images, runs a collector sidecar in the Observability pod and keeps the spans in the Observability database
+  # Runtime tracing (optional): supplies the OpenTelemetry .NET instrumentation to every RPI pod
+  # through an init container, runs a collector sidecar in the Observability pod and keeps the spans in the Observability database
   telemetry:
+    instrumentation:
+      # OpenTelemetry .NET automatic instrumentation image copied into each RPI pod at start, full URI, pinned by digest
+      image: 'ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-dotnet:1.16.0-1@sha256:b382e9abe8cb6e762826d3ca95bf9646651d6a45f03ae9a40d7156e91a55aab7'
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
     collector:
       # OpenTelemetry Collector sidecar image, full URI
-      image: 'otel/opentelemetry-collector:0.139.0'
+      image: 'otel/opentelemetry-collector:0.139.0@sha256:8ac5df2a931e9264667b236d65bf7591fa4ba633a7a634e6caa2f0a4fc549c07'
       resources:
         limits:
           cpu: 500m
@@ -2768,7 +2778,7 @@ observability:
       # Run the per node network and dependency agent
       enabled: false
       # Agent image, full URI
-      image: 'grafana/beyla:2.7.3'
+      image: 'grafana/beyla:2.7.3@sha256:7c0983a5eae8967be3d6ee63c3cfd381266b4690803ab173a92b82b092ce42e2'
       resources:
         limits:
           cpu: 500m

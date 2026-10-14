@@ -1017,6 +1017,54 @@ dict "root" . "name" <short service name>. Emits nothing unless runtime
 tracing is on. Metrics and logs stay off: metrics are scraped already and the
 log is RPI's own. Query text is never attached to a span.
 */}}
+{{/*
+Runtime tracing supplies the OpenTelemetry .NET instrumentation to each RPI
+pod itself, so the RPI images need not carry it: an init container copies
+the instrumentation image's /autoinstrumentation into an emptyDir that the
+application container mounts read-only at /otel-auto, and the environment
+below points the .NET host at it. The three helpers are emitted together;
+a service template that includes the environment includes the other two.
+With tracing off all three emit nothing.
+*/}}
+{{- define "rpi.otel.initContainer" -}}
+{{- $root := .root -}}
+{{- if eq (include "rpi.telemetry.enabled" $root) "true" -}}
+{{- $obs := fromYaml (include "rpi.merged.service" (dict "root" $root "name" "observability")) -}}
+{{- $inst := $obs.telemetry.instrumentation -}}
+{{- $secCtx := fromYaml (include "rpi.merged.securityContext" $root) -}}
+- name: otel-auto-init
+  image: {{ $inst.image | quote }}
+  imagePullPolicy: {{ $root.Values.global.deployment.images.imagePullPolicy | default "IfNotPresent" }}
+  # The image's own cp. No -a or -p: ownership is not preserved, so the
+  # copy succeeds as the pod's non-root user and the files are readable by it.
+  command: ["cp", "-r", "/autoinstrumentation/.", "/otel-auto/"]
+  {{- include "rpi.container.securityContext" (dict "sc" $secCtx) | nindent 2 }}
+  {{- with $inst.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  volumeMounts:
+  - name: otel-auto
+    mountPath: /otel-auto
+{{- end -}}
+{{- end -}}
+
+{{- define "rpi.otel.volumeMount" -}}
+{{- if eq (include "rpi.telemetry.enabled" .root) "true" -}}
+- name: otel-auto
+  mountPath: /otel-auto
+  readOnly: true
+{{- end -}}
+{{- end -}}
+
+{{- define "rpi.otel.volume" -}}
+{{- if eq (include "rpi.telemetry.enabled" .root) "true" -}}
+- name: otel-auto
+  emptyDir:
+    sizeLimit: 256Mi
+{{- end -}}
+{{- end -}}
+
 {{- define "rpi.otel.envvars" -}}
 {{- $root := .root -}}
 {{- $name := .name -}}
@@ -1031,10 +1079,6 @@ log is RPI's own. Query text is never attached to a span.
   value: "{918728DD-259F-4A6A-AC2B-B85E1B658318}"
 - name: CORECLR_PROFILER_PATH
   value: "/otel-auto/{{ $libc }}/OpenTelemetry.AutoInstrumentation.Native.so"
-- name: DOTNET_ADDITIONAL_DEPS
-  value: "/otel-auto/AdditionalDeps"
-- name: DOTNET_SHARED_STORE
-  value: "/otel-auto/store"
 - name: DOTNET_STARTUP_HOOKS
   value: "/otel-auto/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll"
 - name: OTEL_DOTNET_AUTO_HOME
@@ -1048,9 +1092,11 @@ log is RPI's own. Query text is never attached to a span.
     fieldRef:
       fieldPath: metadata.name
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
-  value: "http://rpi-observability:4317"
+  value: "http://rpi-observability:4318"
+# http/protobuf is the automatic instrumentation's own default; grpc would
+# need the application to reference Grpc.Net.Client, which RPI does not.
 - name: OTEL_EXPORTER_OTLP_PROTOCOL
-  value: "grpc"
+  value: "http/protobuf"
 - name: OTEL_TRACES_EXPORTER
   value: "otlp"
 - name: OTEL_METRICS_EXPORTER

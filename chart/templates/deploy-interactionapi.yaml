@@ -164,8 +164,9 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
       {{- end }}
-      {{- if eq (include "rpi.cloudSqlProxy.enabled" .) "true" }}
+      {{- if or (eq (include "rpi.cloudSqlProxy.enabled" .) "true") (eq (include "rpi.telemetry.enabled" .) "true") }}
       initContainers:
+        {{- include "rpi.otel.initContainer" (dict "root" .) | nindent 8 }}
         {{- include "rpi.block.cloudSqlProxy.sidecar" . | nindent 8 }}
       {{- end }}
       containers:
@@ -590,6 +591,7 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
+          {{- include "rpi.otel.volumeMount" (dict "root" .) | nindent 10 }}
           - name: tempstore
             mountPath: /tmp
           {{- if (($dw.bigquery | default dict).enabled | default false) }}
@@ -622,6 +624,7 @@ spec:
           {{- include "rpi.customCACerts.volumeMount" . | nindent 10 }}
           {{- include "rpi.cloudidentity.googleVolumeMounts" . | nindent 10 }}
       volumes:
+        {{- include "rpi.otel.volume" (dict "root" .) | nindent 8 }}
         - name: tempstore
           emptyDir: {}
         {{- if (($dw.bigquery | default dict).enabled | default false) }}

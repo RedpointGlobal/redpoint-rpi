@@ -4578,7 +4578,7 @@
         },
         "telemetry": {
           "type": "object",
-          "description": "Runtime tracing (optional): activates the OpenTelemetry instrumentation baked into the RPI images, runs a collector sidecar in the Observability pod and keeps the spans in the Observability database",
+          "description": "Runtime tracing (optional): supplies the OpenTelemetry .NET instrumentation to every RPI pod through an init container, runs a collector sidecar in the Observability pod and keeps the spans in the Observability database",
           "additionalProperties": false,
           "properties": {
             "enabled": {
@@ -4608,6 +4608,47 @@
                 ]
               },
               "description": "Services whose images are built on Alpine and load the musl profiler"
+            },
+            "instrumentation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "image": {
+                  "type": "string",
+                  "description": "Instrumentation image, full URI, pinned by digest"
+                },
+                "resources": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "requests": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memory": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "type": "string"
+                        },
+                        "memory": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "description": "The OpenTelemetry .NET automatic instrumentation image copied into each RPI pod at start, and the init container's resources"
             },
             "collector": {
               "type": "object",
