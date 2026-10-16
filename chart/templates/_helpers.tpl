@@ -1085,12 +1085,14 @@ With tracing off all three emit nothing.
   value: "/otel-auto"
 - name: OTEL_SERVICE_NAME
   value: "rpi-{{ $name }}"
-- name: OTEL_RESOURCE_ATTRIBUTES
-  value: "service.namespace=rpi,k8s.namespace.name={{ $root.Release.Namespace }},k8s.pod.name=$(POD_NAME)"
+# Declared before the attribute that references it; Kubernetes expands
+# $(VAR) only against variables that appear earlier in the list.
 - name: POD_NAME
   valueFrom:
     fieldRef:
       fieldPath: metadata.name
+- name: OTEL_RESOURCE_ATTRIBUTES
+  value: "service.namespace=rpi,k8s.namespace.name={{ $root.Release.Namespace }},k8s.pod.name=$(POD_NAME)"
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
   value: "http://rpi-observability:4318"
 # http/protobuf is the automatic instrumentation's own default; grpc would
@@ -1107,7 +1109,11 @@ With tracing off all three emit nothing.
   value: "parentbased_traceidratio"
 - name: OTEL_TRACES_SAMPLER_ARG
   value: {{ $tel.samplingRatio | default 0.1 | quote }}
-- name: OTEL_DOTNET_AUTO_SQLCLIENT_SET_DBSTATEMENT_FOR_TEXT
+# The SqlClient instrumentation always records the statement with every
+# literal replaced by a placeholder; parameter values are a separate,
+# experimental opt-in that stays off. Entity Framework Core and Npgsql
+# still gate their statement text, and that stays off.
+- name: OTEL_DOTNET_EXPERIMENTAL_SQLCLIENT_ENABLE_TRACE_DB_QUERY_PARAMETERS
   value: "false"
 - name: OTEL_DOTNET_AUTO_ENTITYFRAMEWORKCORE_SET_DBSTATEMENT_FOR_TEXT
   value: "false"
