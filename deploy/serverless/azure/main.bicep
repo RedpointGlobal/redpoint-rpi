@@ -1,5 +1,5 @@
 // ============================================================
-// RPI v7.7 - Azure Container Apps (Serverless Deployment)
+// RPI v7 - Azure Container Apps (Serverless Deployment)
 // ============================================================
 // Deploys the full RPI stack on Azure Container Apps with
 // managed services for database, cache, queues, and secrets.

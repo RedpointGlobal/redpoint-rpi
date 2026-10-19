@@ -45,7 +45,7 @@ spec:
   project: default
   source:
     repoURL: https://git.yourorg.com/platform/redpoint-rpi.git
-    targetRevision: main           # pin to a release tag (e.g. v7.7.0) in production
+    targetRevision: main           # pin to a release tag (e.g.7.x) in production
     path: chart
     helm:
       valueFiles:

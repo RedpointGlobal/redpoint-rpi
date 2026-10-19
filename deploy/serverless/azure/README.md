@@ -1,4 +1,4 @@
-# RPI v7.7 - Azure Container Apps (Serverless)
+# RPI v7 - Azure Container Apps (Serverless)
 
 Deploy the full Redpoint Interaction (RPI) stack on Azure Container Apps without managing a Kubernetes cluster. This template mirrors the same service architecture as the Helm chart but uses Azure-native serverless infrastructure.
 

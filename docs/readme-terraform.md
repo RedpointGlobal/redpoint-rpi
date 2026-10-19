@@ -11,7 +11,7 @@ Manage the RPI Helm release as code with Terraform's Helm provider. Terraform in
   ```bash
   git clone https://github.com/RedPointGlobal/redpoint-rpi.git
   # check out a release tag for a pinned, reproducible deploy:
-  cd redpoint-rpi && git checkout v7.7.0
+  cd redpoint-rpi && git checkout v7.x
   ```
 
 ## Step 1: Configure the Helm provider

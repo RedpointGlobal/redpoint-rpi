@@ -175,7 +175,7 @@ realtimeapi:
 
 - [Complete Values Reference](https://rpi-helm-assistant.redpointcdp.com) to browse every configurable key with defaults and descriptions
 - [Greenfield Installation](greenfield.md) for new deployments
-- [Upgrade Guide](migration.md) for upgrading from v7.6 to v7.7
+- [Upgrade Guide](migration.md) for upgrading from v7.8 to v7.9
 - [Secrets Management](secrets-management.md) for CSI, SDK, and Kubernetes secrets providers
 
 ---

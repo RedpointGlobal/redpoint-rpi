@@ -1,5 +1,5 @@
 // ============================================================
-// RPI v7.7 - Azure Container Apps Resources Module
+// RPI v7 - Azure Container Apps Resources Module
 // ============================================================
 // This module is called from main.bicep. Do not deploy directly.
 // ============================================================
