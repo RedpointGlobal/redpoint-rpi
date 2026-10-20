@@ -24,7 +24,7 @@ param location string = deployment().location
 param environmentName string
 
 @description('RPI container image tag')
-param imageTag string = '7.8.20261019.910'
+param imageTag string = '7.8.20261019.1516'
 
 @description('Container registry (full path without image name)')
 param imageRegistry string = 'rg1acrpub.azurecr.io/docker/redpointglobal/releases'

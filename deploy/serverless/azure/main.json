@@ -24,7 +24,7 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "7.8.20261019.910",
+      "defaultValue": "7.8.20261019.1516",
       "metadata": {
         "description": "RPI container image tag"
       }
