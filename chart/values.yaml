@@ -22,7 +22,7 @@ global:
     images:
       registry: rg1acrpub.azurecr.io/docker/redpointglobal/releases
       # RPI version: <major.minor>.<year>-<MMDD>-<HHMM>
-      tag: "7.8.20261104.2001"
+      tag: "7.8.20261113.1905"
       imagePullPolicy: Always
       imagePullSecret:
         enabled: true
@@ -935,6 +935,77 @@ rebrandly:
     useAzureCredentials: false
     port: 6379
 
+# ==========================
+# Twilio Messaging (opt-in)
+# ==========================
+# Outbound and inbound SMS via Twilio. Requires PostgreSQL.
+twiliomessaging:
+  enabled: false
+  replicas: 1
+  # Paths published through ingress. Empty publishes nothing.
+  ingress:
+    publicPaths:
+      - /api/webhook
+      - /api/v1/webhook
+  # Messaging transport: azureeventhubs | amazonsqs | googlepubsub
+  messaging:
+    provider: azureeventhubs
+  # Redis. External Redis password: shared Secret key TwilioMessaging_Redis_Password.
+  redisSettings:
+    # internal: chart-managed Redis | external: your own Redis
+    type: internal
+    # external requires hostname. AWS ElastiCache under sdk also requires region, cacheName, user and isServerless.
+  # PostgreSQL. Password: shared Secret key TwilioMessaging_Postgres_Password.
+  postgres:
+    # Use the operational PostgreSQL server. Must be false for SQL Server or sdk.
+    reuseOperational: true
+    database: twilio_messaging
+    sslMode: Require
+    # Required when reuseOperational=false (operational DB is SQL Server, or sdk mode).
+    # Render fails if these are missing while reuseOperational=false:
+    # host: my-postgres-host
+    # username: twilio_app
+  # Twilio account. The auth token is a secret (shared Secret key TwilioMessaging_AuthToken).
+  accountSid: ""
+  # true only when the account SID/auth token are Twilio TEST credentials
+  isTestCredentials: false
+  # Event Hubs (messaging.provider=azureeventhubs). Names must match the provisioned entities.
+  eventHubs:
+    fullyQualifiedNamespace: ""
+    inputHub:
+      name: twilio-messaging-input
+      consumerGroup: twilio-message-input-send
+    outputHub:
+      name: twilio-messaging-output
+    outputInternalHub:
+      name: twilio-messaging-output-internal
+      deliveryStatusConsumerGroup: twilio-messaging-output-internal-delivery-status
+      linkClickConsumerGroup: twilio-messaging-output-internal-link-click
+      inboundMessageConsumerGroup: twilio-messaging-output-internal-inbound-reply
+    checkpointing:
+      blobServiceUri: ""
+      blobContainerName: sms-send-checkpoints
+  # SQS/SNS (messaging.provider=amazonsqs; auth via AWS IRSA / Pod Identity)
+  sqs:
+    region: us-east-1
+    inputQueueUrl: ""
+    outputTopicArn: ""
+    outputInternalTopicArn: ""
+    outputDeliveryStatusQueueUrl: ""
+    outputLinkClickQueueUrl: ""
+    outputInboundMessageQueueUrl: ""
+  # Pub/Sub (messaging.provider=googlepubsub; auth via GCP Workload Identity)
+  pubsub:
+    projectId: ""
+  # RPI's own Twilio resources. Names must match the provisioned entities.
+  twilioPlugin:
+    # RPI queues (messaging.provider=amazonsqs). All four are required.
+    sqs:
+      outputDeliveryStatusQueueUrl: ""
+      outputSendResultQueueUrl: ""
+      outputLinkClickQueueUrl: ""
+      outputInboundMessageQueueUrl: ""
+
 diagnosticsMode:
   copytoAzureBlob:
     enabled: false
@@ -1030,6 +1101,7 @@ ingress:
     queuereader: rpi-queuereader
     rabbitmqconsole: rpi-rabbitmq-console
     smartactivation: rpi-smartActivation
+    twiliomessaging: rpi-twiliomessaging        # only used when twiliomessaging.enabled=true
 
 # ==========================
 # Network Policy

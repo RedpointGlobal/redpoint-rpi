@@ -28,6 +28,7 @@ This chart deploys RPI on Kubernetes using Helm.
 | [Google&nbsp;Cloud&nbsp;SQL&nbsp;(IAM)](docs/google-cloud-sql-iam.md) | PostgreSQL with passwordless IAM |
 | [RPI Helm CLI](docs/readme-cli.md) | Pre-flight checks, secrets generation, deployment, troubleshooting |
 | [Custom Plugins](docs/plugins.md) | Realtime API plugins: decision, event, form, visitor profile, geolocation |
+| [Twilio Messaging](docs/twilio-messaging.md) | Opt-in SMS service |
 | [Redpoint AI](docs/redpoint-ai.md) | Natural-language basic selection rules - Azure OpenAI, AI Search, Blob Storage |
 | [Automation](docs/readme-terraform.md) | CI/CD, vault setup, ArgoCD, Flux |
 

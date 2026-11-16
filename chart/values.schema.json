@@ -4125,6 +4125,366 @@
         }
       }
     },
+    "twiliomessaging": {
+      "type": "object",
+      "description": "Twilio Messaging service (opt-in) - outbound/inbound SMS. Requires PostgreSQL.",
+      "additionalProperties": true,
+      "properties": {
+        "installer": {
+          "type": "object",
+          "description": "Schema installer Job, run as a pre-install and pre-upgrade hook so the database schema is applied before the service rolls.",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Run the schema installer. Disable only when the schema is applied out of band."
+            },
+            "backoffLimit": {
+              "type": "integer"
+            },
+            "activeDeadlineSeconds": {
+              "type": "integer"
+            },
+            "resources": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable the Twilio Messaging service"
+        },
+        "replicas": {
+          "type": "integer",
+          "description": "Number of Twilio Messaging pod replicas",
+          "minimum": 0
+        },
+        "ingress": {
+          "type": "object",
+          "description": "Public ingress exposure for the Twilio service.",
+          "additionalProperties": true,
+          "properties": {
+            "publicPaths": {
+              "type": "array",
+              "description": "Path prefixes exposed publicly (Twilio webhooks only, signature-validated). All other routes stay cluster-internal. Empty = nothing exposed publicly.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "messaging": {
+          "type": "object",
+          "description": "Messaging transport selector",
+          "additionalProperties": true,
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "Active messaging transport",
+              "enum": [
+                "azureeventhubs",
+                "amazonsqs",
+                "googlepubsub"
+              ]
+            }
+          }
+        },
+        "sqs": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "SQS/SNS transport settings (messaging.provider=amazonsqs). Queue URLs and topic ARNs are operator-supplied.",
+          "properties": {
+            "region": {
+              "type": "string",
+              "description": "AWS region."
+            },
+            "inputQueueUrl": {
+              "type": "string",
+              "description": "Input queue URL. Required when messaging.provider=amazonsqs."
+            },
+            "outputTopicArn": {
+              "type": "string",
+              "description": "Output topic ARN. Required when messaging.provider=amazonsqs."
+            },
+            "outputInternalTopicArn": {
+              "type": "string",
+              "description": "Internal output topic ARN. Required when messaging.provider=amazonsqs."
+            },
+            "outputDeliveryStatusQueueUrl": {
+              "type": "string",
+              "description": "Delivery-status queue URL. Required when messaging.provider=amazonsqs."
+            },
+            "outputLinkClickQueueUrl": {
+              "type": "string",
+              "description": "Link-click queue URL. Required when messaging.provider=amazonsqs."
+            },
+            "outputInboundMessageQueueUrl": {
+              "type": "string",
+              "description": "Inbound-message queue URL. Required when messaging.provider=amazonsqs."
+            }
+          }
+        },
+        "pubsub": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Pub/Sub transport settings (messaging.provider=googlepubsub). Auth via GCP Workload Identity.",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "description": "GCP project ID. Required when messaging.provider=googlepubsub."
+            },
+            "inputTopicId": {
+              "type": "string"
+            },
+            "inputSubscriptionId": {
+              "type": "string"
+            },
+            "outputTopicId": {
+              "type": "string"
+            },
+            "outputInternalTopicId": {
+              "type": "string"
+            },
+            "outputDeliveryStatusSubscriptionId": {
+              "type": "string"
+            },
+            "outputLinkClickSubscriptionId": {
+              "type": "string"
+            },
+            "outputInboundMessageSubscriptionId": {
+              "type": "string"
+            }
+          }
+        },
+        "eventHubs": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Event Hubs transport settings (messaging.provider=azureeventhubs). Auth via Azure Workload Identity.",
+          "properties": {
+            "fullyQualifiedNamespace": {
+              "type": "string",
+              "description": "Event Hubs namespace FQDN, e.g. <namespace>.servicebus.windows.net."
+            },
+            "inputHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "consumerGroup": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              }
+            },
+            "outputInternalHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "deliveryStatusConsumerGroup": {
+                  "type": "string"
+                },
+                "linkClickConsumerGroup": {
+                  "type": "string"
+                },
+                "inboundMessageConsumerGroup": {
+                  "type": "string"
+                }
+              }
+            },
+            "checkpointing": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "blobServiceUri": {
+                  "type": "string",
+                  "description": "Checkpoint storage blob service URI."
+                },
+                "blobContainerName": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "twilioPlugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Twilio plugin resources owned by RPI, applied when twiliomessaging.enabled=true. Shared transport identifiers come from the eventHubs/sqs/pubsub blocks.",
+          "properties": {
+            "messagingServicesPath": {
+              "type": "string",
+              "description": "Relative path to the Twilio Messaging messaging-services API, including the API version."
+            },
+            "eventHubs": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "RPI's consumer groups on eventHubs.outputHub and its own checkpoint container (same storage account as eventHubs.checkpointing.blobServiceUri, distinct container). All must exist in the namespace.",
+              "properties": {
+                "deliveryStatusConsumerGroup": {
+                  "type": "string"
+                },
+                "sendResultConsumerGroup": {
+                  "type": "string"
+                },
+                "linkClickConsumerGroup": {
+                  "type": "string"
+                },
+                "inboundMessageConsumerGroup": {
+                  "type": "string",
+                  "description": "Must match the provisioned group name."
+                },
+                "checkpointing": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "blobContainerName": {
+                      "type": "string",
+                      "description": "RPI's own checkpoint container. Never shared with the messaging service."
+                    }
+                  }
+                }
+              }
+            },
+            "sqs": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "RPI-owned queues, each subscribed to the matching service SNS topic with RawMessageDelivery=true. All four are required when messaging.provider=amazonsqs.",
+              "properties": {
+                "outputDeliveryStatusQueueUrl": {
+                  "type": "string"
+                },
+                "outputSendResultQueueUrl": {
+                  "type": "string"
+                },
+                "outputLinkClickQueueUrl": {
+                  "type": "string"
+                },
+                "outputInboundMessageQueueUrl": {
+                  "type": "string"
+                }
+              }
+            },
+            "pubsub": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "RPI-owned subscription ids on the output topic, composed with pubsub.projectId into full resource names.",
+              "properties": {
+                "outputDeliveryStatusSubscriptionId": {
+                  "type": "string"
+                },
+                "outputSendResultSubscriptionId": {
+                  "type": "string"
+                },
+                "outputLinkClickSubscriptionId": {
+                  "type": "string"
+                },
+                "outputInboundMessageSubscriptionId": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "redisSettings": {
+          "type": "object",
+          "description": "Redis (distributed locks / dedup). internal = chart-managed; external = BYO.",
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Redis deployment type: internal (chart-managed) or external (BYO)",
+              "enum": [
+                "internal",
+                "external"
+              ]
+            },
+            "hostname": {
+              "type": "string",
+              "description": "External Redis hostname (required when type=external)"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "useTls": {
+              "type": "boolean",
+              "description": "Connect to external Redis over TLS (default true for cloud Redis)"
+            },
+            "user": {
+              "type": "string",
+              "description": "External Redis user (AWS ElastiCache IAM user id under sdk, or the Basic username under kubernetes/csi)"
+            },
+            "region": {
+              "type": "string",
+              "description": "AWS region of the cache (required for external Redis on AWS under sdk - ElastiCache IAM)"
+            },
+            "cacheName": {
+              "type": "string",
+              "description": "AWS ElastiCache replication group or serverless cache name (required for external Redis on AWS under sdk)"
+            },
+            "isServerless": {
+              "type": "boolean",
+              "description": "AWS ElastiCache serverless cache (only consulted for external Redis on AWS under sdk)"
+            }
+          }
+        },
+        "postgres": {
+          "type": "object",
+          "description": "PostgreSQL durable store (twilio_messaging database). Twilio does not support SQL Server.",
+          "additionalProperties": true,
+          "properties": {
+            "reuseOperational": {
+              "type": "boolean",
+              "description": "Use the operational PostgreSQL server. Must be false when databases.operational is SQL Server or secretsManagement.provider is sdk."
+            },
+            "host": {
+              "type": "string",
+              "description": "PostgreSQL host (when reuseOperational=false)"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "database": {
+              "type": "string",
+              "description": "PostgreSQL database name"
+            },
+            "username": {
+              "type": "string",
+              "description": "PostgreSQL username (when reuseOperational=false)"
+            },
+            "sslMode": {
+              "type": "string",
+              "description": "PostgreSQL SSL mode"
+            }
+          }
+        },
+        "accountSid": {
+          "type": "string",
+          "description": "Twilio Account SID. The auth token is a secret (shared Secret key TwilioMessaging_AuthToken)."
+        },
+        "isTestCredentials": {
+          "type": "boolean",
+          "description": "True only when the account SID/auth token are Twilio TEST credentials"
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "description": "CPU and memory resource requests and limits"
+        }
+      }
+    },
     "diagnosticsMode": {
       "type": "object",
       "description": "Diagnostics mode configuration for troubleshooting and monitoring",

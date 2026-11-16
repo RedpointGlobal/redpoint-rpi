@@ -6,6 +6,7 @@
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
 {{- $rtQueueProvider := include "rpi.realtime.queueProvider" . -}}
 {{- $cbCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "callbackapi")) -}}
+{{- $tmCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
 {{- $sioCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "socketio")) -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -144,6 +145,21 @@ spec:
                 number: {{ $cbCfg.service.port }}
     {{- end }}
     {{- end }}
+    {{- end }}
+    {{- if and $tmCfg.enabled $tmCfg.ingress.publicPaths }}
+    # Twilio webhook paths only.
+    - host: {{ include "rpi.ingress.fqdn" (dict "host" $ingCfg.hosts.twiliomessaging "domain" $ingCfg.domain) }}
+      http:
+        paths:
+        {{- range $tmCfg.ingress.publicPaths }}
+        - path: {{ . }}
+          pathType: Prefix
+          backend:
+            service:
+              name: rpi-twiliomessaging
+              port:
+                number: {{ $tmCfg.service.port }}
+        {{- end }}
     {{- end }}
 
 ---

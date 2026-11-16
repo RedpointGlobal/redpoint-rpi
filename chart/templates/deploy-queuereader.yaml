@@ -8,6 +8,7 @@
 {{- $diag := fromYaml (include "rpi.merged.diagnosticsMode" .) -}}
 {{- $execCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "executionservice")) -}}
 {{- $rtCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "realtimeapi")) -}}
+{{- $tmsCfg := fromYaml (include "rpi.merged.service" (dict "root" . "name" "twiliomessaging")) -}}
 {{- $name := "rpi-queuereader" -}}
 {{- $dwEnabled := (include "redpoint.DatawarehouseProviders" .) | eq "true" -}}
 {{- $dw := .Values.databases.datawarehouse | default dict -}}
@@ -181,6 +182,30 @@ spec:
         {{- if .Values.rebrandly.enabled }}
         - name: Plugins__Rebrandly__BaseUrl
           value: "http://rpi-rebrandly"
+        {{- end }}
+        {{- if $tmsCfg.enabled }}
+        - name: Plugins__Twilio__TmsBaseUrl
+          value: "http://rpi-twiliomessaging"
+        {{- if eq $tmsCfg.messaging.provider "azureeventhubs" }}
+        - name: Plugins__Twilio__MessagingProvider
+          value: "EventHub"
+        - name: Plugins__Twilio__EventHubs__FullyQualifiedNamespace
+          value: {{ $tmsCfg.eventHubs.fullyQualifiedNamespace | quote }}
+        - name: Plugins__Twilio__EventHubs__InputHub__Name
+          value: {{ $tmsCfg.eventHubs.inputHub.name | quote }}
+        {{- else if eq $tmsCfg.messaging.provider "amazonsqs" }}
+        - name: Plugins__Twilio__MessagingProvider
+          value: "SnsSqs"
+        - name: Plugins__Twilio__Sqs__Region
+          value: {{ $tmsCfg.sqs.region | quote }}
+        - name: Plugins__Twilio__Sqs__InputQueueUrl
+          value: {{ $tmsCfg.sqs.inputQueueUrl | quote }}
+        {{- else if eq $tmsCfg.messaging.provider "googlepubsub" }}
+        - name: Plugins__Twilio__MessagingProvider
+          value: "PubSub"
+        - name: Plugins__Twilio__PubSub__InputTopic
+          value: {{ printf "projects/%s/topics/%s" $tmsCfg.pubsub.projectId $tmsCfg.pubsub.inputTopicId | quote }}
+        {{- end }}
         {{- end }}
         {{- if and .Values.OpenIdProviders.enabled (eq .Values.OpenIdProviders.name "keycloak") }}
         - name: RPI__UserManagement__UseNativeUserManagement
